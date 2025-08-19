@@ -25,6 +25,10 @@ export default function MediaLibraryPage() {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalSize, setTotalSize] = useState(0);
+  const [storagePercentage, setStoragePercentage] = useState(0);
+
+  const TOTAL_STORAGE_LIMIT_MB = 200;
+  const TOTAL_STORAGE_LIMIT_BYTES = TOTAL_STORAGE_LIMIT_MB * 1024 * 1024;
 
   useEffect(() => {
     if (!user) {
@@ -49,6 +53,7 @@ export default function MediaLibraryPage() {
 
         setAssets(resolvedAssets);
         setTotalSize(currentTotalSize);
+        setStoragePercentage((currentTotalSize / TOTAL_STORAGE_LIMIT_BYTES) * 100);
         setLoading(false);
     }, (error) => {
       console.error("Failed to fetch assets in real-time:", error);
@@ -66,11 +71,7 @@ export default function MediaLibraryPage() {
       const i = Math.floor(Math.log(bytes) / Math.log(k));
       return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
   }
-
-  const TOTAL_STORAGE_LIMIT_MB = 200;
-  const TOTAL_STORAGE_LIMIT_BYTES = TOTAL_STORAGE_LIMIT_MB * 1024 * 1024;
-  const storagePercentage = (totalSize / TOTAL_STORAGE_LIMIT_BYTES) * 100;
-
+  
   const assetCategories: { type: Asset['type']; label: string; icon: React.ReactNode; uploaderType: 'image' | 'video' | 'audio' | 'text' | 'album' | 'video_album', accept: string }[] = [
       { type: 'image', label: '写真', icon: <ImageIcon className="h-5 w-5" />, uploaderType: 'image', accept: 'image/*' },
       { type: 'album', label: 'アルバム', icon: <Folder className="h-5 w-5" />, uploaderType: 'album', accept: '' },
@@ -127,7 +128,7 @@ export default function MediaLibraryPage() {
                 )}
             </TableBody>
         </Table>
-    )
+    );
   };
 
   if (loading) {
@@ -151,7 +152,7 @@ export default function MediaLibraryPage() {
                 <CardDescription>
                     合計 {formatBytes(totalSize)} / {TOTAL_STORAGE_LIMIT_MB}MB を使用中
                 </CardDescription>
-            </Header>
+            </CardHeader>
             <CardContent>
                 <Progress value={storagePercentage} className="w-full" />
             </CardContent>
