@@ -2,16 +2,15 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
-import { User, onAuthStateChanged, signOut } from 'firebase/auth';
+import { User, onAuthStateChanged, signOut, getIdToken } from 'firebase/auth';
 import { auth } from '@/lib/firebase/client';
-import { useRouter, usePathname } from 'next/navigation';
 import { apiClient } from '@/lib/api-client';
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   isAdmin: boolean;
-  handleAuthSuccess: (idToken: string) => Promise<void>;
+  handleAuthSuccess: (user: User) => Promise<void>;
   handleLogout: () => Promise<void>;
 }
 
@@ -27,7 +26,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
-  const router = useRouter();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -47,21 +45,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => unsubscribe();
   }, []);
 
-  const handleAuthSuccess = useCallback(async (idToken: string) => {
-    await fetch('/api/auth/sessionLogin', {
+  const handleAuthSuccess = useCallback(async (user: User) => {
+    const idToken = await getIdToken(user);
+    await apiClient.fetch('/api/auth/sessionLogin', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ idToken }),
     });
-    // Let the middleware handle the redirect
+    // Use window.location.assign to force a page reload, 
+    // ensuring the middleware can act on the new session cookie.
+    window.location.assign('/dashboard');
   }, []);
 
   const handleLogout = useCallback(async () => {
-    await fetch('/api/auth/sessionLogout', { method: 'POST' });
+    await apiClient.fetch('/api/auth/sessionLogout', { method: 'POST' });
     await signOut(auth);
-    // Let the middleware handle the redirect
-    router.push('/login');
-  }, [router]);
+    // Use window.location.assign to ensure a clean state after logout.
+    window.location.assign('/login');
+  }, []);
 
 
   return (

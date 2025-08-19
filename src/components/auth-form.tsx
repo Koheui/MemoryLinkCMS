@@ -76,8 +76,7 @@ export function AuthForm({ type }: AuthFormProps) {
             userCredential = await signInWithEmailAndPassword(auth, data.email, data.password);
         }
         
-        const idToken = await userCredential.user.getIdToken();
-        await handleAuthSuccess(idToken);
+        await handleAuthSuccess(userCredential.user);
 
     } catch (error: any) {
         console.error("Auth error:", error);
