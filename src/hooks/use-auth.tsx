@@ -1,3 +1,4 @@
+
 // src/hooks/use-auth.tsx
 "use client";
 
@@ -67,10 +68,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } catch (error) {
         console.error("Logout failed:", error);
     } finally {
-        // Redirect to login page
-        router.push('/login');
+        // Force a full page reload to ensure client and server state are in sync
+        window.location.assign('/login');
     }
-  }, [router]);
+  }, []);
 
   return (
     <AuthContext.Provider value={{ user, loading, isAdmin, handleLogout }}>

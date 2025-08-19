@@ -85,7 +85,8 @@ export function AuthForm({ type }: AuthFormProps) {
         throw new Error(errorData.details || `Failed to create session. Status: ${res.status}.`);
       }
       
-      router.push('/dashboard');
+      // Force a full page reload to ensure middleware catches the new session
+      window.location.assign('/dashboard');
 
     } catch (error: any) {
         console.error("Auth error:", error);
