@@ -19,16 +19,26 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase/client';
-
-async function handleLogout() {
-  await fetch('/api/auth/sessionLogout', { method: 'POST' });
-  await signOut(auth);
-  window.location.assign('/login');
-}
+import { useRouter } from 'next/navigation';
 
 function AppLayoutContent({ children }: { children: React.ReactNode }) {
   const { user, loading, isAdmin } = useAuth();
   const pathname = usePathname();
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    try {
+      // Clear client-side auth state
+      await signOut(auth);
+      // Clear server-side session
+      await fetch('/api/auth/sessionLogout', { method: 'POST' });
+    } catch (error) {
+        console.error("Logout failed:", error);
+    } finally {
+        // Redirect to login page
+        window.location.assign('/login');
+    }
+  };
 
   if (loading) {
     return (
@@ -42,8 +52,11 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
   }
 
   if (!user) {
-    // The middleware should handle the redirect.
-    // We return null to avoid rendering anything while redirecting.
+    // Middleware should handle this, but as a fallback.
+    // Using window.location.assign to ensure a full refresh.
+    if (typeof window !== 'undefined') {
+      window.location.assign('/login');
+    }
     return null;
   }
 

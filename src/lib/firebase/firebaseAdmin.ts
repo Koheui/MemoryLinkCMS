@@ -19,7 +19,6 @@ export function getAdminApp() {
       ? admin.app()
       : admin.initializeApp({
           credential: admin.credential.cert(cred),
-          // Storage/DB を使うなら projectId を明示（念のため）
           projectId: cred.project_id,
         });
 

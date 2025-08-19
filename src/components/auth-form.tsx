@@ -8,7 +8,6 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   User,
-  getIdToken,
 } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase/client';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
@@ -41,31 +40,6 @@ interface AuthFormProps {
   type: 'login' | 'signup';
 }
 
-// Function to create user profile in Firestore
-const createUserProfile = async (user: User) => {
-  const userRef = doc(db, 'users', user.uid);
-  const userProfile: Omit<UserProfile, 'id'> = {
-      email: user.email!,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-  };
-  await setDoc(userRef, userProfile);
-};
-
-// Function to create session cookie
-const createSession = async (user: User) => {
-    const idToken = await getIdToken(user);
-    const res = await fetch('/api/auth/sessionLogin', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ idToken }),
-    });
-
-    if (!res.ok) {
-        throw new Error('Failed to create session');
-    }
-};
-
 export function AuthForm({ type }: AuthFormProps) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
@@ -81,18 +55,34 @@ export function AuthForm({ type }: AuthFormProps) {
   const onSubmit = async (data: AuthFormValues) => {
     setLoading(true);
     try {
-        let userCredential;
-        if (type === 'signup') {
-            userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
-            await createUserProfile(userCredential.user);
-        } else {
-            userCredential = await signInWithEmailAndPassword(auth, data.email, data.password);
-        }
-        
-        await createSession(userCredential.user);
-        
-        // Redirect after session is created
-        window.location.assign(type === 'signup' ? '/memories/new' : '/dashboard');
+      let userCredential;
+      if (type === 'signup') {
+        userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
+        // Create user profile in Firestore
+        const userRef = doc(db, 'users', userCredential.user.uid);
+        const userProfile: Omit<UserProfile, 'id'> = {
+            email: userCredential.user.email!,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+        };
+        await setDoc(userRef, userProfile);
+      } else {
+        userCredential = await signInWithEmailAndPassword(auth, data.email, data.password);
+      }
+      
+      const idToken = await userCredential.user.getIdToken(true);
+
+      const res = await fetch('/api/auth/sessionLogin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken }),
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to create session');
+      }
+
+      window.location.assign(type === 'signup' ? '/memories/new' : '/dashboard');
 
     } catch (error: any) {
         console.error("Auth error:", error);
@@ -101,6 +91,8 @@ export function AuthForm({ type }: AuthFormProps) {
             description = 'このメールアドレスは既に使用されています。'
         } else if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
              description = 'メールアドレスまたはパスワードが正しくありません。';
+        } else if (error.message === 'Failed to create session') {
+            description = 'サーバーとのセッション確立に失敗しました。';
         }
         toast({
             variant: 'destructive',
@@ -140,6 +132,7 @@ export function AuthForm({ type }: AuthFormProps) {
               required
               {...form.register('email')}
               autoComplete="email"
+              disabled={loading}
             />
             {form.formState.errors.email && (
               <p className="text-sm text-destructive">{form.formState.errors.email.message}</p>
@@ -153,6 +146,7 @@ export function AuthForm({ type }: AuthFormProps) {
               required
               {...form.register('password')}
               autoComplete={type === 'login' ? 'current-password' : 'new-password'}
+              disabled={loading}
             />
              {form.formState.errors.password && (
               <p className="text-sm text-destructive">{form.formState.errors.password.message}</p>
