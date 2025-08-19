@@ -1,4 +1,3 @@
-
 // src/app/(app)/layout.tsx
 "use client";
 
@@ -27,14 +26,17 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
 
-  useEffect(() => {
+ useEffect(() => {
+    // Redirect to login if loading is done and there's no user.
+    if (!loading && !user) {
+      router.push('/login');
+    }
+    
+    // Check for admin role if user exists.
     if (user) {
       user.getIdTokenResult().then((idTokenResult) => {
         setIsAdmin(idTokenResult.claims.role === 'admin');
       });
-    } else if (!loading) {
-      // 読み込みが完了していて、かつユーザーがいない場合のみリダイレクト
-      router.push('/login');
     }
   }, [user, loading, router]);
 
@@ -48,7 +50,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
     }
   };
 
-  if (loading || !user) {
+  if (loading) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="flex items-center gap-2">
@@ -59,6 +61,11 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
     );
   }
   
+  if (!user) {
+    // Render nothing while the redirect is in flight
+    return null;
+  }
+
   return (
     <SidebarProvider>
       <Sidebar>
