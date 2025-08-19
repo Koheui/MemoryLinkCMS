@@ -7,14 +7,12 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   const sessionCookie = request.cookies.get('__session')?.value
 
-  // Redirect from root to /pages if authenticated
-  if (pathname === '/' && sessionCookie) {
-    return NextResponse.redirect(new URL('/pages', request.url))
+  // Redirect from root to /pages if authenticated, or /login if not.
+  if (pathname === '/') {
+    const url = sessionCookie ? '/pages' : '/login';
+    return NextResponse.redirect(new URL(url, request.url))
   }
-  if (pathname === '/' && !sessionCookie) {
-     return NextResponse.redirect(new URL('/login', request.url))
-  }
-
+  
   const isProtectedRoute = ['/pages', '/memories', '/media-library', '/account', '/_admin'].some((path) =>
     pathname.startsWith(path)
   );

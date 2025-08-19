@@ -108,9 +108,9 @@ export function AuthForm({ type }: AuthFormProps) {
         throw new Error(errorData.details || `セッションの作成に失敗しました。ステータス: ${res.status}`);
       }
       
-      console.log('[AuthForm] セッション作成成功。ページ一覧へ遷移します...');
-      // On success, redirect to dashboard. This will trigger a full page reload.
-      window.location.assign('/pages');
+      console.log('[AuthForm] セッション作成成功。ルートへ遷移します...');
+      // On success, redirect to root. Middleware will handle routing to the correct page.
+      window.location.assign('/');
 
     } catch (error: any) {
         console.error("[AuthForm] 認証プロセス全体でエラーが発生しました:", error);
