@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from 'react';
@@ -59,7 +60,6 @@ export function AuthForm({ type }: AuthFormProps) {
       let userCredential;
       if (type === 'signup') {
         userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
-        // Create user profile in Firestore
         const userRef = doc(db, 'users', userCredential.user.uid);
         const userProfile: Omit<UserProfile, 'id'> = {
             email: userCredential.user.email!,
@@ -82,11 +82,12 @@ export function AuthForm({ type }: AuthFormProps) {
       if (!res.ok) {
         const errorData = await res.json();
         console.error('Session creation failed:', errorData);
-        throw new Error(errorData.details || `Failed to create session. Status: ${res.status}`);
+        throw new Error(errorData.details || `Failed to create session. Status: ${res.status}. Raw: ${JSON.stringify(errorData)}`);
       }
 
-      // Refresh the page. The middleware will handle the redirect.
-      window.location.assign('/dashboard');
+      // **CRITICAL CHANGE**: Remove client-side redirect.
+      // The middleware will handle the redirect after the page is refreshed.
+      router.refresh();
 
     } catch (error: any) {
         console.error("Auth error:", error);
