@@ -43,15 +43,16 @@ export interface PublicPageBlock {
   order: number;
   visibility: 'show' | 'hide';
   title?: string;
-  body?: string;
+  // Body is deprecated, use text.content instead for text blocks
+  body?: string; 
   album?: {
     layout: 'grid' | 'carousel';
     cols?: 2 | 3;
-    items: { src: string; thumb?: string; caption?: string }[];
+    items: { assetId: string; caption?: string }[];
   };
-  video?: { src: string; poster?: string };
-  audio?: { src: string };
-  text?: { content: string };
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
+  video?: { assetId: string; };
+  audio?: { assetId: string; };
+  text?: { content: string; }; // Markdown supported
+  createdAt: Timestamp | string;
+  updatedAt: Timestamp | string;
 }

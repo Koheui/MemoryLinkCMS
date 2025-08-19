@@ -4,6 +4,7 @@
 import { ThemeSuggester } from '@/components/theme-suggester';
 import { DesignEditor } from '@/components/design-editor';
 import { AboutEditor } from '@/components/about-editor';
+import { BlockEditor } from '@/components/block-editor';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import type { Memory, Asset } from '@/lib/types';
 import { getApps, initializeApp, applicationDefault } from 'firebase-admin/app';
@@ -115,6 +116,18 @@ export default async function MemoryEditorPage({ params }: { params: { memoryId:
 
         <Card>
             <CardHeader>
+                <CardTitle className="font-headline">コンテンツブロック</CardTitle>
+                <CardDescription>
+                    写真アルバム、動画、テキストなど、ページに表示するコンテンツを自由に追加・並べ替えできます。
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <BlockEditor memory={memory} assets={assets} />
+            </CardContent>
+        </Card>
+
+        <Card>
+            <CardHeader>
                 <CardTitle className="font-headline">AIテーマデザイナー</CardTitle>
                 <CardDescription>
                     AIがタイトルや説明を分析し、あなたの想い出ページにぴったりのテーマを提案します。
@@ -124,8 +137,6 @@ export default async function MemoryEditorPage({ params }: { params: { memoryId:
                 <ThemeSuggester memory={memory} />
             </CardContent>
         </Card>
-
-        {/* Other editor components like block editor, asset manager, etc. would go here */}
     </div>
   );
 }
