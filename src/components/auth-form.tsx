@@ -67,30 +67,43 @@ export function AuthForm({ type }: AuthFormProps) {
 
   const onSubmit = async (data: AuthFormValues) => {
     setLoading(true);
-    try {
-      if (type === 'signup') {
-        const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
-        await createUserProfile(userCredential.user);
-        router.push('/memories/new');
-      } else {
-        await signInWithEmailAndPassword(auth, data.email, data.password);
-        router.push('/dashboard');
-      }
-    } catch (error: any) {
-      console.error("Auth error:", error);
-      let description = 'エラーが発生しました。もう一度お試しください。';
-      if (error.code === 'auth/email-already-in-use') {
-        description = 'このメールアドレスは既に使用されています。ログインするか、別のメールアドレスで登録してください。'
-      } else if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
-        description = 'メールアドレスまたはパスワードが正しくありません。'
-      }
-      toast({
-        variant: 'destructive',
-        title: type === 'signup' ? 'アカウント作成に失敗しました' : 'ログインに失敗しました',
-        description: description,
-      });
-    } finally {
-      setLoading(false);
+    if (type === 'signup') {
+      createUserWithEmailAndPassword(auth, data.email, data.password)
+        .then(async (userCredential) => {
+          await createUserProfile(userCredential.user);
+          router.push('/memories/new');
+        })
+        .catch((error) => {
+          console.error("Auth error:", error);
+          let description = 'エラーが発生しました。もう一度お試しください。';
+          if (error.code === 'auth/email-already-in-use') {
+            description = 'このメールアドレスは既に使用されています。ログインするか、別のメールアドレスで登録してください。'
+          }
+          toast({
+            variant: 'destructive',
+            title: 'アカウント作成に失敗しました',
+            description: description,
+          });
+        })
+        .finally(() => {
+          setLoading(false);
+        });
+    } else { // login
+      signInWithEmailAndPassword(auth, data.email, data.password)
+        .then(() => {
+          router.push('/dashboard');
+        })
+        .catch((error) => {
+          console.error("Auth error:", error);
+          toast({
+            variant: 'destructive',
+            title: 'ログインに失敗しました',
+            description: 'メールアドレスまたはパスワードが正しくありません。',
+          });
+        })
+        .finally(() => {
+          setLoading(false);
+        });
     }
   };
 

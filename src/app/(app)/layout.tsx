@@ -39,9 +39,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
   const handleLogout = async () => {
     try {
       await auth.signOut();
-       // After signing out, redirect to the login page
       router.push('/login');
-      router.refresh(); // Force a refresh to ensure middleware catches the change
     } catch (error) {
         console.error('Logout failed', error);
     }
@@ -59,8 +57,8 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
   }
 
   if (!user) {
-    // Middleware should handle the redirection, so we can return null or a loader.
-    // Returning a loader is a good fallback.
+    // The redirect logic is now handled by the middleware and useAuth hook.
+    // We can return a loader as a fallback or null.
      return (
       <div className="flex h-screen items-center justify-center">
         <div className="flex items-center gap-2">

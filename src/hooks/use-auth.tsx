@@ -18,13 +18,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // onAuthStateChanged is the recommended way to get the current user.
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setUser(user);
       setLoading(false);
     });
 
-    // Cleanup subscription on unmount
     return () => unsubscribe();
   }, []);
 
@@ -36,5 +34,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 };
 
 export const useAuth = () => {
-  return useContext(AuthContext);
+  const context = useContext(AuthContext);
+  const router = useRouter();
+  const pathname = usePathname();
+
+  useEffect(() => {
+    if (context.loading) {
+      return; // Do nothing while loading
+    }
+
+    const isAuthPage = pathname === '/login' || pathname === '/signup';
+    const isProtectedPage = !isAuthPage;
+
+    if (!context.user && isProtectedPage) {
+      router.push('/login');
+    }
+  }, [context.user, context.loading, pathname, router]);
+
+
+  return context;
 };
