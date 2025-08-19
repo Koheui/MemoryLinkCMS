@@ -63,20 +63,34 @@ async function fetchAssets(uid: string, memoryId: string): Promise<Asset[]> {
 
 
 export default async function MemoryEditorPage({ params }: { params: { memoryId: string } }) {
-  const sessionCookie = (await cookies().get('__session'))?.value || '';
-  if (!sessionCookie) {
+  let uid: string | null = null;
+  const sessionCookie = cookies().get('__session')?.value;
+  if(sessionCookie) {
+    try {
+        const decodedClaims = await getAuth().verifySessionCookie(sessionCookie, true);
+        uid = decodedClaims.uid;
+    } catch (error) {
+        // Ignore error, uid will be null
+    }
+  }
+  
+  if(!uid) {
+    // This is a server component, so we can't use the useAuth hook.
+    // We'll rely on middleware to redirect, but as a safeguard:
     redirect('/login');
   }
 
   let memory: Memory;
   let assets: Asset[];
   try {
-    const decodedClaims = await getAuth().verifySessionCookie(sessionCookie, true);
-    memory = await fetchMemory(decodedClaims.uid, params.memoryId);
-    assets = await fetchAssets(decodedClaims.uid, params.memoryId);
+    memory = await fetchMemory(uid, params.memoryId);
+    assets = await fetchAssets(uid, params.memoryId);
   } catch (error) {
-     console.error("Error fetching memory or verifying session:", error);
-     redirect('/login');
+     console.error("Error fetching memory data:", error);
+     // This could be a permissions issue or invalid ID.
+     // notFound() will be called inside fetchMemory for most cases.
+     // For other errors, we might want a generic error page.
+     notFound();
   }
 
   return (

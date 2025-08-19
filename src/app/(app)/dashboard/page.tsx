@@ -1,4 +1,3 @@
-
 // src/app/(app)/dashboard/page.tsx
 'use server';
 
@@ -11,22 +10,22 @@ import Image from 'next/image';
 import type { Memory } from '@/lib/types';
 import { getAdminApp } from '@/lib/firebase/firebaseAdmin';
 import { getFirestore } from 'firebase-admin/firestore';
-import { headers } from 'next/headers';
 import { getAuth } from 'firebase-admin/auth';
+import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
 
 getAdminApp(); // Initialize Firebase Admin
 
 const db = getFirestore();
 
-async function getUidFromAuthHeader(): Promise<string | null> {
-    const authHeader = headers().get('authorization');
-    if (!authHeader?.startsWith('Bearer ')) return null;
-    const token = authHeader.split('Bearer ')[1];
+async function getUidFromSessionCookie(): Promise<string | null> {
+    const sessionCookie = cookies().get('__session')?.value;
+    if (!sessionCookie) return null;
     try {
-        const decodedToken = await getAuth().verifyIdToken(token);
+        const decodedToken = await getAuth().verifySessionCookie(sessionCookie, true);
         return decodedToken.uid;
     } catch (error) {
-        console.error("verifyIdToken failed:", error);
+        console.error("verifySessionCookie failed:", error);
         return null;
     }
 }
@@ -46,11 +45,10 @@ async function fetchMemories(uid: string): Promise<Memory[]> {
         if (data.coverAssetId) {
              const assetDoc = await db.collection('memories').doc(doc.id).collection('assets').doc(data.coverAssetId).get();
              if (assetDoc.exists) {
-                // Since this is a server component, we don't need expiring signed URLs if the rules allow read.
-                // Assuming storage is not public, we keep this logic, but it's less ideal.
-                // A better approach would be to make public assets public.
+                // This is a placeholder as we'd need to generate a signed URL for private files
                 const assetData = assetDoc.data();
-                 if(assetData?.url) coverImageUrl = assetData.url;
+                // A real implementation requires generating a signed URL if the files are not public
+                if(assetData?.url) coverImageUrl = assetData.url;
              }
         }
 
@@ -68,15 +66,13 @@ async function fetchMemories(uid: string): Promise<Memory[]> {
 
 
 export default async function DashboardPage() {
-  // This page is protected by client-side logic in the layout.
-  // Data fetching here assumes a valid user is present.
-  // In a real-world scenario with server-only protection, you'd get the UID here
-  // from the session and redirect if not found.
+  const uid = await getUidFromSessionCookie();
 
-  // The client will send the auth token, but server components can't access it directly.
-  // We'll rely on the client-side redirect for now. A more robust solution might
-  // involve a server-side context or a dedicated API route for data fetching.
-  const memories: Memory[] = []; // This will be populated by a client-side fetch in a real app or passed from parent
+  if (!uid) {
+    redirect('/login');
+  }
+
+  const memories = await fetchMemories(uid);
   
   return (
     <div className="space-y-6">
@@ -106,7 +102,7 @@ export default async function DashboardPage() {
                  />
                </div>
               <CardTitle className="font-headline">{memory.title}</CardTitle>
-              <CardDescription>種別: <span className="capitalize">{memory.type}</span></CardDescription>
+              {/* <CardDescription>種別: <span className="capitalize">{memory.type}</span></CardDescription> */}
             </CardHeader>
             <CardContent className="flex-grow">
                <div className="flex items-center gap-2">
