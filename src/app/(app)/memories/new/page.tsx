@@ -1,5 +1,6 @@
+
 // src/app/(app)/memories/new/page.tsx
-// This file is no longer needed as page creation is handled from the dashboard.
+// This file is no longer needed as page creation is handled from the pages list.
 // It will be deleted in a future step if confirmed.
 // For now, we render a placeholder.
 'use client';
@@ -14,12 +15,12 @@ export default function DeprecatedNewMemoryPage() {
                 <CardHeader>
                     <CardTitle>このページは移動しました</CardTitle>
                     <CardDescription>
-                        新しいページの作成は、ダッシュボードから直接行うように変更されました。
+                        新しいページの作成は、ページ一覧から直接行うように変更されました。
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
                     <Button asChild>
-                        <Link href="/dashboard">ダッシュボードに戻る</Link>
+                        <Link href="/pages">ページ一覧に戻る</Link>
                     </Button>
                 </CardContent>
             </Card>

@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/sidebar';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Heart, LayoutDashboard, LogOut, Library, ShieldCheck, Loader2 } from 'lucide-react';
+import { Heart, LayoutDashboard, LogOut, Library, ShieldCheck, Loader2, UserCircle, Files } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useRouter } from 'next/navigation';
@@ -58,21 +58,26 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
       <Sidebar>
         <SidebarHeader>
           <div className="flex items-center gap-2">
-             <Link href="/dashboard" className="flex items-center gap-2 font-headline" prefetch={false}>
+             <Link href="/pages" className="flex items-center gap-2 font-headline" prefetch={false}>
                 <Heart className="h-6 w-6 text-primary" />
                 <span className="text-lg font-bold">想い出リンク</span>
              </Link>
           </div>
         </SidebarHeader>
         <SidebarMenu className="flex-1">
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild isActive={pathname === '/dashboard'}>
-                <Link href="/dashboard"><LayoutDashboard/> ダッシュボード</Link>
+           <SidebarMenuItem>
+            <SidebarMenuButton asChild isActive={pathname === '/pages'}>
+                <Link href="/pages"><Files/> ページ一覧</Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
              <SidebarMenuButton asChild isActive={pathname.startsWith('/media-library')}>
                 <Link href="/media-library"><Library /> メディアライブラリ</Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+           <SidebarMenuItem>
+             <SidebarMenuButton asChild isActive={pathname.startsWith('/account')}>
+                <Link href="/account"><UserCircle /> アカウント</Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
           {isAdmin && (

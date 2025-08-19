@@ -108,9 +108,9 @@ export function AuthForm({ type }: AuthFormProps) {
         throw new Error(errorData.details || `セッションの作成に失敗しました。ステータス: ${res.status}`);
       }
       
-      console.log('[AuthForm] セッション作成成功。ダッシュボードへ遷移します...');
+      console.log('[AuthForm] セッション作成成功。ページ一覧へ遷移します...');
       // On success, redirect to dashboard. This will trigger a full page reload.
-      window.location.assign('/dashboard');
+      window.location.assign('/pages');
 
     } catch (error: any) {
         console.error("[AuthForm] 認証プロセス全体でエラーが発生しました:", error);
@@ -148,7 +148,7 @@ export function AuthForm({ type }: AuthFormProps) {
   const title = type === 'signup' ? 'アカウント作成' : 'おかえりなさい';
   const description = type === 'signup'
     ? 'メールアドレスとパスワードを入力して始めましょう。'
-    : 'ログインして想い出の管理を続けましょう。';
+    : 'ログインしてページの管理を続けましょう。';
   const buttonText = type === 'signup' ? 'アカウントを作成' : 'ログイン';
   const footerText = type === 'signup'
     ? 'すでにアカウントをお持ちですか？'
@@ -210,5 +210,3 @@ export function AuthForm({ type }: AuthFormProps) {
     </Card>
   );
 }
-
-    
