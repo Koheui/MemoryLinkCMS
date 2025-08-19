@@ -124,7 +124,7 @@ export function AuthForm({ type }: AuthFormProps) {
       // navigation to a protected page.
       // This ensures the new session cookie is present in the request,
       // preventing middleware race conditions.
-      // The middleware will then correctly redirect from '/dashboard' to the actual memory page.
+      // The dashboard page will then handle redirecting to the actual memory page.
       window.location.assign('/dashboard');
 
     } catch (error: any) {
