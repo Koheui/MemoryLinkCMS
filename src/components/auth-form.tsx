@@ -26,10 +26,10 @@ import Link from 'next/link';
 import { Loader2 } from 'lucide-react';
 
 const formSchema = z.object({
-  email: z.string().email({ message: 'Please enter a valid email.' }),
+  email: z.string().email({ message: '有効なメールアドレスを入力してください。' }),
   password: z
     .string()
-    .min(6, { message: 'Password must be at least 6 characters.' }),
+    .min(6, { message: 'パスワードは6文字以上で入力してください。' }),
 });
 
 type AuthFormValues = z.infer<typeof formSchema>;
@@ -64,24 +64,24 @@ export function AuthForm({ type }: AuthFormProps) {
     } catch (error: any) {
       toast({
         variant: 'destructive',
-        title: 'Authentication Failed',
-        description: error.message || 'An unexpected error occurred.',
+        title: '認証に失敗しました',
+        description: 'メールアドレスまたはパスワードが正しくありません。',
       });
     } finally {
       setLoading(false);
     }
   };
 
-  const title = type === 'signup' ? 'Create an Account' : 'Welcome Back';
+  const title = type === 'signup' ? 'アカウント作成' : 'おかえりなさい';
   const description = type === 'signup'
-    ? 'Enter your email and password to get started.'
-    : 'Sign in to manage your memories.';
-  const buttonText = type === 'signup' ? 'Sign Up' : 'Log In';
+    ? 'メールアドレスとパスワードを入力して始めましょう。'
+    : 'ログインして想い出の管理を続けましょう。';
+  const buttonText = type === 'signup' ? 'アカウントを作成' : 'ログイン';
   const footerText = type === 'signup'
-    ? 'Already have an account?'
-    : "Don't have an account?";
+    ? 'すでにアカウントをお持ちですか？'
+    : "アカウントをお持ちでないですか？";
   const footerLink = type === 'signup' ? '/login' : '/signup';
-  const footerLinkText = type === 'signup' ? 'Log In' : 'Sign Up';
+  const footerLinkText = type === 'signup' ? 'ログイン' : 'アカウント作成';
 
   return (
     <Card className="w-full max-w-sm">
@@ -92,7 +92,7 @@ export function AuthForm({ type }: AuthFormProps) {
       <form onSubmit={form.handleSubmit(onSubmit)}>
         <CardContent className="grid gap-4">
           <div className="grid gap-2">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email">メールアドレス</Label>
             <Input
               id="email"
               type="email"
@@ -105,7 +105,7 @@ export function AuthForm({ type }: AuthFormProps) {
             )}
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="password">Password</Label>
+            <Label htmlFor="password">パスワード</Label>
             <Input
               id="password"
               type="password"

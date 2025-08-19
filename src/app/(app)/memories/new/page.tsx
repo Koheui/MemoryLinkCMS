@@ -22,22 +22,35 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Upload } from 'lucide-react';
+import { Upload, Loader2 } from 'lucide-react';
+import { auth, db, storage } from '@/lib/firebase/client';
+import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { ref, uploadBytes } from 'firebase/storage';
+import { useAuth } from '@/hooks/use-auth';
+import { useRouter } from 'next/navigation';
+import { useToast } from '@/hooks/use-toast';
+import { useState } from 'react';
 
 const newMemorySchema = z.object({
-  title: z.string().min(2, 'Title must be at least 2 characters.'),
+  title: z.string().min(2, 'タイトルは2文字以上で入力してください。'),
   type: z.enum(['pet', 'birth', 'memorial', 'other'], {
-    required_error: 'You need to select a memory type.',
+    required_error: '種別を選択してください。',
   }),
-  // notes: z.string().optional(),
-  // photos: z.any().refine((files) => files?.length >= 1, 'At least one photo is required.'),
+  photos: z
+    .custom<FileList>()
+    .refine((files) => files?.length >= 1, '写真は1枚以上選択してください。')
+    .refine((files) => files?.length <= 10, '写真のアップロードは10枚までです。'),
 });
 
 type NewMemoryFormValues = z.infer<typeof newMemorySchema>;
 
 export default function NewMemoryPage() {
+  const { user } = useAuth();
+  const router = useRouter();
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
+
   const form = useForm<NewMemoryFormValues>({
     resolver: zodResolver(newMemorySchema),
     defaultValues: {
@@ -45,17 +58,72 @@ export default function NewMemoryPage() {
     },
   });
 
-  function onSubmit(data: NewMemoryFormValues) {
-    console.log(data);
-    // TODO: Firestore integration
+  const photoRef = form.register("photos");
+
+  async function onSubmit(data: NewMemoryFormValues) {
+    if (!user) {
+        toast({ variant: 'destructive', title: 'エラー', description: 'ログインしていません。' });
+        return;
+    }
+
+    setLoading(true);
+
+    try {
+        // 1. Create Memory document
+        const memoryDocRef = await addDoc(collection(db, 'memories'), {
+            ownerUid: user.uid,
+            title: data.title,
+            type: data.type,
+            status: 'draft',
+            publicPageId: null,
+            coverAssetId: null,
+            profileAssetId: null,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+        });
+        const memoryId = memoryDocRef.id;
+
+        // 2. Upload photos to Storage and create Asset documents
+        const assetPromises = Array.from(data.photos).map(async (file) => {
+            const filePath = `raw/users/${user.uid}/memories/${memoryId}/uploads/${Date.now()}_${file.name}`;
+            const fileRef = ref(storage, filePath);
+            await uploadBytes(fileRef, file, { contentType: file.type });
+
+            await addDoc(collection(db, `memories/${memoryId}/assets`), {
+                type: file.type.startsWith('image/') ? 'image' : 
+                      file.type.startsWith('video/') ? 'video' : 'audio',
+                rawPath: filePath,
+                createdAt: serverTimestamp(),
+            });
+        });
+        await Promise.all(assetPromises);
+        
+        // 3. Create Order document
+        await addDoc(collection(db, 'orders'), {
+            userUid: user.uid,
+            memoryId: memoryId,
+            status: 'assets_uploaded',
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+        });
+
+        toast({ title: '想い出を作成しました', description: '最初のステップが完了しました。' });
+        router.push('/dashboard');
+
+    } catch (error) {
+        console.error("Failed to create memory:", error);
+        toast({ variant: 'destructive', title: 'エラー', description: '想い出の作成に失敗しました。' });
+    } finally {
+        setLoading(false);
+    }
   }
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight font-headline">Create a New Memory</h1>
+        <h1 className="text-2xl font-bold tracking-tight font-headline">新しい想い出を作成</h1>
         <p className="text-muted-foreground">
-          Let's start by telling us a bit about your memory. This is the first step of your order.
+          最初のステップとして、想い出の基本情報を入力してください。
         </p>
       </div>
 
@@ -63,9 +131,9 @@ export default function NewMemoryPage() {
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle className="font-headline">1. Memory Details</CardTitle>
+              <CardTitle className="font-headline">1. 想い出の詳細</CardTitle>
               <CardDescription>
-                This information will be used to create your memory page.
+                この情報が、あなたの「想い出ページ」の基本となります。
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-8">
@@ -74,12 +142,12 @@ export default function NewMemoryPage() {
                   name="title"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Memory Title</FormLabel>
+                      <FormLabel>想い出のタイトル</FormLabel>
                       <FormControl>
-                        <Input placeholder="e.g., Grandma's 80th Birthday" {...field} />
+                        <Input placeholder="例：おばあちゃんの米寿のお祝い" {...field} />
                       </FormControl>
                       <FormDescription>
-                        This will be the main headline of your memory page.
+                        これが想い出ページのメインの見出しになります。
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -90,22 +158,22 @@ export default function NewMemoryPage() {
                   name="type"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Memory Type</FormLabel>
+                      <FormLabel>想い出の種別</FormLabel>
                       <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Select a type" />
+                            <SelectValue placeholder="種別を選択してください" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="pet">Pet</SelectItem>
-                          <SelectItem value="birth">Birth</SelectItem>
-                          <SelectItem value="memorial">Memorial</SelectItem>
-                          <SelectItem value="other">Other</SelectItem>
+                          <SelectItem value="pet">ペット</SelectItem>
+                          <SelectItem value="birth">誕生</SelectItem>
+                          <SelectItem value="memorial">追悼</SelectItem>
+                          <SelectItem value="other">その他</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormDescription>
-                        This helps us categorize your memory.
+                        想い出を整理するために役立ちます。
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -116,32 +184,41 @@ export default function NewMemoryPage() {
 
           <Card>
             <CardHeader>
-                <CardTitle className="font-headline">2. Upload Assets</CardTitle>
+                <CardTitle className="font-headline">2. アセットのアップロード</CardTitle>
                 <CardDescription>
-                    Upload photos, videos, or audio that are part of this memory. You can add more later.
+                    この想い出に関連する写真、動画、音声をアップロードします。後から追加することも可能です。
                 </CardDescription>
-            </CardHeader>
+            </Header>
             <CardContent>
-                <FormItem>
-                    <FormLabel>Photos & Videos</FormLabel>
-                    <FormControl>
-                    <div className="flex items-center justify-center w-full">
-                        <label htmlFor="dropzone-file" className="flex flex-col items-center justify-center w-full h-64 border-2 border-dashed rounded-lg cursor-pointer bg-card hover:bg-muted">
-                            <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                                <Upload className="w-8 h-8 mb-4 text-muted-foreground" />
-                                <p className="mb-2 text-sm text-muted-foreground"><span className="font-semibold">Click to upload</span> or drag and drop</p>
-                                <p className="text-xs text-muted-foreground">Upload 5-10 photos to start</p>
-                            </div>
-                            <Input id="dropzone-file" type="file" className="hidden" multiple />
-                        </label>
-                    </div> 
-                    </FormControl>
-                    <FormMessage />
-                </FormItem>
+                <FormField
+                  control={form.control}
+                  name="photos"
+                  render={({ field }) => (
+                  <FormItem>
+                      <FormLabel>写真・動画</FormLabel>
+                      <FormControl>
+                      <div className="flex items-center justify-center w-full">
+                          <label htmlFor="dropzone-file" className="flex flex-col items-center justify-center w-full h-64 border-2 border-dashed rounded-lg cursor-pointer bg-card hover:bg-muted">
+                              <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                                  <Upload className="w-8 h-8 mb-4 text-muted-foreground" />
+                                  <p className="mb-2 text-sm text-muted-foreground"><span className="font-semibold">クリックしてアップロード</span> またはドラッグ＆ドロップ</p>
+                                  <p className="text-xs text-muted-foreground">まず5〜10枚の写真をアップロードしてください</p>
+                              </div>
+                              <Input id="dropzone-file" type="file" className="hidden" multiple {...photoRef} />
+                          </label>
+                      </div> 
+                      </FormControl>
+                      <FormMessage />
+                  </FormItem>
+                  )}
+                />
             </CardContent>
           </Card>
 
-          <Button type="submit" size="lg">Create Memory & Continue</Button>
+          <Button type="submit" size="lg" disabled={loading}>
+            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            想い出を作成して次へ
+          </Button>
         </form>
       </Form>
     </div>

@@ -9,15 +9,15 @@ export default function Home() {
       <header className="container mx-auto px-4 md:px-6 h-16 flex items-center justify-between">
         <Link href="#" className="flex items-center gap-2 font-headline" prefetch={false}>
           <Heart className="h-6 w-6 text-primary" />
-          <span className="text-xl font-bold">MemoryLink CMS</span>
+          <span className="text-xl font-bold">想い出リンク CMS</span>
         </Link>
         <div className="flex items-center gap-4">
           <Button variant="ghost" asChild>
-            <Link href="/login">Log In</Link>
+            <Link href="/login">ログイン</Link>
           </Button>
           <Button asChild>
             <Link href="/signup">
-              Get Started <ArrowRight className="ml-2 h-4 w-4" />
+              はじめる <ArrowRight className="ml-2 h-4 w-4" />
             </Link>
           </Button>
         </div>
@@ -29,16 +29,16 @@ export default function Home() {
               <div className="flex flex-col justify-center space-y-4">
                 <div className="space-y-2">
                   <h1 className="text-3xl font-bold tracking-tighter sm:text-5xl xl:text-6xl/none font-headline text-primary">
-                    Create Lasting Tributes for Your Loved Ones
+                    大切な人との想い出を、永遠の形に
                   </h1>
                   <p className="max-w-[600px] text-muted-foreground md:text-xl">
-                    MemoryLink helps you build beautiful, interactive memorial pages with photos, videos, audio, and stories. Share a unique link or an NFC tag to keep their memory alive.
+                    「想い出リンク」は、写真や動画、音声、そして物語を組み合わせ、美しくインタラクティブな追悼ページを作成するお手伝いをします。ユニークなリンクやNFCタグで、大切な人の記憶をいつでも鮮やかに蘇らせましょう。
                   </p>
                 </div>
                 <div className="flex flex-col gap-2 min-[400px]:flex-row">
                   <Button size="lg" asChild>
                     <Link href="/signup">
-                      Create a Memory Page
+                      想い出ページを作成する
                       <ArrowRight className="ml-2 h-4 w-4" />
                     </Link>
                   </Button>
@@ -47,9 +47,9 @@ export default function Home() {
               <div className="flex items-center justify-center">
                  <Card className="w-full max-w-md">
                    <CardHeader>
-                      <CardTitle className="font-headline">A Digital Keepsake</CardTitle>
+                      <CardTitle className="font-headline">デジタルの形見</CardTitle>
                       <CardDescription>
-                        Combine photos, stories, and more into a single, shareable page.
+                        写真や物語などを、ひとつの共有可能なページにまとめます。
                       </CardDescription>
                    </CardHeader>
                    <CardContent>
@@ -69,7 +69,7 @@ export default function Home() {
         </section>
       </main>
       <footer className="flex flex-col gap-2 sm:flex-row py-6 w-full shrink-0 items-center px-4 md:px-6 border-t">
-        <p className="text-xs text-muted-foreground">&copy; 2024 MemoryLink CMS. All rights reserved.</p>
+        <p className="text-xs text-muted-foreground">&copy; 2024 想い出リンク CMS. All rights reserved.</p>
       </footer>
     </div>
   );

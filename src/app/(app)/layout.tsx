@@ -53,7 +53,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
               d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
             ></path>
           </svg>
-          <span className="text-lg text-muted-foreground">Loading...</span>
+          <span className="text-lg text-muted-foreground">読み込み中...</span>
         </div>
       </div>
     );
@@ -66,19 +66,19 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
           <div className="flex items-center gap-2">
              <Link href="/dashboard" className="flex items-center gap-2 font-headline" prefetch={false}>
                 <Heart className="h-6 w-6 text-primary" />
-                <span className="text-lg font-bold">MemoryLink</span>
+                <span className="text-lg font-bold">想い出リンク</span>
              </Link>
           </div>
         </SidebarHeader>
         <SidebarMenu className="flex-1">
           <SidebarMenuItem>
             <SidebarMenuButton asChild isActive={pathname === '/dashboard'}>
-                <Link href="/dashboard"><LayoutDashboard/> Dashboard</Link>
+                <Link href="/dashboard"><LayoutDashboard/> ダッシュボード</Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
              <SidebarMenuButton asChild isActive={pathname.startsWith('/memories')}>
-                <Link href="/dashboard"><Settings /> My Memories</Link>
+                <Link href="/dashboard"><Settings /> 想い出の管理</Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
