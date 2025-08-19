@@ -1,4 +1,3 @@
-
 // src/middleware.ts
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
@@ -35,15 +34,10 @@ export async function middleware(request: NextRequest) {
 // See "Matching Paths" below to learn more
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - api (API routes, we want to protect them individually)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - p (public pages)
-     * - debug-token (the debug page)
-     */
-    '/((?!api|_next/static|_next/image|favicon.ico|p|debug-token).*)',
+    '/dashboard/:path*',
+    '/memories/:path*',
+    '/_admin/:path*',
+    '/login',
+    '/signup',
   ],
 }
