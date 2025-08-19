@@ -1,43 +1,48 @@
-
 // src/middleware.ts
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { getAdminApp } from '@/lib/firebase/firebaseAdmin';
+import { getAuth } from 'firebase-admin/auth';
+import { collection, query, where, getDocs, limit } from 'firebase/firestore';
+import { getFirestore } from 'firebase-admin/firestore';
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   const sessionCookie = request.cookies.get('__session')?.value
 
-  // Early exit for API routes, static files, etc.
-  if (pathname.startsWith('/api') || pathname.startsWith('/_next') || pathname.includes('.')) {
-    return NextResponse.next();
+  // Verify the session cookie.
+  // Using a try-catch block is a reliable way to handle invalid/expired cookies.
+  let decodedClaims = null;
+  if (sessionCookie) {
+    try {
+        const app = getAdminApp();
+        decodedClaims = await getAuth(app).verifySessionCookie(sessionCookie, true);
+    } catch (error) {
+        // Session cookie is invalid. Clear it.
+        const response = NextResponse.redirect(new URL('/login', request.url));
+        response.cookies.set('__session', '', { maxAge: -1 });
+        return response;
+    }
   }
   
-  // Check for authentication status via API route. Use absolute URL for fetch in middleware.
-  const verifyUrl = new URL('/api/auth/verify', request.url);
-  const authResponse = await fetch(verifyUrl.toString(), {
-    headers: {
-      'Cookie': `__session=${sessionCookie || ''}`
-    }
-  });
-  
-  const { isAuthenticated } = await authResponse.json();
+  const isAuthenticated = !!decodedClaims;
 
   const isPublicPath = ['/login', '/signup', '/'].includes(pathname);
   const isProtectedRoute = !isPublicPath;
-
-  // If user is authenticated and on a public page (login, signup, root), redirect to dashboard.
-  if (isAuthenticated && isPublicPath) {
+  
+  // If user is authenticated
+  if (isAuthenticated) {
+    // If they are on a public page (login, signup, root), redirect them to the dashboard.
+    if (isPublicPath) {
       return NextResponse.redirect(new URL('/dashboard', request.url));
-  }
-
-  // If user is not authenticated and trying to access a protected route, redirect to login.
-  if (!isAuthenticated && isProtectedRoute) {
-      const res = NextResponse.redirect(new URL('/login', request.url));
-      // Clear the invalid cookie if it exists to prevent redirect loops
-      if (sessionCookie) {
-          res.cookies.set('__session', '', { maxAge: -1 });
-      }
-      return res;
+    }
+  } 
+  // If user is not authenticated
+  else {
+    // And they are trying to access a protected route, redirect to login.
+    if (isProtectedRoute) {
+       return NextResponse.redirect(new URL('/login', request.url));
+    }
   }
   
   return NextResponse.next();
