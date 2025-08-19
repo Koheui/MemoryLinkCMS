@@ -20,12 +20,16 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { db } from '@/lib/firebase/client';
+import { collection, query, where, getDocs, limit } from 'firebase/firestore';
 
 
 function AppLayoutContent({ children }: { children: React.ReactNode }) {
   const { user, loading, isAdmin, handleLogout } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
+  const [memoryId, setMemoryId] = useState<string | null>(null);
+  const [isFetchingMemoryId, setIsFetchingMemoryId] = useState(true);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -33,8 +37,36 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
     }
   }, [user, loading, router]);
 
+  useEffect(() => {
+    const fetchMemoryId = async () => {
+        if (user) {
+            setIsFetchingMemoryId(true);
+            try {
+                const memoriesQuery = query(
+                    collection(db, 'memories'), 
+                    where('ownerUid', '==', user.uid), 
+                    limit(1)
+                );
+                const querySnapshot = await getDocs(memoriesQuery);
+                if (!querySnapshot.empty) {
+                    setMemoryId(querySnapshot.docs[0].id);
+                } else {
+                    console.warn("No memory found for user:", user.uid);
+                }
+            } catch (error) {
+                console.error("Error fetching memoryId:", error);
+            } finally {
+                setIsFetchingMemoryId(false);
+            }
+        } else {
+            setIsFetchingMemoryId(false);
+        }
+    };
+    fetchMemoryId();
+  }, [user]);
 
-  if (loading) {
+
+  if (loading || isFetchingMemoryId) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="flex items-center gap-2">
@@ -48,13 +80,15 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
   if (!user) {
     return null;
   }
+  
+  const editPageHref = memoryId ? `/memories/${memoryId}` : '#';
 
   return (
     <SidebarProvider>
       <Sidebar>
         <SidebarHeader>
           <div className="flex items-center gap-2">
-             <Link href="/dashboard" className="flex items-center gap-2 font-headline" prefetch={false}>
+             <Link href="/account" className="flex items-center gap-2 font-headline" prefetch={false}>
                 <Heart className="h-6 w-6 text-primary" />
                 <span className="text-lg font-bold">想い出リンク</span>
              </Link>
@@ -62,8 +96,8 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
         </SidebarHeader>
         <SidebarMenu className="flex-1">
           <SidebarMenuItem>
-            <SidebarMenuButton asChild isActive={pathname.startsWith('/memories')}>
-              <Link href={`/memories`}><Edit/> ページ編集</Link>
+            <SidebarMenuButton asChild isActive={pathname.startsWith('/memories')} disabled={!memoryId}>
+              <Link href={editPageHref}><Edit/> ページ編集</Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>

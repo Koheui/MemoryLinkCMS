@@ -11,7 +11,7 @@ import {
   type UserCredential,
 } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase/client';
-import { doc, setDoc, serverTimestamp, collection, addDoc, getDocs, query, where, limit } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp, collection, addDoc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -26,7 +26,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { Loader2 } from 'lucide-react';
-import type { UserProfile, Memory } from '@/lib/types';
+import type { UserProfile } from '@/lib/types';
 
 
 const formSchema = z.object({
@@ -60,7 +60,6 @@ export function AuthForm({ type }: AuthFormProps) {
 
     try {
       let userCredential: UserCredential;
-      let memoryId: string;
 
       if (type === 'signup') {
         userCredential = await createUserWithEmailAndPassword(
@@ -80,7 +79,7 @@ export function AuthForm({ type }: AuthFormProps) {
         await setDoc(userRef, userProfile);
         
         // Create the single memory page for the new user
-        const newMemoryDoc = await addDoc(collection(db, 'memories'), {
+        await addDoc(collection(db, 'memories'), {
             ownerUid: user.uid,
             title: '無題のページ',
             status: 'draft',
@@ -95,7 +94,6 @@ export function AuthForm({ type }: AuthFormProps) {
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
         });
-        memoryId = newMemoryDoc.id;
         
       } else { // Login
         userCredential = await signInWithEmailAndPassword(
@@ -103,14 +101,6 @@ export function AuthForm({ type }: AuthFormProps) {
           data.email,
           data.password
         );
-         const user = userCredential.user;
-        // Fetch the user's memory page
-        const memoriesQuery = query(collection(db, 'memories'), where('ownerUid', '==', user.uid), limit(1));
-        const memoriesSnapshot = await getDocs(memoriesQuery);
-        if (memoriesSnapshot.empty) {
-            throw new Error('このユーザーのページが見つかりませんでした。');
-        }
-        memoryId = memoriesSnapshot.docs[0].id;
       }
       
       const user = userCredential.user;
@@ -127,8 +117,9 @@ export function AuthForm({ type }: AuthFormProps) {
           throw new Error(errorData.details || `セッションの作成に失敗しました。ステータス: ${res.status}`);
       }
 
-      // Redirect to the user's memory page directly. This is the one true path.
-      window.location.assign(`/memories/${memoryId}`);
+      // CRITICAL: Redirect to a safe, authenticated page first.
+      // Let the layout handle directing to the specific memory page.
+      window.location.assign('/account');
 
 
     } catch (error: any) {
