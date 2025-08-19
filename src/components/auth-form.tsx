@@ -10,7 +10,7 @@ import {
   signInWithEmailAndPassword,
 } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase/client';
-import { doc, setDoc, serverTimestamp, collection, addDoc } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp, collection, addDoc, getDocs, query, where, limit } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -110,9 +110,8 @@ export function AuthForm({ type }: AuthFormProps) {
           throw new Error(errorData.details || `セッションの作成に失敗しました。ステータス: ${res.status}`);
       }
       
-      // Redirect to a stable, protected page first.
-      // The layout will then handle fetching the correct memoryId.
-      window.location.assign('/account');
+      // Per LOGIN_FIX_MEMO.md, redirect to a generic protected route and let middleware handle it.
+      window.location.assign('/pages');
 
     } catch (error: any) {
         let description = '予期せぬエラーが発生しました。';

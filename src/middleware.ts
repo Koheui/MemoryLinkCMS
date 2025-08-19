@@ -1,47 +1,71 @@
 // src/middleware.ts
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { getAdminApp } from '@/lib/firebase/firebaseAdmin';
+import { getAuth } from 'firebase-admin/auth';
+import { getFirestore, collection, query, where, getDocs, limit } from 'firebase-admin/firestore';
 
-export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+export const config = {
+  // Use nodejs runtime to enable firebase-admin
+  runtime: 'nodejs',
+  matcher: [
+    /*
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - / (the root page, which is public)
+     * - /login, /signup (auth pages)
+     * - /p/ (public memory pages)
+     */
+    '/((?!_next/static|_next/image|favicon.ico|login|signup|p/|$).*)',
+  ],
+};
+
+export async function middleware(request: NextRequest) {
   const sessionCookie = request.cookies.get('__session')?.value;
 
-  // Define paths that are always public
-  const publicPaths = ['/login', '/signup', '/'];
-  if (publicPaths.includes(pathname) || pathname.startsWith('/p/')) {
-    // If a logged-in user tries to access login/signup, redirect them to a protected page
-    if (sessionCookie && (pathname === '/login' || pathname === '/signup')) {
-      return NextResponse.redirect(new URL('/account', request.url));
-    }
-    // Otherwise, allow access to public paths
-    return NextResponse.next();
-  }
-
-  // Let static assets and internal Next.js routes pass through without checks.
-  // This is a common pattern to avoid running middleware on static files.
-  if (pathname.startsWith('/_next') || pathname.startsWith('/api') || pathname.endsWith('.ico')) {
-    return NextResponse.next();
-  }
-
-  // At this point, all remaining paths are considered protected.
-  // If there is no session cookie, redirect to the login page.
   if (!sessionCookie) {
     const loginUrl = new URL('/login', request.url);
-    // Store the intended destination to redirect back after login
-    loginUrl.searchParams.set('next', pathname);
+    loginUrl.searchParams.set('next', request.nextUrl.pathname);
     return NextResponse.redirect(loginUrl);
   }
 
-  // If there is a session cookie, allow access to the protected route.
-  // The validity of the cookie itself is checked on the client-side (useAuth) and server-side (API routes).
-  return NextResponse.next();
-}
+  try {
+    getAdminApp();
+    const decodedClaims = await getAuth().verifySessionCookie(sessionCookie, true);
+    
+    // Handle the special /pages route from auth-form
+    if (request.nextUrl.pathname === '/pages') {
+        const db = getFirestore();
+        const memoriesQuery = query(
+            collection(db, 'memories'), 
+            where('ownerUid', '==', decodedClaims.uid), 
+            limit(1)
+        );
+        const querySnapshot = await getDocs(memoriesQuery);
+        
+        if (!querySnapshot.empty) {
+            const memoryId = querySnapshot.docs[0].id;
+            return NextResponse.redirect(new URL(`/memories/${memoryId}`, request.url));
+        } else {
+            // If no memory page found, redirect to account as a fallback.
+            // A more robust app might redirect to a "create your first memory" page.
+            console.warn(`No memory found for user ${decodedClaims.uid}, redirecting to /account`);
+            return NextResponse.redirect(new URL('/account', request.url));
+        }
+    }
+    
+    return NextResponse.next();
 
-// Matcher to define which routes are affected by this middleware.
-export const config = {
-  matcher: [
-    // This matcher is crucial. It ensures the middleware runs on every request
-    // except for those that are explicitly for static assets.
-    '/((?!_next/static|_next/image|favicon.ico).*)',
-  ],
-};
+  } catch (error) {
+    // Session cookie is invalid, expired, or revoked.
+    console.error('Middleware auth error:', error);
+    const loginUrl = new URL('/login', request.url);
+    loginUrl.searchParams.set('next', request.nextUrl.pathname);
+    // Clear the invalid cookie
+    const response = NextResponse.redirect(loginUrl);
+    response.cookies.set('__session', '', { maxAge: -1, path: '/' });
+    return response;
+  }
+}
