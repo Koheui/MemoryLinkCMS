@@ -26,7 +26,8 @@ export function MediaUploader({ type, accept, children, onUploadSuccess, memoryI
   const [isUploading, setIsUploading] = useState(false);
   const params = useParams();
   
-  const memoryId = memoryIdProp || params.memoryId as string;
+  const memoryIdFromParams = Array.isArray(params.memoryId) ? params.memoryId[0] : params.memoryId;
+  const memoryId = memoryIdProp || memoryIdFromParams;
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (!user) {
@@ -102,6 +103,12 @@ export function MediaUploader({ type, accept, children, onUploadSuccess, memoryI
         toast({ title: '準備中', description: 'この機能は現在準備中です。' });
         return;
     }
+
+    if (!memoryId) {
+      toast({ variant: 'destructive', title: 'アップロード先がありません', description: 'ファイルをアップロードするには、まず想い出ページを選択または作成してください。' });
+      return;
+    }
+
     fileInputRef.current?.click();
   };
   
