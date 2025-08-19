@@ -16,8 +16,8 @@ export interface Memory {
   publicPageId: string | null;
   coverAssetId: string | null;
   profileAssetId: string | null;
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
+  createdAt: Timestamp | string; // Allow string for serialized data
+  updatedAt: Timestamp | string; // Allow string for serialized data
   description?: string;
 }
 

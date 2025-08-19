@@ -1,35 +1,64 @@
+// src/app/(app)/dashboard/page.tsx
+'use server';
+
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { PlusCircle, Edit } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import type { Memory } from '@/lib/types';
+import { getApps, initializeApp, applicationDefault } from 'firebase-admin/app';
+import { getFirestore } from 'firebase-admin/firestore';
+import { getAuth } from 'firebase-admin/auth';
+import { cookies } from 'next/headers';
+import { notFound } from 'next/navigation';
 
-// Mock data, in a real app this would be fetched from Firestore
-const mockMemories: Memory[] = [
-  {
-    id: 'mem_1',
-    title: 'おばあちゃんの米寿祝い',
-    type: 'birth',
-    status: 'published',
-  },
-  {
-    id: 'mem_2',
-    title: '愛猫ミトンの思い出',
-    type: 'pet',
-    status: 'draft',
-  },
-  {
-    id: 'mem_3',
-    title: '父への追悼',
-    type: 'memorial',
-    status: 'published',
-  },
-] as any;
+if (!getApps().length) {
+  initializeApp({
+    credential: applicationDefault(),
+  });
+}
+
+async function fetchMemories(uid: string): Promise<Memory[]> {
+    const db = getFirestore();
+    const memoriesSnapshot = await db.collection('memories').where('ownerUid', '==', uid).orderBy('createdAt', 'desc').get();
+    
+    if (memoriesSnapshot.empty) {
+        return [];
+    }
+
+    const memories: Memory[] = memoriesSnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+            id: doc.id,
+            ...data,
+            // FirestoreのTimestampをJSONでシリアライズ可能な形式に変換
+            createdAt: data.createdAt.toDate().toISOString(), 
+            updatedAt: data.updatedAt.toDate().toISOString(),
+        } as Memory;
+    });
+
+    return memories;
+}
 
 
-export default function DashboardPage() {
-  const memories = mockMemories; // In a real app: await fetchMemories(userId);
+export default async function DashboardPage() {
+  const sessionCookie = cookies().get('__session')?.value || '';
+  if (!sessionCookie) {
+    // This should technically not be reached due to layout protection,
+    // but it's good practice for a server component that needs auth.
+    return notFound();
+  }
+
+  let memories: Memory[] = [];
+  try {
+    const decodedClaims = await getAuth().verifySessionCookie(sessionCookie, true);
+    memories = await fetchMemories(decodedClaims.uid);
+  } catch (error) {
+     console.error("Error fetching memories or verifying session:", error);
+     // Redirect to login or show an error state
+     // For now, we'll just show an empty list.
+  }
 
   return (
     <div className="space-y-6">
