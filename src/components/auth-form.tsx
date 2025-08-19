@@ -11,7 +11,7 @@ import {
   type UserCredential,
 } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase/client';
-import { doc, setDoc, serverTimestamp, collection, addDoc, getDocs, query, where, limit } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp, collection, addDoc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -28,6 +28,7 @@ import Link from 'next/link';
 import { Loader2 } from 'lucide-react';
 import type { UserProfile } from '@/lib/types';
 
+
 const formSchema = z.object({
   email: z.string().email({ message: '有効なメールアドレスを入力してください。' }),
   password: z
@@ -41,17 +42,6 @@ interface AuthFormProps {
   type: 'login' | 'signup';
 }
 
-// Helper function to get the first memory ID for a user
-async function getFirstMemoryId(uid: string): Promise<string | null> {
-    const memoriesCollectionRef = collection(db, 'memories');
-    const q = query(memoriesCollectionRef, where('ownerUid', '==', uid), limit(1));
-    const querySnapshot = await getDocs(q);
-
-    if (!querySnapshot.empty) {
-        return querySnapshot.docs[0].id;
-    }
-    return null;
-}
 
 export function AuthForm({ type }: AuthFormProps) {
   const { toast } = useToast();
@@ -112,18 +102,9 @@ export function AuthForm({ type }: AuthFormProps) {
           data.password
         );
       }
-      
-      const user = userCredential.user;
-      const memoryId = await getFirstMemoryId(user.uid);
-
-      if (!memoryId) {
-          // This case might happen if a user exists but their memory page creation failed.
-          // For now, we'll throw an error. A more robust solution could try to re-create the page.
-          throw new Error('ユーザーに対応するページが見つかりませんでした。サポートにお問い合わせください。');
-      }
 
       // 2. Get the ID token
-      const idToken = await user.getIdToken(true);
+      const idToken = await userCredential.user.getIdToken(true);
 
       // 3. Send token to server to create session cookie and WAIT for it to complete.
       const res = await fetch('/api/auth/sessionLogin', {
@@ -138,11 +119,13 @@ export function AuthForm({ type }: AuthFormProps) {
         throw new Error(errorData.details || `セッションの作成に失敗しました。ステータス: ${res.status}`);
       }
       
-      // 5. ★★★【THE ONLY CORRECT WAY】★★★
+      // 5. ★★★【THE ONLY CORRECT WAY as documented in LOGIN_FIX_MEMO.md】★★★
       // After all server processing is complete, command a direct client-side
-      // navigation to the protected page. This ensures the new session cookie
-      // is present in the request, preventing middleware race conditions.
-      window.location.assign(`/memories/${memoryId}`);
+      // navigation to a protected page.
+      // This ensures the new session cookie is present in the request,
+      // preventing middleware race conditions.
+      // The middleware will then correctly redirect from '/dashboard' to the actual memory page.
+      window.location.assign('/dashboard');
 
     } catch (error: any) {
         let description = '予期せぬエラーが発生しました。';
