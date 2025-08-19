@@ -32,7 +32,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ status: 'success' });
   } catch (error: any) {
     console.error('Session login error:', error);
-    // Provide more detailed error response for debugging
     return NextResponse.json(
         { 
             error: 'Failed to create session.', 

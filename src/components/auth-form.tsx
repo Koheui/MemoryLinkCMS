@@ -7,7 +7,6 @@ import * as z from 'zod';
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
-  User,
 } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase/client';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
@@ -83,11 +82,11 @@ export function AuthForm({ type }: AuthFormProps) {
       if (!res.ok) {
         const errorData = await res.json();
         console.error('Session creation failed:', errorData);
-        throw new Error(errorData.details || 'Failed to create session');
+        throw new Error(errorData.details || `Failed to create session. Status: ${res.status}`);
       }
 
       // Refresh the page. The middleware will handle the redirect.
-      router.refresh();
+      window.location.assign('/dashboard');
 
     } catch (error: any) {
         console.error("Auth error:", error);

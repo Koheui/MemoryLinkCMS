@@ -8,7 +8,7 @@ export async function getUidFromRequest(req: NextRequest): Promise<string> {
   const auth = req.headers.get('authorization');
   let idToken: string | undefined;
   if (auth?.startsWith('Bearer ')) idToken = auth.slice(7).trim();
-
+  
   if (!idToken) throw new Error('UNAUTHENTICATED: missing idToken');
 
   const app = getAdminApp();
