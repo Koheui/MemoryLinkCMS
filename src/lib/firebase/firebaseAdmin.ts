@@ -21,7 +21,6 @@ export function getAdminApp() {
       ? admin.app()
       : admin.initializeApp({
           credential: admin.credential.cert(cred),
-          projectId: cred.project_id,
         });
 
     return app;

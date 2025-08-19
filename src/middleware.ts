@@ -28,17 +28,18 @@ export async function middleware(request: NextRequest) {
   
   const isAuthenticated = !!decodedClaims;
 
-  const isPublicPath = ['/login', '/signup', '/'].includes(pathname);
+  const isAuthPage = ['/login', '/signup'].includes(pathname);
   
   // If user is authenticated
   if (isAuthenticated) {
-    // If they are on a public page (login, signup, root), redirect them to the dashboard.
-    if (isPublicPath) {
-      return NextResponse.redirect(new URL('/dashboard', request.url));
+    // If they are on a auth page (login, signup), redirect them to the account page.
+    if (isAuthPage || pathname === '/') {
+      return NextResponse.redirect(new URL('/account', request.url));
     }
   } 
   // If user is not authenticated
   else {
+    const isPublicPath = isAuthPage || pathname === '/';
     // And they are trying to access a protected route, redirect to login.
     if (!isPublicPath) {
        return NextResponse.redirect(new URL('/login', request.url));

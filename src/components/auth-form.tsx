@@ -119,11 +119,20 @@ export function AuthForm({ type }: AuthFormProps) {
         throw new Error(errorData.details || `セッションの作成に失敗しました。ステータス: ${res.status}`);
       }
       
-      // 5. ★★★【最重要 as documented in LOGIN_FIX_MEMO.md】★★★
+      // 5. Fetch the user's memory ID to redirect to the correct page.
+      const memoriesCollectionRef = collection(db, 'memories');
+      const q = query(memoriesCollectionRef, where('ownerUid', '==', userCredential.user.uid), limit(1));
+      const querySnapshot = await getDocs(q);
+
+      if (querySnapshot.empty) {
+          throw new Error("ユーザーの編集ページが見つかりませんでした。");
+      }
+      const memoryId = querySnapshot.docs[0].id;
+
+      // 6. ★★★【最重要】★★★
       //    全ての処理が完了した後、クライアントサイドから保護されたページへ
-      //    直接画面遷移を命令する。これにより、新しいセッションCookieを持った状態で
-      //    リクエストが送信され、Middlewareが正しく認証状態を判断できる。
-      window.location.assign('/dashboard');
+      //    直接画面遷移を命令する。これによりリダイレクトの衝突を回避する。
+      window.location.assign(`/memories/${memoryId}`);
 
     } catch (error: any) {
         let description = '予期せぬエラーが発生しました。';
