@@ -4,7 +4,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { onIdTokenChanged, User } from 'firebase/auth';
 import { auth } from '@/lib/firebase/client';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 
 interface AuthContextType {
   user: User | null;
@@ -17,21 +17,34 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
-    const unsubscribe = onIdTokenChanged(auth, (user) => {
-      setUser(user);
+    const unsubscribe = onIdTokenChanged(auth, (currentUser) => {
+      setUser(currentUser);
       setLoading(false);
-      if (!user) {
-        // Optional: If you want to forcefully redirect from any page if user logs out.
-        // Be careful with this on public pages. For an app behind a login wall, this is safer.
-        // Consider the page path before redirecting.
-        // router.push('/login');
-      }
     });
 
+    // Cleanup subscription on unmount
     return () => unsubscribe();
-  }, [router]);
+  }, []);
+
+  useEffect(() => {
+    if (loading) {
+      return; // Do nothing while loading
+    }
+
+    const isAuthPage = pathname === '/login' || pathname === '/signup';
+    const isProtectedPage = !isAuthPage;
+
+    if (!user && isProtectedPage) {
+      // If user is not logged in and tries to access a protected page, redirect to login
+      router.push('/login');
+    } else if (user && isAuthPage) {
+      // If user is logged in and tries to access an auth page, redirect to dashboard
+      router.push('/dashboard');
+    }
+  }, [user, loading, pathname, router]);
 
   return (
     <AuthContext.Provider value={{ user, loading }}>

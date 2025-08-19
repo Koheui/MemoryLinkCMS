@@ -26,20 +26,13 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
 
- useEffect(() => {
-    // Redirect to login if loading is done and there's no user.
-    if (!loading && !user) {
-      router.push('/login');
-    }
-    
-    // Check for admin role if user exists.
+  useEffect(() => {
     if (user) {
       user.getIdTokenResult().then((idTokenResult) => {
         setIsAdmin(idTokenResult.claims.role === 'admin');
       });
     }
-  }, [user, loading, router]);
-
+  }, [user]);
 
   const handleLogout = async () => {
     try {
@@ -62,7 +55,8 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
   }
   
   if (!user) {
-    // Render nothing while the redirect is in flight
+    // The AuthProvider's useEffect will handle the redirect.
+    // Render nothing here to prevent flicker.
     return null;
   }
 
