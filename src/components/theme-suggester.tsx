@@ -1,11 +1,15 @@
+
 "use client";
 
 import { useState } from 'react';
 import { suggestTheme, SuggestThemeOutput } from '@/ai/flows/suggest-theme';
-import type { Memory } from '@/lib/types';
+import type { Memory, Design } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Wand2, Loader2 } from 'lucide-react';
+import { Wand2, Loader2, Check } from 'lucide-react';
+import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '@/lib/firebase/client';
+
 
 interface ThemeSuggesterProps {
   memory: Memory;
@@ -20,52 +24,81 @@ export function ThemeSuggester({ memory }: ThemeSuggesterProps) {
     setLoading(true);
     setSuggestion(null);
     try {
+      // In a real app, you might want to fetch actual photo data URIs
+      // For this prototype, we'll rely on title and description
       const result = await suggestTheme({
         memoryTitle: memory.title,
         description: memory.description,
-        // photoDataUris: [] // In a real app, you would provide photo data URIs here
+        // photoDataUris: [] 
       });
       setSuggestion(result);
       toast({
-        title: 'Theme Suggested!',
-        description: `AI suggested the theme "${result.theme.themeName}".`,
+        title: 'テーマを提案しました！',
+        description: `AIが「${result.theme.themeName}」を提案しました。`,
       });
     } catch (error) {
       console.error('Failed to suggest theme:', error);
       toast({
         variant: 'destructive',
-        title: 'Error',
-        description: 'Could not generate a theme. Please try again.',
+        title: 'エラー',
+        description: 'テーマの生成に失敗しました。もう一度お試しください。',
       });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleApplyTheme = () => {
+  const handleApplyTheme = async () => {
     if (!suggestion) return;
-    // In a real app, you would dispatch an action to update the memory's theme in Firestore
-    // For example: updateMemoryTheme(memory.id, suggestion.theme);
-    toast({
-      title: 'Theme Applied!',
-      description: `The "${suggestion.theme.themeName}" theme has been applied to your memory page.`,
-    });
+    setLoading(true);
+
+    try {
+        const memoryRef = doc(db, 'memories', memory.id);
+        const newDesign: Partial<Design> = {
+            theme: suggestion.theme.themeName.toLowerCase() as Design['theme'] || 'light',
+            // Note: The AI doesn't suggest all theme properties from the spec,
+            // so we are only applying the ones it does provide.
+            // In a real app, the AI prompt would be tuned to return all necessary values.
+        };
+
+        await updateDoc(memoryRef, {
+            design: {
+                ...memory.design, // Preserve existing settings like fontScale
+                ...newDesign,
+            },
+            updatedAt: serverTimestamp(),
+        });
+
+        toast({
+            title: 'テーマを適用しました！',
+            description: `「${suggestion.theme.themeName}」のテーマがあなたの想い出ページに適用されました。`,
+        });
+    } catch (error) {
+         console.error('Failed to apply theme:', error);
+        toast({
+            variant: 'destructive',
+            title: 'エラー',
+            description: 'テーマの適用に失敗しました。',
+        });
+    } finally {
+        setLoading(false);
+    }
   };
 
   return (
     <div className="space-y-4">
       <Button onClick={handleSuggestTheme} disabled={loading} size="lg">
-        {loading ? (
+        {loading && !suggestion ? (
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
         ) : (
           <Wand2 className="mr-2 h-4 w-4" />
         )}
-        {loading ? 'Generating...' : 'Suggest a Theme with AI'}
+        {loading && !suggestion ? '生成中...' : 'AIでテーマを提案'}
       </Button>
 
       {suggestion && (
         <div className="p-4 border rounded-lg bg-background animate-in fade-in-50">
-          <h3 className="font-bold text-lg mb-2 font-headline">AI Suggestion: <span className="text-primary">{suggestion.theme.themeName}</span></h3>
+          <h3 className="font-bold text-lg mb-2 font-headline">AIの提案: <span className="text-primary">{suggestion.theme.themeName}</span></h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
                 <p className="font-semibold">Colors</p>
@@ -84,7 +117,10 @@ export function ThemeSuggester({ memory }: ThemeSuggesterProps) {
             </div>
           </div>
           <div className="mt-4">
-            <Button onClick={handleApplyTheme}>Apply Theme</Button>
+            <Button onClick={handleApplyTheme} disabled={loading}>
+                 {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
+                テーマを適用
+            </Button>
           </div>
         </div>
       )}

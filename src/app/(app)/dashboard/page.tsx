@@ -1,8 +1,10 @@
+
 // src/app/(app)/dashboard/page.tsx
 'use server';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { PlusCircle, Edit } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -10,8 +12,9 @@ import type { Memory } from '@/lib/types';
 import { getApps, initializeApp, applicationDefault } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
+import { getStorage } from 'firebase-admin/storage';
 import { cookies } from 'next/headers';
-import { notFound, redirect } from 'next/navigation';
+import { redirect } from 'next/navigation';
 
 if (!getApps().length) {
   initializeApp({
@@ -19,26 +22,55 @@ if (!getApps().length) {
   });
 }
 
+const db = getFirestore();
+const storage = getStorage();
+
+async function getAssetUrl(path: string | undefined | null): Promise<string | null> {
+    if (!path) return null;
+    try {
+        const fileRef = storage.bucket(process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET).file(path);
+        const [url] = await fileRef.getSignedUrl({
+            action: 'read',
+            expires: Date.now() + 15 * 60 * 1000, // 15 minutes
+        });
+        return url;
+    } catch (error) {
+        console.error(`Failed to get signed URL for ${path}`, error);
+        return null;
+    }
+}
+
+
 async function fetchMemories(uid: string): Promise<Memory[]> {
-    const db = getFirestore();
     const memoriesSnapshot = await db.collection('memories').where('ownerUid', '==', uid).orderBy('createdAt', 'desc').get();
     
     if (memoriesSnapshot.empty) {
         return [];
     }
 
-    const memories: Memory[] = memoriesSnapshot.docs.map(doc => {
+    const memoriesPromises = memoriesSnapshot.docs.map(async (doc) => {
         const data = doc.data();
+        let coverImageUrl: string | null = `https://placehold.co/400x225.png`;
+        
+        if (data.coverAssetId) {
+             const assetDoc = await db.collection('memories').doc(doc.id).collection('assets').doc(data.coverAssetId).get();
+             if (assetDoc.exists) {
+                const assetData = assetDoc.data();
+                const url = await getAssetUrl(assetData?.rawPath);
+                if(url) coverImageUrl = url;
+             }
+        }
+
         return {
             id: doc.id,
             ...data,
-            // FirestoreのTimestampをJSONでシリアライズ可能な形式に変換
             createdAt: data.createdAt.toDate().toISOString(), 
             updatedAt: data.updatedAt.toDate().toISOString(),
+            coverImageUrl,
         } as Memory;
     });
 
-    return memories;
+    return Promise.all(memoriesPromises);
 }
 
 
@@ -77,7 +109,7 @@ export default async function DashboardPage() {
             <CardHeader>
                <div className="relative aspect-video w-full mb-4">
                  <Image 
-                    src={`https://placehold.co/400x225.png`}
+                    src={memory.coverImageUrl || `https://placehold.co/400x225.png`}
                     alt={memory.title}
                     data-ai-hint="memorial tribute"
                     fill
@@ -89,9 +121,9 @@ export default async function DashboardPage() {
             </CardHeader>
             <CardContent className="flex-grow">
                <div className="flex items-center gap-2">
-                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-secondary text-secondary-foreground`}>
+                 <Badge variant={memory.status === 'active' ? 'default' : 'secondary'}>
                     {memory.status === 'active' ? '公開中' : '下書き'}
-                 </span>
+                 </Badge>
                </div>
             </CardContent>
             <CardFooter>
@@ -121,5 +153,3 @@ export default async function DashboardPage() {
     </div>
   );
 }
-
-    

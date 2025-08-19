@@ -1,22 +1,128 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
-export default function AdminDashboardPage() {
+// src/app/(app)/_admin/page.tsx
+'use server';
+
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import type { Order } from '@/lib/types';
+import { getApps, initializeApp, applicationDefault } from 'firebase-admin/app';
+import { getFirestore } from 'firebase-admin/firestore';
+import { format } from 'date-fns';
+
+if (!getApps().length) {
+  initializeApp({
+    credential: applicationDefault(),
+  });
+}
+
+const db = getFirestore();
+
+async function fetchOrders(): Promise<Order[]> {
+    const ordersSnapshot = await db.collection('orders').orderBy('createdAt', 'desc').get();
+    
+    if (ordersSnapshot.empty) {
+        return [];
+    }
+
+    const ordersPromises = ordersSnapshot.docs.map(async (doc) => {
+        const data = doc.data();
+        let userEmail = 'N/A';
+        let memoryTitle = 'N/A';
+
+        // Fetch related user and memory data
+        if (data.userUid) {
+            const userDoc = await db.collection('users').doc(data.userUid).get();
+            if(userDoc.exists) userEmail = userDoc.data()?.email;
+        }
+        if (data.memoryId) {
+            const memoryDoc = await db.collection('memories').doc(data.memoryId).get();
+            if(memoryDoc.exists) memoryTitle = memoryDoc.data()?.title;
+        }
+        
+        return {
+            id: doc.id,
+            ...data,
+            createdAt: format(data.createdAt.toDate(), 'yyyy/MM/dd HH:mm'),
+            updatedAt: format(data.updatedAt.toDate(), 'yyyy/MM/dd HH:mm'),
+            userEmail,
+            memoryTitle,
+        } as Order;
+    });
+
+    return Promise.all(ordersPromises);
+}
+
+const statusVariantMap: Record<Order['status'], 'default' | 'secondary' | 'destructive'> = {
+    draft: 'secondary',
+    assets_uploaded: 'secondary',
+    model_ready: 'default',
+    selected: 'default',
+    paid: 'default',
+    delivered: 'default', // Consider a 'success' variant if you add one
+};
+
+const statusTextMap: Record<Order['status'], string> = {
+    draft: '下書き',
+    assets_uploaded: '素材アップロード済',
+    model_ready: 'モデル準備完了',
+    selected: 'モデル選択済',
+    paid: '支払い済',
+    delivered: '発送済',
+};
+
+
+export default async function AdminDashboardPage() {
+  const orders = await fetchOrders();
+
   return (
     <div className="space-y-6">
        <div>
             <h1 className="text-2xl font-bold tracking-tight font-headline">管理者ダッシュボード</h1>
-            <p className="text-muted-foreground">ようこそ、管理者</p>
+            <p className="text-muted-foreground">ようこそ、管理者。注文と進捗を管理します。</p>
         </div>
         
         <Card>
             <CardHeader>
-                <CardTitle className="font-headline">システム統計</CardTitle>
+                <CardTitle className="font-headline">注文一覧</CardTitle>
                 <CardDescription>
-                    現在のシステムの概要です。
+                    すべての顧客の注文と現在のステータスです。
                 </CardDescription>
             </CardHeader>
             <CardContent>
-                <p>ここに統計情報を表示します。</p>
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>注文日時</TableHead>
+                            <TableHead>ユーザー</TableHead>
+                            <TableHead>想い出タイトル</TableHead>
+                            <TableHead>ステータス</TableHead>
+                            <TableHead>最終更新</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {orders.map((order) => (
+                            <TableRow key={order.id}>
+                                <TableCell>{order.createdAt.toString()}</TableCell>
+                                <TableCell>{order.userEmail}</TableCell>
+                                <TableCell>{order.memoryTitle}</TableCell>
+                                <TableCell>
+                                    <Badge variant={statusVariantMap[order.status] || 'secondary'}>
+                                        {statusTextMap[order.status] || order.status}
+                                    </Badge>
+                                </TableCell>
+                                <TableCell>{order.updatedAt.toString()}</TableCell>
+                            </TableRow>
+                        ))}
+                         {orders.length === 0 && (
+                            <TableRow>
+                                <TableCell colSpan={5} className="text-center h-24">
+                                    まだ注文がありません。
+                                </TableCell>
+                            </TableRow>
+                        )}
+                    </TableBody>
+                </Table>
             </CardContent>
         </Card>
     </div>
