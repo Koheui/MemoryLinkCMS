@@ -49,11 +49,14 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
                 );
                 const querySnapshot = await getDocs(memoriesQuery);
                 if (!querySnapshot.empty) {
-                    setMemoryId(querySnapshot.docs[0].id);
+                    const fetchedMemoryId = querySnapshot.docs[0].id;
+                    setMemoryId(fetchedMemoryId);
+                    // If user lands on a generic authenticated page, redirect them to their memory page
+                    if (pathname === '/account' || pathname === '/dashboard') {
+                        router.replace(`/memories/${fetchedMemoryId}`);
+                    }
                 } else {
                     console.warn("No memory found for user:", user.uid);
-                    // This can happen if a user is created but memory creation fails.
-                    // A more robust app might handle this by creating a memory here or redirecting to a creation page.
                 }
             } catch (error) {
                 console.error("Error fetching memoryId:", error);
@@ -67,10 +70,10 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
     if (!loading) {
       fetchMemoryId();
     }
-  }, [user, loading]);
+  }, [user, loading, pathname, router]);
 
 
-  if (loading || (!user && pathname !== '/login')) {
+  if (loading || (!user && !pathname.startsWith('/login') && !pathname.startsWith('/signup') )) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="flex items-center gap-2">
@@ -83,7 +86,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
 
   // This will be null if user is not logged in, preventing render of protected layout
   if (!user) {
-    return null;
+    return <>{children}</>;
   }
   
   const editPageHref = memoryId ? `/memories/${memoryId}` : '#';
