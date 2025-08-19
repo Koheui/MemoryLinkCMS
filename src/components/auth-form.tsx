@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -27,6 +26,7 @@ import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { Loader2 } from 'lucide-react';
 import type { UserProfile } from '@/lib/types';
+import { useAuth } from '@/hooks/use-auth';
 
 const formSchema = z.object({
   email: z.string().email({ message: '有効なメールアドレスを入力してください。' }),
@@ -53,9 +53,9 @@ const createUserProfile = async (user: User) => {
 };
 
 export function AuthForm({ type }: AuthFormProps) {
-  const router = useRouter();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const { handleAuthSuccess } = useAuth();
 
   const form = useForm<AuthFormValues>({
     resolver: zodResolver(formSchema),
@@ -71,7 +71,7 @@ export function AuthForm({ type }: AuthFormProps) {
       createUserWithEmailAndPassword(auth, data.email, data.password)
         .then(async (userCredential) => {
           await createUserProfile(userCredential.user);
-          router.push('/memories/new');
+          await handleAuthSuccess(userCredential.user);
         })
         .catch((error) => {
           console.error("Auth error:", error);
@@ -90,8 +90,8 @@ export function AuthForm({ type }: AuthFormProps) {
         });
     } else { // login
       signInWithEmailAndPassword(auth, data.email, data.password)
-        .then(() => {
-          router.push('/dashboard');
+        .then(async (userCredential) => {
+           await handleAuthSuccess(userCredential.user);
         })
         .catch((error) => {
           console.error("Auth error:", error);

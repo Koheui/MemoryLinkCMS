@@ -16,43 +16,12 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Heart, LayoutDashboard, LogOut, Settings, ShieldCheck, Loader2 } from 'lucide-react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
-import { useState, useEffect } from 'react';
-import { auth } from '@/lib/firebase/client';
+import { usePathname } from 'next/navigation';
 
 function AppLayoutContent({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
-  const [isAdmin, setIsAdmin] = useState(false);
+  const { user, loading, isAdmin, handleLogout } = useAuth();
   const pathname = usePathname();
-  const router = useRouter();
 
-  useEffect(() => {
-    if (loading) return; // Do nothing while loading
-    if (!user) {
-      router.push('/login');
-    }
-  }, [user, loading, router]);
-
-
-  useEffect(() => {
-    if (user) {
-      user.getIdTokenResult().then((idTokenResult) => {
-        setIsAdmin(idTokenResult.claims.role === 'admin');
-      });
-    } else {
-      setIsAdmin(false);
-    }
-  }, [user]);
-
-  const handleLogout = async () => {
-    try {
-      await auth.signOut();
-      router.push('/login');
-    } catch (error) {
-        console.error('Logout failed', error);
-    }
-  };
-  
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -65,7 +34,8 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
   }
 
   if (!user) {
-    // While redirecting, render nothing to avoid flicker
+    // The middleware should handle the redirect.
+    // We return null to avoid rendering anything while redirecting.
     return null;
   }
 
