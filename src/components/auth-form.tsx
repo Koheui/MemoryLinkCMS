@@ -26,6 +26,7 @@ import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { Loader2 } from 'lucide-react';
 import type { UserProfile } from '@/lib/types';
+import { useRouter } from 'next/navigation';
 
 const formSchema = z.object({
   email: z.string().email({ message: '有効なメールアドレスを入力してください。' }),
@@ -43,6 +44,7 @@ interface AuthFormProps {
 export function AuthForm({ type }: AuthFormProps) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
   const form = useForm<AuthFormValues>({
     resolver: zodResolver(formSchema),
@@ -84,7 +86,8 @@ export function AuthForm({ type }: AuthFormProps) {
         throw new Error(errorData.details || 'Failed to create session');
       }
 
-      window.location.assign(type === 'signup' ? '/memories/new' : '/dashboard');
+      // Refresh the page. The middleware will handle the redirect.
+      router.refresh();
 
     } catch (error: any) {
         console.error("Auth error:", error);
@@ -94,7 +97,7 @@ export function AuthForm({ type }: AuthFormProps) {
         } else if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
              description = 'メールアドレスまたはパスワードが正しくありません。';
         } else if (error.message.includes('session')) {
-            description = 'サーバーとのセッション確立に失敗しました。管理者にお問い合わせください。';
+            description = `サーバーとのセッション確立に失敗しました。詳細: ${error.message}`;
         }
         toast({
             variant: 'destructive',
