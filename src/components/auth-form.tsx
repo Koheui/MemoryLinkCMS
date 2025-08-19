@@ -95,8 +95,8 @@ export function AuthForm({ type }: AuthFormProps) {
         throw new Error(errorData.details || `セッションの作成に失敗しました。ステータス: ${res.status}`);
       }
       
-      // THIS IS THE FIX: Explicitly redirect to the main app page.
-      // This was the logic that was working before.
+      // This is the correct, simple, and previously working logic.
+      // Navigate directly to the destination page after the session is set.
       window.location.assign('/pages');
 
     } catch (error: any) {
