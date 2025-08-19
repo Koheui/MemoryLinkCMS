@@ -1,9 +1,9 @@
-
 // src/app/(app)/memories/[memoryId]/page.tsx
 'use server';
 
 import { ThemeSuggester } from '@/components/theme-suggester';
 import { DesignEditor } from '@/components/design-editor';
+import { AboutEditor } from '@/components/about-editor';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import type { Memory, Asset } from '@/lib/types';
 import { getApps, initializeApp, applicationDefault } from 'firebase-admin/app';
@@ -98,6 +98,18 @@ export default async function MemoryEditorPage({ params }: { params: { memoryId:
             </CardHeader>
             <CardContent>
                 <DesignEditor memory={memory} assets={assets} />
+            </CardContent>
+        </Card>
+
+        <Card>
+            <CardHeader>
+                <CardTitle className="font-headline">概要</CardTitle>
+                <CardDescription>
+                    想い出ページの冒頭に表示される紹介文です。Markdown形式で記述できます。
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <AboutEditor memory={memory} />
             </CardContent>
         </Card>
 
