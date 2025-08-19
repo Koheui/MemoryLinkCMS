@@ -4,7 +4,6 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth } from '@/lib/firebase/client';
-import { usePathname, useRouter } from 'next/navigation';
 
 interface AuthContextType {
   user: User | null;
@@ -23,6 +22,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setLoading(false);
     });
 
+    // Cleanup subscription on unmount
     return () => unsubscribe();
   }, []);
 
@@ -35,22 +35,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  const router = useRouter();
-  const pathname = usePathname();
-
-  useEffect(() => {
-    if (context.loading) {
-      return; // Do nothing while loading
-    }
-
-    const isAuthPage = pathname === '/login' || pathname === '/signup';
-    const isProtectedPage = !isAuthPage;
-
-    if (!context.user && isProtectedPage) {
-      router.push('/login');
-    }
-  }, [context.user, context.loading, pathname, router]);
-
-
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
   return context;
 };

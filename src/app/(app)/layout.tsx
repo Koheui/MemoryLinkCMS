@@ -27,6 +27,14 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
+    if (loading) return; // Do nothing while loading
+    if (!user) {
+      router.push('/login');
+    }
+  }, [user, loading, router]);
+
+
+  useEffect(() => {
     if (user) {
       user.getIdTokenResult().then((idTokenResult) => {
         setIsAdmin(idTokenResult.claims.role === 'admin');
@@ -57,16 +65,8 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
   }
 
   if (!user) {
-    // The redirect logic is now handled by the middleware and useAuth hook.
-    // We can return a loader as a fallback or null.
-     return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="flex items-center gap-2">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <span className="text-lg text-muted-foreground">認証情報を確認中...</span>
-        </div>
-      </div>
-    );
+    // While redirecting, render nothing to avoid flicker
+    return null;
   }
 
   return (
