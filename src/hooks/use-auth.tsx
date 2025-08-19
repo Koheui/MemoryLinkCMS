@@ -16,10 +16,9 @@ const AuthContext = createContext<AuthContextType>({ user: null, loading: true }
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const router = useRouter();
-  const pathname = usePathname();
 
   useEffect(() => {
+    // onAuthStateChanged is the recommended way to get the current user.
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setUser(user);
       setLoading(false);
@@ -28,24 +27,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // Cleanup subscription on unmount
     return () => unsubscribe();
   }, []);
-
-  useEffect(() => {
-    if (loading) {
-      return; // Do nothing while loading
-    }
-
-    const isAuthPage = pathname === '/login' || pathname === '/signup';
-    const isProtectedRoute = !isAuthPage && pathname !== '/' && !pathname.startsWith('/p/');
-
-    if (!user && isProtectedRoute) {
-      router.push('/login');
-    }
-
-    if (user && isAuthPage) {
-      router.push('/dashboard');
-    }
-    
-  }, [user, loading, pathname, router]);
 
   return (
     <AuthContext.Provider value={{ user, loading }}>

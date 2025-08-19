@@ -36,15 +36,24 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
     }
   }, [user]);
 
+  useEffect(() => {
+    // This is now the single source of truth for redirection.
+    // We wait until loading is complete before making any decisions.
+    if (!loading && !user) {
+      router.push('/login');
+    }
+  }, [loading, user, router]);
+
   const handleLogout = async () => {
     try {
       await auth.signOut();
-      // useAuth hook will handle the redirect
+      // The useEffect above will handle the redirect to /login
     } catch (error) {
         console.error('Logout failed', error);
     }
   };
-
+  
+  // 1. While loading, show a spinner to prevent flicker or premature redirects.
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -55,13 +64,14 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
       </div>
     );
   }
-  
+
+  // 2. After loading, if there's no user, the useEffect will have already
+  // started the redirection. Render nothing to avoid showing the layout.
   if (!user) {
-    // The AuthProvider's useEffect will handle the redirect.
-    // Render nothing here to prevent flicker.
     return null;
   }
 
+  // 3. If loading is done and we have a user, render the full layout.
   return (
     <SidebarProvider>
       <Sidebar>
