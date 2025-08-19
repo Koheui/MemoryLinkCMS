@@ -1,3 +1,4 @@
+
 // src/middleware.ts
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
@@ -28,7 +29,6 @@ export async function middleware(request: NextRequest) {
   const isAuthenticated = !!decodedClaims;
 
   const isPublicPath = ['/login', '/signup', '/'].includes(pathname);
-  const isProtectedRoute = !isPublicPath;
   
   // If user is authenticated
   if (isAuthenticated) {
@@ -40,7 +40,7 @@ export async function middleware(request: NextRequest) {
   // If user is not authenticated
   else {
     // And they are trying to access a protected route, redirect to login.
-    if (isProtectedRoute) {
+    if (!isPublicPath) {
        return NextResponse.redirect(new URL('/login', request.url));
     }
   }

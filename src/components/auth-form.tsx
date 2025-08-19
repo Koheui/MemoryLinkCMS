@@ -120,11 +120,10 @@ export function AuthForm({ type }: AuthFormProps) {
       }
       
       // 5. ★★★【最重要 as documented in LOGIN_FIX_MEMO.md】★★★
-      //    全ての処理が完了した後、クライアントサイドから保護されたページ（/pages）へ
+      //    全ての処理が完了した後、クライアントサイドから保護されたページへ
       //    直接画面遷移を命令する。これにより、新しいセッションCookieを持った状態で
       //    リクエストが送信され、Middlewareが正しく認証状態を判断できる。
-      //    `/pages` is an alias that will be correctly handled by middleware/routing.
-      window.location.assign('/pages');
+      window.location.assign('/dashboard');
 
     } catch (error: any) {
         let description = '予期せぬエラーが発生しました。';
