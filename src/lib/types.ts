@@ -17,7 +17,6 @@ export interface Memory {
   id: string;
   ownerUid: string;
   title: string;
-  type: 'pet' | 'birth' | 'memorial' | 'other';
   status: 'draft' | 'active' | 'archived';
   publicPageId: string | null;
   coverAssetId: string | null;

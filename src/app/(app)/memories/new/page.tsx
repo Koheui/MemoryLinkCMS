@@ -15,13 +15,6 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Upload, Loader2 } from 'lucide-react';
 import { auth, db, storage } from '@/lib/firebase/client';
@@ -35,9 +28,6 @@ import Image from 'next/image';
 
 const newMemorySchema = z.object({
   title: z.string().min(2, 'タイトルは2文字以上で入力してください。'),
-  type: z.enum(['pet', 'birth', 'memorial', 'other'], {
-    required_error: '種別を選択してください。',
-  }),
   photos: z
     .custom<FileList>()
     .refine((files) => files?.length >= 1, '写真は1枚以上選択してください。')
@@ -89,7 +79,6 @@ export default function NewMemoryPage() {
         const memoryDocRef = await addDoc(collection(db, 'memories'), {
             ownerUid: user.uid,
             title: data.title,
-            type: data.type,
             status: 'draft',
             publicPageId: null,
             coverAssetId: null,
@@ -166,32 +155,6 @@ export default function NewMemoryPage() {
                       </FormControl>
                       <FormDescription>
                         これが想い出ページのメインの見出しになります。
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="type"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>想い出の種別</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="種別を選択してください" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="pet">ペット</SelectItem>
-                          <SelectItem value="birth">誕生</SelectItem>
-                          <SelectItem value="memorial">追悼</SelectItem>
-                          <SelectItem value="other">その他</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormDescription>
-                        想い出を整理するために役立ちます。
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
