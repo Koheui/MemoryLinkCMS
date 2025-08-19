@@ -19,16 +19,17 @@ export async function middleware(request: NextRequest) {
   );
 
   if (isAuthenticated) {
-    // If authenticated, redirect from public-only pages to the dashboard.
-    // The dashboard will then handle the redirect to the specific memory page.
+    // If authenticated, redirect from public-only pages to the user's single memory page.
+    // The dashboard is now just a loading state to get the memoryId.
     if (pathname === '/login' || pathname === '/signup' || pathname === '/') {
+       // We let the dashboard handle the final redirect to /memories/[id]
        return NextResponse.redirect(new URL('/dashboard', request.url));
     }
   } else {
     // If not authenticated, redirect from protected pages to login
     if (isProtectedRoute) {
-        // Clear the invalid cookie if it exists
         const res = NextResponse.redirect(new URL('/login', request.url));
+        // Clear the invalid cookie if it exists to prevent redirect loops
         if (sessionCookie) {
             res.cookies.set('__session', '', { maxAge: -1 });
         }

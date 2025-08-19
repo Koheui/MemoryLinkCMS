@@ -8,7 +8,7 @@ import * as z from 'zod';
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
-  type User,
+  type UserCredential,
 } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase/client';
 import { doc, setDoc, serverTimestamp, collection, addDoc, getDocs, query, where, limit } from 'firebase/firestore';
@@ -69,16 +69,15 @@ export function AuthForm({ type }: AuthFormProps) {
     setLoading(true);
 
     try {
-      let user: User;
-      let memoryId: string | null;
+      let userCredential: UserCredential;
 
       if (type === 'signup') {
-        const userCredential = await createUserWithEmailAndPassword(
+        userCredential = await createUserWithEmailAndPassword(
           auth,
           data.email,
           data.password
         );
-        user = userCredential.user;
+        const user = userCredential.user;
 
         // Create user profile
         const userRef = doc(db, 'users', user.uid);
@@ -90,7 +89,7 @@ export function AuthForm({ type }: AuthFormProps) {
         await setDoc(userRef, userProfile);
         
         // Create the single memory page for the new user
-        const newMemoryDoc = await addDoc(collection(db, 'memories'), {
+        await addDoc(collection(db, 'memories'), {
             ownerUid: user.uid,
             title: '無題のページ',
             status: 'draft',
@@ -105,41 +104,45 @@ export function AuthForm({ type }: AuthFormProps) {
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
         });
-        memoryId = newMemoryDoc.id;
 
       } else {
-        const userCredential = await signInWithEmailAndPassword(
+        userCredential = await signInWithEmailAndPassword(
           auth,
           data.email,
           data.password
         );
-        user = userCredential.user;
-        memoryId = await getFirstMemoryId(user.uid);
       }
+      
+      const user = userCredential.user;
+      const memoryId = await getFirstMemoryId(user.uid);
 
       if (!memoryId) {
-          throw new Error('ユーザーに対応するページが見つかりませんでした。');
+          // This case might happen if a user exists but their memory page creation failed.
+          // For now, we'll throw an error. A more robust solution could try to re-create the page.
+          throw new Error('ユーザーに対応するページが見つかりませんでした。サポートにお問い合わせください。');
       }
 
+      // 2. Get the ID token
       const idToken = await user.getIdToken(true);
 
+      // 3. Send token to server to create session cookie and WAIT for it to complete.
       const res = await fetch('/api/auth/sessionLogin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ idToken }),
       });
 
+      // 4. Check for server-side errors
       if (!res.ok) {
         const errorData = await res.json();
         throw new Error(errorData.details || `セッションの作成に失敗しました。ステータス: ${res.status}`);
       }
       
-      // ★★★【最重要】★★★
-      // 全ての処理が完了した後、クライアントサイドから保護されたページへ
-      // 直接画面遷移を命令する。これにより、新しいセッションCookieを持った状態で
-      // リクエストが送信され、Middlewareが正しく認証状態を判断できる。
+      // 5. ★★★【THE ONLY CORRECT WAY】★★★
+      // After all server processing is complete, command a direct client-side
+      // navigation to the protected page. This ensures the new session cookie
+      // is present in the request, preventing middleware race conditions.
       window.location.assign(`/memories/${memoryId}`);
-
 
     } catch (error: any) {
         let description = '予期せぬエラーが発生しました。';
