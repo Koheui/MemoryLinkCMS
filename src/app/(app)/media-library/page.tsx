@@ -130,7 +130,7 @@ export default function MediaLibraryPage() {
             </TableBody>
         </Table>
     )
-  }
+  };
 
   if (loading) {
     return (
