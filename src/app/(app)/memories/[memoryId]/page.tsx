@@ -10,14 +10,14 @@ import type { Memory, Asset } from '@/lib/types';
 import { getAdminApp } from '@/lib/firebase/firebaseAdmin';
 import { getFirestore } from 'firebase-admin/firestore';
 import { notFound } from 'next/navigation';
+import { collection, getDocs, orderBy } from 'firebase/firestore';
+import { db } from '@/lib/firebase/client'; // Use client db for server components for now
 
-// Note: UID check is now handled by client-side hooks and middleware.
-// This server component focuses only on fetching data based on the provided ID.
 
 async function fetchMemory(memoryId: string): Promise<Memory> {
     getAdminApp(); // Ensure admin app is initialized
-    const db = getFirestore();
-    const memoryDoc = await db.collection('memories').doc(memoryId).get();
+    const adminDb = getFirestore();
+    const memoryDoc = await adminDb.collection('memories').doc(memoryId).get();
 
     if (!memoryDoc.exists) {
         notFound();
@@ -36,8 +36,8 @@ async function fetchMemory(memoryId: string): Promise<Memory> {
 
 async function fetchAssets(memoryId: string): Promise<Asset[]> {
     getAdminApp();
-    const db = getFirestore();
-    const assetsSnapshot = await db.collection('memories').doc(memoryId).collection('assets').orderBy('createdAt', 'desc').get();
+    const adminDb = getFirestore();
+    const assetsSnapshot = await adminDb.collection('memories').doc(memoryId).collection('assets').orderBy('createdAt', 'desc').get();
     
     if (assetsSnapshot.empty) {
         return [];
@@ -65,9 +65,6 @@ export default async function MemoryEditorPage({ params }: { params: { memoryId:
     assets = await fetchAssets(params.memoryId);
   } catch (error) {
      console.error("Error fetching memory data:", error);
-     // This could be a permissions issue or invalid ID.
-     // notFound() will be called inside fetchMemory for most cases.
-     // For other errors, we might want a generic error page.
      notFound();
   }
 
