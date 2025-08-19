@@ -17,9 +17,17 @@ import { Button } from '@/components/ui/button';
 import { Heart, LayoutDashboard, LogOut, Settings, ShieldCheck, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { signOut } from 'firebase/auth';
+import { auth } from '@/lib/firebase/client';
+
+async function handleLogout() {
+  await fetch('/api/auth/sessionLogout', { method: 'POST' });
+  await signOut(auth);
+  window.location.assign('/login');
+}
 
 function AppLayoutContent({ children }: { children: React.ReactNode }) {
-  const { user, loading, isAdmin, handleLogout } = useAuth();
+  const { user, loading, isAdmin } = useAuth();
   const pathname = usePathname();
 
   if (loading) {

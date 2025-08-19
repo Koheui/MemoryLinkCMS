@@ -8,6 +8,7 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   User,
+  getIdToken,
 } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase/client';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
@@ -26,7 +27,6 @@ import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { Loader2 } from 'lucide-react';
 import type { UserProfile } from '@/lib/types';
-import { useAuth } from '@/hooks/use-auth';
 
 const formSchema = z.object({
   email: z.string().email({ message: '有効なメールアドレスを入力してください。' }),
@@ -52,10 +52,23 @@ const createUserProfile = async (user: User) => {
   await setDoc(userRef, userProfile);
 };
 
+// Function to create session cookie
+const createSession = async (user: User) => {
+    const idToken = await getIdToken(user);
+    const res = await fetch('/api/auth/sessionLogin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken }),
+    });
+
+    if (!res.ok) {
+        throw new Error('Failed to create session');
+    }
+};
+
 export function AuthForm({ type }: AuthFormProps) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
-  const { handleAuthSuccess } = useAuth();
 
   const form = useForm<AuthFormValues>({
     resolver: zodResolver(formSchema),
@@ -76,14 +89,17 @@ export function AuthForm({ type }: AuthFormProps) {
             userCredential = await signInWithEmailAndPassword(auth, data.email, data.password);
         }
         
-        await handleAuthSuccess(userCredential.user);
+        await createSession(userCredential.user);
+        
+        // Redirect after session is created
+        window.location.assign(type === 'signup' ? '/memories/new' : '/dashboard');
 
     } catch (error: any) {
         console.error("Auth error:", error);
         let description = 'エラーが発生しました。もう一度お試しください。';
         if (error.code === 'auth/email-already-in-use') {
             description = 'このメールアドレスは既に使用されています。'
-        } else if (error.code === 'auth/invalid-credential') {
+        } else if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
              description = 'メールアドレスまたはパスワードが正しくありません。';
         }
         toast({
