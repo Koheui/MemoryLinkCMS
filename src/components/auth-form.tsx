@@ -8,9 +8,10 @@ import * as z from 'zod';
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
+  UserCredential
 } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase/client';
-import { doc, setDoc, serverTimestamp, collection, addDoc } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp, collection, addDoc, getDocs, query, where, limit } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -52,17 +53,28 @@ export function AuthForm({ type }: AuthFormProps) {
     },
   });
 
+  const getMemoryId = async (uid: string): Promise<string> => {
+      const memoriesQuery = query(
+        collection(db, 'memories'), 
+        where('ownerUid', '==', uid), 
+        limit(1)
+      );
+      const querySnapshot = await getDocs(memoriesQuery);
+      if (!querySnapshot.empty) {
+        return querySnapshot.docs[0].id;
+      }
+      throw new Error(`ユーザー(uid: ${uid})の編集ページが見つかりませんでした。`);
+  }
+
   const onSubmit = async (data: AuthFormValues) => {
     setLoading(true);
 
     try {
-      let userCredential;
+      let userCredential: UserCredential;
+      let memoryId: string;
+
       if (type === 'signup') {
-        userCredential = await createUserWithEmailAndPassword(
-          auth,
-          data.email,
-          data.password
-        );
+        userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
         const user = userCredential.user;
 
         // Create user profile
@@ -75,7 +87,7 @@ export function AuthForm({ type }: AuthFormProps) {
         await setDoc(userRef, userProfile);
         
         // Create the single memory page for the new user
-        await addDoc(collection(db, 'memories'), {
+        const newMemoryDoc = await addDoc(collection(db, 'memories'), {
             ownerUid: user.uid,
             title: '無題のページ',
             status: 'draft',
@@ -90,12 +102,11 @@ export function AuthForm({ type }: AuthFormProps) {
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
         });
+        memoryId = newMemoryDoc.id;
+
       } else { // Login
-        userCredential = await signInWithEmailAndPassword(
-          auth,
-          data.email,
-          data.password
-        );
+        userCredential = await signInWithEmailAndPassword(auth, data.email, data.password);
+        memoryId = await getMemoryId(userCredential.user.uid);
       }
       
       const idToken = await userCredential.user.getIdToken(true);
@@ -110,8 +121,8 @@ export function AuthForm({ type }: AuthFormProps) {
           throw new Error(errorData.details || `セッションの作成に失敗しました。ステータス: ${res.status}`);
       }
       
-      // *** MOST IMPORTANT PART: Redirect to /pages as per LOGIN_FIX_MEMO.md ***
-      window.location.assign('/pages');
+      // Redirect to the user's specific memory page
+      window.location.assign(`/memories/${memoryId}`);
 
     } catch (error: any) {
         let description = '予期せぬエラーが発生しました。';
@@ -133,7 +144,7 @@ export function AuthForm({ type }: AuthFormProps) {
                 default:
                     description = `Firebaseエラー: ${error.message} (コード: ${error.code})`;
             }
-        } else { // Custom errors (like from our sessionLogin API)
+        } else { // Custom errors (like from our sessionLogin API or getMemoryId)
             description = `エラー: ${error.message}`;
         }
         

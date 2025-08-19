@@ -70,7 +70,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
   }, [user, loading]);
 
 
-  if (loading || isFetchingMemoryId) {
+  if (loading || (!user && pathname !== '/login')) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="flex items-center gap-2">
@@ -81,9 +81,8 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
     );
   }
 
+  // This will be null if user is not logged in, preventing render of protected layout
   if (!user) {
-    // This will be briefly visible before the useEffect above redirects.
-    // Or, if redirection is blocked, it's a fallback.
     return null;
   }
   
@@ -102,7 +101,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
         </SidebarHeader>
         <SidebarMenu className="flex-1">
           <SidebarMenuItem>
-            <SidebarMenuButton asChild isActive={pathname.startsWith('/memories')} disabled={!memoryId}>
+            <SidebarMenuButton asChild isActive={pathname.startsWith('/memories')} disabled={!memoryId || isFetchingMemoryId}>
               <Link href={editPageHref}><Edit/> 編集ページ</Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
