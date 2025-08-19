@@ -20,6 +20,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const pathname = usePathname();
 
   useEffect(() => {
+    // onAuthStateChangedは初期読み込み時にnullを返すことがあるが、
+    // onIdTokenChangedはトークンの変更をより確実にリッスンするため、セッションが切れにくい
     const unsubscribe = onIdTokenChanged(auth, (currentUser) => {
       setUser(currentUser);
       setLoading(false);
@@ -35,13 +37,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
 
     const isAuthPage = pathname === '/login' || pathname === '/signup';
-    const isProtectedPage = !isAuthPage;
+    
+    // Check if it's a protected route
+    const isProtectedRoute = !isAuthPage && pathname !== '/' && !pathname.startsWith('/p/');
 
-    if (!user && isProtectedPage) {
-      // If user is not logged in and tries to access a protected page, redirect to login
+    if (!user && isProtectedRoute) {
       router.push('/login');
     } else if (user && isAuthPage) {
-      // If user is logged in and tries to access an auth page, redirect to dashboard
       router.push('/dashboard');
     }
   }, [user, loading, pathname, router]);
