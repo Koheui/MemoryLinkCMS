@@ -29,6 +29,7 @@ export interface Memory {
 
 export interface Asset {
   id: string;
+  name: string;
   type: 'image' | 'video' | 'audio';
   rawPath: string;
   procPath?: string;

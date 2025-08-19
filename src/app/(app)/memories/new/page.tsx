@@ -94,6 +94,7 @@ export default function NewMemoryPage() {
             publicPageId: null,
             coverAssetId: null,
             profileAssetId: null,
+            description: '',
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
         });
@@ -108,6 +109,7 @@ export default function NewMemoryPage() {
             await addDoc(collection(db, 'memories', memoryId, 'assets'), {
                 type: file.type.startsWith('image/') ? 'image' : 
                       file.type.startsWith('video/') ? 'video' : 'audio',
+                name: file.name,
                 rawPath: filePath,
                 createdAt: serverTimestamp(),
             });
@@ -124,7 +126,7 @@ export default function NewMemoryPage() {
         });
 
         toast({ title: '想い出を作成しました', description: '最初のステップが完了しました。' });
-        router.push('/dashboard');
+        router.push(`/memories/${memoryId}`);
 
     } catch (error) {
         console.error("Failed to create memory:", error);
