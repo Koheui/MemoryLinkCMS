@@ -56,10 +56,11 @@ export function AuthForm({ type }: AuthFormProps) {
     try {
       if (type === 'signup') {
         await createUserWithEmailAndPassword(auth, data.email, data.password);
+        router.push('/memories/new'); // Redirect to new memory page on sign up
       } else {
         await signInWithEmailAndPassword(auth, data.email, data.password);
+        router.push('/dashboard'); // Redirect to dashboard on login
       }
-      router.push('/dashboard');
     } catch (error: any) {
       toast({
         variant: 'destructive',
