@@ -89,29 +89,43 @@ export function AuthForm({ type }: AuthFormProps) {
 
       if (!res.ok) {
         const errorData = await res.json();
+        // Throw an error to be caught by the catch block
         throw new Error(errorData.details || `Failed to create session. Status: ${res.status}.`);
       }
       
-      // On success, this will navigate away, so we don't need to set loading to false.
+      // On success, redirect to dashboard. This will trigger a full page reload.
       window.location.assign('/dashboard');
 
     } catch (error: any) {
         console.error("Auth error:", error);
-        let description = 'エラーが発生しました。もう一度お試しください。';
-        if (error.code === 'auth/email-already-in-use') {
-            description = 'このメールアドレスは既に使用されています。'
-        } else if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
-             description = 'メールアドレスまたはパスワードが正しくありません。';
-        } else if (error.message.includes('session')) {
-            description = `サーバーとのセッション確立に失敗しました。詳細: ${error.message}`;
+        
+        let description = '予期せぬエラーが発生しました。';
+        if (error.code) { // Firebase errors have a 'code' property
+            switch (error.code) {
+                case 'auth/email-already-in-use':
+                    description = 'このメールアドレスは既に使用されています。';
+                    break;
+                case 'auth/invalid-credential':
+                case 'auth/user-not-found':
+                case 'auth/wrong-password':
+                     description = 'メールアドレスまたはパスワードが正しくありません。';
+                     break;
+                case 'auth/too-many-requests':
+                    description = '試行回数が上限に達しました。後ほどもう一度お試しください。';
+                    break;
+                default:
+                    description = `Firebaseエラー: ${error.message} (コード: ${error.code})`;
+            }
+        } else { // Custom errors (like from our sessionLogin API)
+            description = `エラー: ${error.message}`;
         }
+        
         toast({
             variant: 'destructive',
             title: type === 'signup' ? 'アカウント作成失敗' : 'ログイン失敗',
-            description: description,
+            description: description, // Display detailed error
         });
-        // Only set loading to false on error, so user can try again.
-        setLoading(false);
+        setLoading(false); // Ensure loading is stopped on error
     }
   };
 
