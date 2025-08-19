@@ -67,43 +67,33 @@ export function AuthForm({ type }: AuthFormProps) {
 
   const onSubmit = async (data: AuthFormValues) => {
     setLoading(true);
-    if (type === 'signup') {
-      createUserWithEmailAndPassword(auth, data.email, data.password)
-        .then(async (userCredential) => {
-          await createUserProfile(userCredential.user);
-          await handleAuthSuccess(userCredential.user);
-        })
-        .catch((error) => {
-          console.error("Auth error:", error);
-          let description = 'エラーが発生しました。もう一度お試しください。';
-          if (error.code === 'auth/email-already-in-use') {
-            description = 'このメールアドレスは既に使用されています。ログインするか、別のメールアドレスで登録してください。'
-          }
-          toast({
+    try {
+        let userCredential;
+        if (type === 'signup') {
+            userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
+            await createUserProfile(userCredential.user);
+        } else {
+            userCredential = await signInWithEmailAndPassword(auth, data.email, data.password);
+        }
+        
+        const idToken = await userCredential.user.getIdToken();
+        await handleAuthSuccess(idToken);
+
+    } catch (error: any) {
+        console.error("Auth error:", error);
+        let description = 'エラーが発生しました。もう一度お試しください。';
+        if (error.code === 'auth/email-already-in-use') {
+            description = 'このメールアドレスは既に使用されています。'
+        } else if (error.code === 'auth/invalid-credential') {
+             description = 'メールアドレスまたはパスワードが正しくありません。';
+        }
+        toast({
             variant: 'destructive',
-            title: 'アカウント作成に失敗しました',
+            title: type === 'signup' ? 'アカウント作成失敗' : 'ログイン失敗',
             description: description,
-          });
-        })
-        .finally(() => {
-          setLoading(false);
         });
-    } else { // login
-      signInWithEmailAndPassword(auth, data.email, data.password)
-        .then(async (userCredential) => {
-           await handleAuthSuccess(userCredential.user);
-        })
-        .catch((error) => {
-          console.error("Auth error:", error);
-          toast({
-            variant: 'destructive',
-            title: 'ログインに失敗しました',
-            description: 'メールアドレスまたはパスワードが正しくありません。',
-          });
-        })
-        .finally(() => {
-          setLoading(false);
-        });
+    } finally {
+        setLoading(false);
     }
   };
 

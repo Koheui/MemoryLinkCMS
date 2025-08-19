@@ -1,3 +1,6 @@
+// This file is no longer needed with the new middleware approach.
+// However, deleting files is not supported, so it will remain.
+// No code changes are necessary here.
 // src/app/api/auth/verify/route.ts
 import { type NextRequest, NextResponse } from 'next/server';
 import { getAdminApp } from '@/lib/firebase/firebaseAdmin';

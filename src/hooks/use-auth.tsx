@@ -2,17 +2,16 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
-import { onAuthStateChanged, User } from 'firebase/auth';
+import { User, onIdTokenChanged, signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase/client';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import Cookies from 'js-cookie';
-import { apiClient } from '@/lib/api-client';
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   isAdmin: boolean;
-  handleAuthSuccess: (user: User) => Promise<void>;
+  handleAuthSuccess: (idToken: string) => Promise<void>;
   handleLogout: () => Promise<void>;
 }
 
@@ -31,18 +30,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const router = useRouter();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    const unsubscribe = onIdTokenChanged(auth, async (user) => {
       if (user) {
         setUser(user);
         const idTokenResult = await user.getIdTokenResult();
-        setIsAdmin(idTokenResult.claims.role === 'admin');
-        apiClient.setToken(await user.getIdToken());
-        Cookies.set('isLoggedIn', 'true', { path: '/' });
+        setIsAdmin(!!idTokenResult.claims.role);
       } else {
         setUser(null);
         setIsAdmin(false);
-        apiClient.setToken(null);
-        Cookies.remove('isLoggedIn', { path: '/' });
       }
       setLoading(false);
     });
@@ -50,24 +45,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => unsubscribe();
   }, []);
 
-  const handleAuthSuccess = useCallback(async (user: User) => {
-    const token = await user.getIdToken();
-    apiClient.setToken(token);
-    Cookies.set('isLoggedIn', 'true', { path: '/' });
-    
-    // Check if it's a new user by creation time
-    const metadata = user.metadata;
-    if (metadata.creationTime === metadata.lastSignInTime) {
-      router.push('/memories/new');
+  const handleAuthSuccess = useCallback(async (idToken: string) => {
+    const response = await fetch('/api/auth/sessionLogin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ idToken }),
+    });
+
+    if (response.ok) {
+        const user = auth.currentUser;
+        if (user && user.metadata.creationTime === user.metadata.lastSignInTime) {
+          router.push('/memories/new');
+        } else {
+          router.push('/dashboard');
+        }
     } else {
-      router.push('/dashboard');
+        console.error('Session login failed');
     }
   }, [router]);
 
   const handleLogout = useCallback(async () => {
-    await auth.signOut();
-    apiClient.setToken(null);
-    Cookies.remove('isLoggedIn', { path: '/' });
+    await fetch('/api/auth/sessionLogout', { method: 'POST' });
+    await signOut(auth);
     router.push('/login');
   }, [router]);
 
