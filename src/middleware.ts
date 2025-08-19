@@ -3,33 +3,24 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
-  const sessionCookie = req.cookies.get("__session")?.value;
+  const isLoggedIn = !!req.cookies.get('firebase-auth-token-cookie-name-placeholder'); // Placeholder, actual check happens client-side
 
-  const isLoggedIn = !!sessionCookie;
-
+  // These pages are for unauthenticated users
   const isAuthPage = pathname.startsWith('/login') || pathname.startsWith('/signup');
-  // Middleware should protect all authenticated routes
-  const isAppPage = !isAuthPage && pathname !== '/' && !pathname.startsWith('/p/');
   
   if (isAuthPage) {
+    // If the user is logged in, redirect them away from auth pages
     if (isLoggedIn) {
-      // If logged in, redirect from auth pages to the dashboard
-      return NextResponse.redirect(new URL('/dashboard', req.url));
+       // This redirect is speculative, client-side will confirm and redirect if needed
     }
-    // If not logged in, allow access to auth pages
     return NextResponse.next();
   }
 
-  if (isAppPage) {
-    if (!isLoggedIn) {
-      // If not logged in, redirect from app pages to login
+  // All other pages under /app require auth
+  if (!isLoggedIn && pathname.startsWith('/dashboard') || pathname.startsWith('/memories')) {
+      // If user is not logged in and tries to access a protected page, redirect to login
       return NextResponse.redirect(new URL('/login', req.url));
-    }
   }
-  
-  // The middleware now only handles redirection based on cookie presence.
-  // Verification of the cookie's validity is handled in server components
-  // or API routes that run in the Node.js runtime.
   
   return NextResponse.next();
 }

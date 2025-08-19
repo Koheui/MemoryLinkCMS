@@ -18,6 +18,7 @@ import { Heart, LayoutDashboard, LogOut, Settings, ShieldCheck } from 'lucide-re
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
+import { auth } from '@/lib/firebase/client';
 
 function AppLayoutContent({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -26,27 +27,27 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
+    if (!loading && !user) {
+      router.push('/login');
+    }
     if (user) {
       user.getIdTokenResult().then((idTokenResult) => {
         setIsAdmin(idTokenResult.claims.role === 'admin');
       });
     }
-  }, [user]);
+  }, [user, loading, router]);
+
 
   const handleLogout = async () => {
     try {
-      const response = await fetch('/api/auth/session', { method: 'DELETE' });
-      if (response.ok) {
-        router.push('/login');
-      } else {
-        throw new Error('Logout failed');
-      }
+      await auth.signOut();
+      router.push('/login');
     } catch (error) {
         console.error('Logout failed', error);
     }
   };
 
-  if (loading) {
+  if (loading || !user) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="flex items-center gap-2">
@@ -75,7 +76,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
       </div>
     );
   }
-
+  
   return (
     <SidebarProvider>
       <Sidebar>

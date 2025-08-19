@@ -17,13 +17,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // onIdTokenChanged is more responsive than onAuthStateChanged for session-based auth
     const unsubscribe = onIdTokenChanged(auth, async (user) => {
-      if (user) {
-        setUser(user);
-      } else {
-        setUser(null);
-      }
+      setUser(user);
       setLoading(false);
     });
 
