@@ -15,16 +15,20 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith(path)
   );
 
-  // If user is not authenticated (no session cookie) and tries to access a protected route, redirect to login
+  // Case 1: User is not authenticated and tries to access a protected route
+  // Redirect them to the login page.
   if (!sessionCookie && isProtectedRoute) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  // If user is authenticated (has session cookie) and tries to access login or signup page, redirect to dashboard
+  // Case 2: User is authenticated and tries to access an auth route (login/signup)
+  // Redirect them to the dashboard.
   if (sessionCookie && isAuthRoute) {
     return NextResponse.redirect(new URL('/dashboard', request.url))
   }
 
+  // Case 3: All other cases (e.g., authenticated user accessing protected route,
+  // or any user accessing a public route), allow the request to proceed.
   return NextResponse.next()
 }
 
