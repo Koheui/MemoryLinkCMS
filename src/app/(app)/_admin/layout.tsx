@@ -1,8 +1,9 @@
+
 'use server';
 
 import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
-import { initializeApp, getApps, App, applicationDefault } from 'firebase-admin/app';
+import { getApps, initializeApp, applicationDefault } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 
 // Initialize Firebase Admin SDK
@@ -17,7 +18,7 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const sessionCookie = cookies().get('__session')?.value || '';
+  const sessionCookie = (await cookies().get('__session'))?.value || '';
 
   if (!sessionCookie) {
     notFound();

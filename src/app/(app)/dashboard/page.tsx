@@ -1,3 +1,4 @@
+
 // src/app/(app)/dashboard/page.tsx
 'use server';
 
@@ -74,8 +75,7 @@ async function fetchMemories(uid: string): Promise<Memory[]> {
 
 
 export default async function DashboardPage() {
-  const cookieStore = cookies();
-  const sessionCookie = cookieStore.get('__session')?.value || '';
+  const sessionCookie = (await cookies().get('__session'))?.value || '';
   if (!sessionCookie) {
     redirect('/login');
   }
