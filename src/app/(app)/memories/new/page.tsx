@@ -41,7 +41,7 @@ const newMemorySchema = z.object({
   photos: z
     .custom<FileList>()
     .refine((files) => files?.length >= 1, '写真は1枚以上選択してください。')
-    .refine((files) => files?.length <= 10, '写真のアップロードは10枚までです。')
+    .refine((files) => files?.length <= 10, '写真のアップロードは10枚までです。'),
 });
 
 type NewMemoryFormValues = z.infer<typeof newMemorySchema>;
