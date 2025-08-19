@@ -55,15 +55,21 @@ export function AuthForm({ type }: AuthFormProps) {
   });
 
   const onSubmit = async (data: AuthFormValues) => {
+    console.log(`[AuthForm] 処理開始: ${type}`);
     setLoading(true);
+
     try {
       let userCredential;
       if (type === 'signup') {
+        console.log('[AuthForm] アカウント作成を開始...');
         userCredential = await createUserWithEmailAndPassword(
           auth,
           data.email,
           data.password
         );
+        console.log('[AuthForm] アカウント作成成功。UID:', userCredential.user.uid);
+
+        console.log('[AuthForm] Firestoreにユーザープロファイルを作成中...');
         const userRef = doc(db, 'users', userCredential.user.uid);
         const userProfile: Omit<UserProfile, 'id'> = {
           email: userCredential.user.email!,
@@ -71,35 +77,45 @@ export function AuthForm({ type }: AuthFormProps) {
           updatedAt: serverTimestamp(),
         };
         await setDoc(userRef, userProfile);
+        console.log('[AuthForm] Firestoreプロファイル作成成功。');
+
       } else {
+        console.log('[AuthForm] ログイン処理を開始...');
         userCredential = await signInWithEmailAndPassword(
           auth,
           data.email,
           data.password
         );
+        console.log('[AuthForm] ログイン処理成功。UID:', userCredential.user.uid);
       }
 
+      console.log('[AuthForm] IDトークンの取得を開始...');
       const idToken = await userCredential.user.getIdToken(true);
+      console.log('[AuthForm] IDトークン取得成功。');
 
+      console.log('[AuthForm] サーバーにセッション作成をリクエスト中...');
       const res = await fetch('/api/auth/sessionLogin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ idToken }),
       });
+      console.log(`[AuthForm] サーバーからの応答ステータス: ${res.status}`);
 
       if (!res.ok) {
         const errorData = await res.json();
+        console.error('[AuthForm] セッション作成APIエラー:', errorData);
         // Throw an error to be caught by the catch block
-        throw new Error(errorData.details || `Failed to create session. Status: ${res.status}.`);
+        throw new Error(errorData.details || `セッションの作成に失敗しました。ステータス: ${res.status}`);
       }
       
+      console.log('[AuthForm] セッション作成成功。ダッシュボードへ遷移します...');
       // On success, redirect to dashboard. This will trigger a full page reload.
       window.location.assign('/dashboard');
 
     } catch (error: any) {
-        console.error("Auth error:", error);
+        console.error("[AuthForm] 認証プロセス全体でエラーが発生しました:", error);
         
-        let description = '予期せぬエラーが発生しました。';
+        let description = '予期せぬエラーが発生しました。コンソールを確認してください。';
         if (error.code) { // Firebase errors have a 'code' property
             switch (error.code) {
                 case 'auth/email-already-in-use':
@@ -123,7 +139,7 @@ export function AuthForm({ type }: AuthFormProps) {
         toast({
             variant: 'destructive',
             title: type === 'signup' ? 'アカウント作成失敗' : 'ログイン失敗',
-            description: description, // Display detailed error
+            description: description,
         });
         setLoading(false); // Ensure loading is stopped on error
     }
@@ -194,3 +210,5 @@ export function AuthForm({ type }: AuthFormProps) {
     </Card>
   );
 }
+
+    
