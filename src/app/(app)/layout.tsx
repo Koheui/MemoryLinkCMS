@@ -19,11 +19,21 @@ import { Heart, LayoutDashboard, LogOut, Library, ShieldCheck, Loader2, UserCirc
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 
 function AppLayoutContent({ children }: { children: React.ReactNode }) {
   const { user, loading, isAdmin, handleLogout } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
+
+  useEffect(() => {
+    // If loading is finished and there's no user, redirect to login.
+    // This acts as a client-side safeguard.
+    if (!loading && !user) {
+      router.push('/login');
+    }
+  }, [user, loading, router]);
+
 
   if (loading) {
     return (
@@ -36,20 +46,10 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // This check should now be safely handled by the middleware,
-  // but as a fallback, it's good to have client-side protection.
+  // If there's no user, the useEffect above will trigger a redirect.
+  // We can render null or a loading state to prevent flashing of content.
   if (!user) {
-    // Let middleware handle redirects. If it fails, this is a fallback.
-    // To prevent infinite loops on the client if middleware is misconfigured,
-    // we can show a loading/redirecting state.
-    return (
-        <div className="flex h-screen items-center justify-center">
-            <div className="flex items-center gap-2">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                <span className="text-lg text-muted-foreground">リダイレクト中...</span>
-            </div>
-        </div>
-    );
+    return null;
   }
 
 
