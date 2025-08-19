@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
     // Set session expiration to 14 days.
     const expiresIn = 60 * 60 * 24 * 14 * 1000;
     
-    getAdminApp();
+    getAdminApp(); // Initialize Firebase Admin SDK
     const sessionCookie = await getAuth().createSessionCookie(idToken, { expiresIn });
 
     cookies().set('__session', sessionCookie, {
