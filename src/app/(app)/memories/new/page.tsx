@@ -30,7 +30,7 @@ import { ref, uploadBytes } from 'firebase/storage';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 
 const newMemorySchema = z.object({
@@ -41,7 +41,7 @@ const newMemorySchema = z.object({
   photos: z
     .custom<FileList>()
     .refine((files) => files?.length >= 1, '写真は1枚以上選択してください。')
-    .refine((files) => files?.length <= 10, '写真のアップロードは10枚までです。'),
+    .refine((files) => files?.length <= 10, '写真のアップロードは10枚までです。')
 });
 
 type NewMemoryFormValues = z.infer<typeof newMemorySchema>;
@@ -59,18 +59,23 @@ export default function NewMemoryPage() {
       title: '',
     },
   });
-
-  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files) {
-      const newPreviews = Array.from(files).map((file) => URL.createObjectURL(file));
-      setPhotoPreviews((prev) => {
-        prev.forEach(URL.revokeObjectURL);
-        return newPreviews;
-      });
-    }
-  };
   
+  const photoFiles = form.watch('photos');
+
+  useEffect(() => {
+    if (photoFiles && photoFiles.length > 0) {
+      const newPreviews = Array.from(photoFiles).map((file) => URL.createObjectURL(file));
+      setPhotoPreviews(newPreviews);
+      
+      // Cleanup function to revoke Object URLs
+      return () => {
+        newPreviews.forEach(URL.revokeObjectURL);
+      };
+    } else {
+      setPhotoPreviews([]);
+    }
+  }, [photoFiles]);
+
   async function onSubmit(data: NewMemoryFormValues) {
     if (!user) {
         toast({ variant: 'destructive', title: 'エラー', description: 'ログインしていません。' });
@@ -100,7 +105,7 @@ export default function NewMemoryPage() {
             const fileRef = ref(storage, filePath);
             await uploadBytes(fileRef, file, { contentType: file.type });
 
-            await addDoc(collection(db, `memories/${memoryId}/assets`), {
+            await addDoc(collection(db, 'memories', memoryId, 'assets'), {
                 type: file.type.startsWith('image/') ? 'image' : 
                       file.type.startsWith('video/') ? 'video' : 'audio',
                 rawPath: filePath,
@@ -142,7 +147,7 @@ export default function NewMemoryPage() {
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle className="font-headline">1. 想い出の詳細</CardTitle>
+              <CardTitle>1. 想い出の詳細</CardTitle>
               <CardDescription>
                 この情報が、あなたの「想い出ページ」の基本となります。
               </CardDescription>
@@ -195,11 +200,11 @@ export default function NewMemoryPage() {
 
           <Card>
             <CardHeader>
-                <CardTitle className="font-headline">2. アセットのアップロード</CardTitle>
+                <CardTitle>2. アセットのアップロード</CardTitle>
                 <CardDescription>
                     この想い出に関連する写真、動画、音声をアップロードします。後から追加することも可能です。
                 </CardDescription>
-            </Header>
+            </CardHeader>
             <CardContent className="space-y-4">
                 <FormField
                   control={form.control}
@@ -221,10 +226,7 @@ export default function NewMemoryPage() {
                                 className="hidden" 
                                 multiple 
                                 accept="image/*,video/*"
-                                onChange={(e) => {
-                                  field.onChange(e.target.files);
-                                  handlePhotoChange(e);
-                                }}
+                                onChange={(e) => field.onChange(e.target.files)}
                               />
                           </label>
                       </div> 
