@@ -2,7 +2,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { onIdTokenChanged, User } from 'firebase/auth';
+import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth } from '@/lib/firebase/client';
 import { usePathname, useRouter } from 'next/navigation';
 
@@ -20,10 +20,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const pathname = usePathname();
 
   useEffect(() => {
-    // onAuthStateChangedは初期読み込み時にnullを返すことがあるが、
-    // onIdTokenChangedはトークンの変更をより確実にリッスンするため、セッションが切れにくい
-    const unsubscribe = onIdTokenChanged(auth, (currentUser) => {
-      setUser(currentUser);
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUser(user);
       setLoading(false);
     });
 
@@ -32,20 +30,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   useEffect(() => {
+    // Do nothing while loading
     if (loading) {
-      return; // Do nothing while loading
+      return;
     }
 
     const isAuthPage = pathname === '/login' || pathname === '/signup';
     
-    // Check if it's a protected route
+    // If there's no user, redirect to login page if not already there or on a public page
     const isProtectedRoute = !isAuthPage && pathname !== '/' && !pathname.startsWith('/p/');
-
+    
     if (!user && isProtectedRoute) {
       router.push('/login');
-    } else if (user && isAuthPage) {
+    }
+
+    // If there is a user, redirect from auth pages to the dashboard
+    if (user && isAuthPage) {
       router.push('/dashboard');
     }
+
   }, [user, loading, pathname, router]);
 
   return (
