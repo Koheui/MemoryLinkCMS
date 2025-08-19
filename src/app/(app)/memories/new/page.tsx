@@ -1,4 +1,3 @@
-
 // src/app/(app)/memories/new/page.tsx
 'use client';
 
@@ -126,7 +125,7 @@ export default function NewMemoryPage() {
     } finally {
         setLoading(false);
     }
-  }
+  };
 
   return (
     <div className="space-y-6">
