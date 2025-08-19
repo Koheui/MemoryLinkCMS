@@ -28,32 +28,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const router = useRouter();
 
   useEffect(() => {
-    // This listener is for client-side state, but we trust the server session primarily.
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-        setUser(user);
-        if(!user) {
-            // If firebase listener says no user, ensure we clear server session status
-            setIsAdmin(false);
-        }
-    });
-
-    // Verify server-side session on initial load
-    fetch('/api/auth/verify').then(res => res.json()).then(data => {
-        if(data.isAuthenticated){
-            if(!auth.currentUser) {
-                // This can happen on first load. The onAuthStateChanged listener will catch up.
-            }
-            setIsAdmin(data.isAdmin);
-        } else {
-            setUser(null);
-            setIsAdmin(false);
-        }
-        setLoading(false);
-    }).catch(() => {
-        // If API fails, assume not authenticated
-        setUser(null);
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      setUser(user);
+      if (user) {
+        const tokenResult = await user.getIdTokenResult();
+        setIsAdmin(!!tokenResult.claims.role && tokenResult.claims.role === 'admin');
+      } else {
         setIsAdmin(false);
-        setLoading(false);
+      }
+      setLoading(false);
     });
 
     return () => unsubscribe();
@@ -61,14 +44,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   
   const handleLogout = useCallback(async () => {
     try {
-      // Clear client-side auth state
       await auth.signOut();
-      // Clear server-side session
       await fetch('/api/auth/sessionLogout', { method: 'POST' });
     } catch (error) {
         console.error("Logout failed:", error);
     } finally {
-        // Force a full page reload to ensure client and server state are in sync
         window.location.assign('/login');
     }
   }, []);

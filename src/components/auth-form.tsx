@@ -112,11 +112,9 @@ export function AuthForm({ type }: AuthFormProps) {
             title: type === 'signup' ? 'アカウント作成失敗' : 'ログイン失敗',
             description: description,
         });
-        // Ensure loading is stopped on error
-        setLoading(false);
+        setLoading(false); // Only set loading to false on error
     } 
     // Do not set loading to false here, because window.location.assign will navigate away.
-    // Only set it in the catch block for the error case.
   };
 
   const title = type === 'signup' ? 'アカウント作成' : 'おかえりなさい';

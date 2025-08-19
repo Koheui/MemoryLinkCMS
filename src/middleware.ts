@@ -1,3 +1,4 @@
+
 // src/middleware.ts
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
@@ -6,30 +7,21 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   const sessionCookie = request.cookies.get('__session')?.value
 
-  // We are calling the verify endpoint to get the user's auth status on the server.
-  // This is the source of truth.
-  const response = await fetch(new URL('/api/auth/verify', request.url), {
-    headers: {
-      'Cookie': `__session=${sessionCookie || ''}`
-    }
-  });
-  const { isAuthenticated } = await response.json();
-  
   const isProtectedRoute = ['/dashboard', '/memories', '/_admin'].some((path) =>
     pathname.startsWith(path)
-  )
+  );
   
   const isAuthRoute = ['/login', '/signup'].some((path) =>
     pathname.startsWith(path)
-  )
+  );
 
-  // If user is not authenticated and tries to access a protected route, redirect to login
-  if (!isAuthenticated && isProtectedRoute) {
+  // If user is not authenticated (no session cookie) and tries to access a protected route, redirect to login
+  if (!sessionCookie && isProtectedRoute) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  // If user is authenticated and tries to access login or signup page, redirect to dashboard
-  if (isAuthenticated && isAuthRoute) {
+  // If user is authenticated (has session cookie) and tries to access login or signup page, redirect to dashboard
+  if (sessionCookie && isAuthRoute) {
     return NextResponse.redirect(new URL('/dashboard', request.url))
   }
 
