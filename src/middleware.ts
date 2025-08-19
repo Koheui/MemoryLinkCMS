@@ -2,42 +2,41 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-export async function middleware(request: NextRequest) {
+export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   const sessionCookie = request.cookies.get('__session')?.value
 
-  // Define public paths that don't require authentication
-  const isPublicPath = ['/login', '/signup', '/'].includes(pathname) || pathname.startsWith('/p/');
-
-  // Let static files and API routes pass through
-  if (pathname.startsWith('/_next') || pathname.startsWith('/api')) {
-    return NextResponse.next();
-  }
-
-  // If there's a session cookie
-  if (sessionCookie) {
-    // If user is authenticated and tries to access a public path like login/signup, redirect them
-    if (isPublicPath && !pathname.startsWith('/p/')) {
-       // Redirect to a default authenticated page.
-      return NextResponse.redirect(new URL('/account', request.url))
-    }
-    // Allow access to other pages
+  // Define paths that are always public, regardless of auth state.
+  const publicPaths = ['/login', '/signup', '/']
+  if (publicPaths.includes(pathname) || pathname.startsWith('/p/')) {
     return NextResponse.next()
   }
 
-  // If there's no session cookie and the path is not public, redirect to login
-  if (!sessionCookie && !isPublicPath) {
-    return NextResponse.redirect(new URL('/login', request.url))
+  // Let static assets and API routes pass through without checks.
+  // This is a common pattern to avoid interfering with Next.js internals.
+  if (pathname.startsWith('/_next') || pathname.startsWith('/api') || pathname.endsWith('favicon.ico')) {
+    return NextResponse.next()
   }
 
-  // Allow access to public pages if no session
+  // For any other path, it is considered a protected route.
+  // If there is no session cookie, redirect to the login page.
+  if (!sessionCookie) {
+    const loginUrl = new URL('/login', request.url)
+    // You can optionally add a `next` query parameter to redirect back after login.
+    // loginUrl.searchParams.set('next', pathname)
+    return NextResponse.redirect(loginUrl)
+  }
+
+  // If there is a session cookie, allow access to the protected route.
+  // The validity of the cookie itself will be checked on the page/component level.
   return NextResponse.next()
 }
 
-// Matcher to define which routes are affected by this middleware
+// Matcher to define which routes are affected by this middleware.
 export const config = {
   matcher: [
-    // Match all routes except for API routes, static files, and image optimization files.
-    '/((?!api|_next/static|_next/image|favicon.ico).*)',
+    // This matcher is crucial. It ensures the middleware runs on every request
+    // except for those that are explicitly for static assets.
+    '/((?!_next/static|_next/image|favicon.ico).*)',
   ],
 }
