@@ -89,12 +89,10 @@ export function AuthForm({ type }: AuthFormProps) {
 
       if (!res.ok) {
         const errorData = await res.json();
-        console.error('Session creation failed:', errorData);
         throw new Error(errorData.details || `Failed to create session. Status: ${res.status}.`);
       }
       
-      // This is the most reliable way to redirect after session is set.
-      // It forces a full page reload, ensuring the middleware catches the new session.
+      // On success, this will navigate away, so we don't need to set loading to false.
       window.location.assign('/dashboard');
 
     } catch (error: any) {
@@ -112,9 +110,9 @@ export function AuthForm({ type }: AuthFormProps) {
             title: type === 'signup' ? 'アカウント作成失敗' : 'ログイン失敗',
             description: description,
         });
-        setLoading(false); // Only set loading to false on error
-    } 
-    // Do not set loading to false here, because window.location.assign will navigate away.
+        // Only set loading to false on error, so user can try again.
+        setLoading(false);
+    }
   };
 
   const title = type === 'signup' ? 'アカウント作成' : 'おかえりなさい';
