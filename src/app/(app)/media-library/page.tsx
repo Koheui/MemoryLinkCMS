@@ -1,4 +1,3 @@
-
 // src/app/(app)/media-library/page.tsx
 'use client';
 
@@ -58,8 +57,8 @@ export default function MediaLibraryPage() {
 
     return () => unsubscribe();
   }, [user]);
-  
-  function formatBytes(bytes: number, decimals = 2) {  
+
+  function formatBytes(bytes: number, decimals = 2) {
       if (bytes === 0) return '0 Bytes';
       const k = 1024;
       const dm = decimals < 0 ? 0 : decimals;
@@ -83,7 +82,7 @@ export default function MediaLibraryPage() {
 
   const renderAssetTable = (type: Asset['type']) => {
     const filteredAssets = assets.filter(asset => asset.type === type);
-    
+
     if (type === 'album' || type === 'video_album' || type === 'text') {
         return (
              <div className="text-center py-10 border-2 border-dashed rounded-lg m-4">
@@ -145,7 +144,7 @@ export default function MediaLibraryPage() {
         <h1 className="text-2xl font-bold tracking-tight font-headline">メディアライブラリ</h1>
         <p className="text-muted-foreground">アップロードした全てのメディアを管理します。</p>
       </div>
-      
+
        <Card>
             <CardHeader>
                 <CardTitle className="font-headline">ストレージ使用量</CardTitle>
