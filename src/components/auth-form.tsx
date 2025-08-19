@@ -8,10 +8,9 @@ import * as z from 'zod';
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
-  type UserCredential,
 } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase/client';
-import { doc, setDoc, serverTimestamp, collection, addDoc, query, where, getDocs, limit } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp, collection, addDoc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -28,7 +27,6 @@ import Link from 'next/link';
 import { Loader2 } from 'lucide-react';
 import type { UserProfile } from '@/lib/types';
 
-
 const formSchema = z.object({
   email: z.string().email({ message: '有効なメールアドレスを入力してください。' }),
   password: z
@@ -41,7 +39,6 @@ type AuthFormValues = z.infer<typeof formSchema>;
 interface AuthFormProps {
   type: 'login' | 'signup';
 }
-
 
 export function AuthForm({ type }: AuthFormProps) {
   const { toast } = useToast();
@@ -59,8 +56,9 @@ export function AuthForm({ type }: AuthFormProps) {
     setLoading(true);
 
     try {
+      let userCredential;
       if (type === 'signup') {
-        const userCredential = await createUserWithEmailAndPassword(
+        userCredential = await createUserWithEmailAndPassword(
           auth,
           data.email,
           data.password
@@ -92,41 +90,29 @@ export function AuthForm({ type }: AuthFormProps) {
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
         });
-        
-        const idToken = await userCredential.user.getIdToken(true);
-        const res = await fetch('/api/auth/sessionLogin', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ idToken }),
-        });
-
-        if (!res.ok) {
-            const errorData = await res.json();
-            throw new Error(errorData.details || `セッションの作成に失敗しました。ステータス: ${res.status}`);
-        }
-        
       } else { // Login
-        const userCredential = await signInWithEmailAndPassword(
+        userCredential = await signInWithEmailAndPassword(
           auth,
           data.email,
           data.password
         );
-        
-        const idToken = await userCredential.user.getIdToken(true);
-        const res = await fetch('/api/auth/sessionLogin', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ idToken }),
-        });
-        
-        if (!res.ok) {
-            const errorData = await res.json();
-            throw new Error(errorData.details || `セッションの作成に失敗しました。ステータス: ${res.status}`);
-        }
       }
       
-      // Redirect to the protected area. Middleware will handle routing to the correct memory page.
-      window.location.assign('/pages');
+      const idToken = await userCredential.user.getIdToken(true);
+      const res = await fetch('/api/auth/sessionLogin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ idToken }),
+      });
+      
+      if (!res.ok) {
+          const errorData = await res.json();
+          throw new Error(errorData.details || `セッションの作成に失敗しました。ステータス: ${res.status}`);
+      }
+
+      // **CRITICAL FIX**: Redirect to a stable, protected page first.
+      // The layout will then handle fetching the correct memoryId.
+      window.location.assign('/account');
 
     } catch (error: any) {
         let description = '予期せぬエラーが発生しました。';

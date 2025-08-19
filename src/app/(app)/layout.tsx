@@ -62,8 +62,10 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
             setIsFetchingMemoryId(false);
         }
     };
-    fetchMemoryId();
-  }, [user]);
+    if (!loading) {
+      fetchMemoryId();
+    }
+  }, [user, loading]);
 
 
   if (loading || isFetchingMemoryId) {
