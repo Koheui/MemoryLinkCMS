@@ -9,6 +9,6 @@ export async function GET() {
     const projectId = admin.app(app).options.projectId;
     return NextResponse.json({ ok: true, projectId });
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: String(e?.message || e) }, { status: 500 });
+    return NextResponse.json({ ok: false, error: String(e?.message || e), stack: e.stack }, { status: 500 });
   }
 }

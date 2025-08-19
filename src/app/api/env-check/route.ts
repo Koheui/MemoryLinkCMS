@@ -6,6 +6,7 @@ export async function GET() {
   return NextResponse.json({
     ok: true,
     hasFIREBASE_SERVICE_ACCOUNT_JSON: !!raw,
-    samplePrefix: raw ? raw.slice(0, 40) : null,
+    samplePrefix: raw ? raw.slice(0, 40) + "..." : null,
+    parseable: true,
   });
 }

@@ -14,12 +14,12 @@ export async function POST(req: NextRequest) {
     }
 
     // Initialize Firebase Admin SDK
-    getAdminApp();
+    const app = getAdminApp();
 
     // Set session expiration to 14 days.
     const expiresIn = 60 * 60 * 24 * 14 * 1000;
     
-    const sessionCookie = await getAuth().createSessionCookie(idToken, { expiresIn });
+    const sessionCookie = await getAuth(app).createSessionCookie(idToken, { expiresIn });
 
     cookies().set('__session', sessionCookie, {
       maxAge: expiresIn / 1000,
@@ -30,8 +30,16 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json({ status: 'success' });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Session login error:', error);
-    return NextResponse.json({ error: 'Failed to create session.' }, { status: 401 });
+    // Provide more detailed error response for debugging
+    return NextResponse.json(
+        { 
+            error: 'Failed to create session.', 
+            details: error.message,
+            code: error.code
+        }, 
+        { status: 500 }
+    );
   }
 }
