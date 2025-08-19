@@ -4,7 +4,7 @@ import type { NextRequest } from 'next/server'
 import { getAdminApp } from '@/lib/firebase/firebaseAdmin';
 import { getAuth } from 'firebase-admin/auth';
 
-const PROTECTED_PATHS = ['/dashboard', '/memories'];
+const PROTECTED_PATHS = ['/dashboard', '/memories', '/_admin'];
 const AUTH_PATHS = ['/login', '/signup'];
 
 // Initialize admin app outside of the middleware function
@@ -18,9 +18,13 @@ try {
 async function verifySession(cookie: string | undefined): Promise<boolean> {
   if (!cookie) return false;
   try {
-    await getAuth().verifySessionCookie(cookie, true);
+    // getAuth() might fail if the admin app is not initialized
+    const auth = getAuth();
+    await auth.verifySessionCookie(cookie, true);
     return true;
   } catch (error) {
+    // This will catch errors from verifySessionCookie and getAuth() if initialization failed
+    // console.error("Session verification failed:", error);
     return false;
   }
 }
@@ -32,17 +36,20 @@ export async function middleware(request: NextRequest) {
   const isLoggedIn = await verifySession(sessionCookie);
 
   const isProtectedRoute = PROTECTED_PATHS.some(path => pathname.startsWith(path));
-  const isAdminRoute = pathname.startsWith('/_admin');
   const isAuthRoute = AUTH_PATHS.some(path => pathname.startsWith(path));
 
   // If not logged in and trying to access a protected route, redirect to login
-  if (!isLoggedIn && (isProtectedRoute || isAdminRoute)) {
-    return NextResponse.redirect(new URL('/login', request.url))
+  if (!isLoggedIn && isProtectedRoute) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/login'
+    return NextResponse.redirect(url)
   }
 
   // If logged in and trying to access an auth route, redirect to dashboard
   if (isLoggedIn && isAuthRoute) {
-    return NextResponse.redirect(new URL('/dashboard', request.url))
+    const url = request.nextUrl.clone()
+    url.pathname = '/dashboard'
+    return NextResponse.redirect(url)
   }
 
   return NextResponse.next()
@@ -51,4 +58,5 @@ export async function middleware(request: NextRequest) {
 // Match all paths except for API routes, static files, and image optimization files.
 export const config = {
   matcher: ['/((?!api|_next/static|_next/image|favicon.ico|p|debug-token|.*\\..*).*)'],
+  runtime: 'nodejs', // Specify the Node.js runtime
 }
