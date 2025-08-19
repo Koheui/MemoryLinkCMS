@@ -1,6 +1,5 @@
-
 // src/app/(app)/memories/[memoryId]/page.tsx
-'use server';
+'use client';
 
 import { ThemeSuggester } from '@/components/theme-suggester';
 import { DesignEditor } from '@/components/design-editor';
@@ -8,65 +7,82 @@ import { AboutEditor } from '@/components/about-editor';
 import { BlockEditor } from '@/components/block-editor';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import type { Memory, Asset } from '@/lib/types';
-import { getAdminApp } from '@/lib/firebase/firebaseAdmin';
-import { getFirestore } from 'firebase-admin/firestore';
+import { db } from '@/lib/firebase/client';
+import { doc, getDoc, collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { notFound } from 'next/navigation';
-import { collection, getDocs, orderBy } from 'firebase/firestore';
-import { db } from '@/lib/firebase/client'; // Use client db for server components for now
+import { useEffect, useState } from 'react';
+import { Loader2 } from 'lucide-react';
+import { useAuth } from '@/hooks/use-auth';
 
 
-async function fetchMemory(memoryId: string): Promise<Memory> {
-    getAdminApp(); // Ensure admin app is initialized
-    const adminDb = getFirestore();
-    const memoryDoc = await adminDb.collection('memories').doc(memoryId).get();
+export default function MemoryEditorPage({ params }: { params: { memoryId: string } }) {
+  const { user, loading: authLoading } = useAuth();
+  const [memory, setMemory] = useState<Memory | null>(null);
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [loading, setLoading] = useState(true);
 
-    if (!memoryDoc.exists) {
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user) {
+        // This should be handled by layout, but as a safeguard
         notFound();
+        return;
+    };
+
+    const fetchMemory = async () => {
+        const memoryDocRef = doc(db, 'memories', params.memoryId);
+        const memoryDoc = await getDoc(memoryDocRef);
+
+        if (!memoryDoc.exists() || memoryDoc.data()?.ownerUid !== user.uid) {
+            notFound();
+            return;
+        }
+
+        const memoryData = memoryDoc.data() as Omit<Memory, 'id'>;
+        setMemory({
+             id: memoryDoc.id,
+            ...memoryData,
+            createdAt: memoryData.createdAt.toDate().toISOString(),
+            updatedAt: memoryData.updatedAt.toDate().toISOString(),
+        } as Memory);
+    };
+
+    const fetchAssets = async () => {
+        const assetsSnapshot = await getDocs(query(collection(db, 'memories', params.memoryId, 'assets'), orderBy('createdAt', 'desc')));
+        
+        const fetchedAssets: Asset[] = assetsSnapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+                id: doc.id,
+                ...data,
+                createdAt: data.createdAt.toDate().toISOString(),
+            } as Asset;
+        });
+        setAssets(fetchedAssets);
+    };
+
+    const loadData = async () => {
+        setLoading(true);
+        try {
+            await Promise.all([fetchMemory(), fetchAssets()]);
+        } catch (error) {
+            console.error("Error fetching memory data:", error);
+            notFound();
+        } finally {
+            setLoading(false);
+        }
     }
-
-    const memoryData = memoryDoc.data() as Omit<Memory, 'id'>;
-
-    return {
-        id: memoryDoc.id,
-        ...memoryData,
-        // Convert Firestore Timestamps to ISO strings for client-side compatibility
-        createdAt: memoryData.createdAt.toDate().toISOString(),
-        updatedAt: memoryData.updatedAt.toDate().toISOString(),
-    } as Memory;
-}
-
-async function fetchAssets(memoryId: string): Promise<Asset[]> {
-    getAdminApp();
-    const adminDb = getFirestore();
-    const assetsSnapshot = await adminDb.collection('memories').doc(memoryId).collection('assets').orderBy('createdAt', 'desc').get();
     
-    if (assetsSnapshot.empty) {
-        return [];
-    }
+    loadData();
 
-    const assets: Asset[] = assetsSnapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-            id: doc.id,
-            ...data,
-            // FirestoreのTimestampをJSONでシリアライズ可能な形式に変換
-            createdAt: data.createdAt.toDate().toISOString(),
-        } as Asset;
-    });
+  }, [params.memoryId, user, authLoading]);
 
-    return assets;
-}
-
-
-export default async function MemoryEditorPage({ params }: { params: { memoryId: string } }) {
-  let memory: Memory;
-  let assets: Asset[];
-  try {
-    memory = await fetchMemory(params.memoryId);
-    assets = await fetchAssets(params.memoryId);
-  } catch (error) {
-     console.error("Error fetching memory data:", error);
-     notFound();
+  if (loading || authLoading || !memory) {
+     return (
+        <div className="flex h-[50vh] items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+     )
   }
 
   return (
