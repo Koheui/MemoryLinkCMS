@@ -20,7 +20,6 @@ export default function MemoryEditorPage({ params }: { params: { memoryId: strin
   const [memory, setMemory] = useState<Memory | null>(null);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(true);
-  const memoryId = params.memoryId;
 
   useEffect(() => {
     if (authLoading) return;
@@ -31,7 +30,7 @@ export default function MemoryEditorPage({ params }: { params: { memoryId: strin
     };
 
     const fetchMemory = async () => {
-        const memoryDocRef = doc(db, 'memories', memoryId);
+        const memoryDocRef = doc(db, 'memories', params.memoryId);
         const memoryDoc = await getDoc(memoryDocRef);
 
         if (!memoryDoc.exists() || memoryDoc.data()?.ownerUid !== user.uid) {
@@ -49,7 +48,7 @@ export default function MemoryEditorPage({ params }: { params: { memoryId: strin
     };
 
     const fetchAssets = async () => {
-        const assetsSnapshot = await getDocs(query(collection(db, 'memories', memoryId, 'assets'), orderBy('createdAt', 'desc')));
+        const assetsSnapshot = await getDocs(query(collection(db, 'memories', params.memoryId, 'assets'), orderBy('createdAt', 'desc')));
         
         const fetchedAssets: Asset[] = assetsSnapshot.docs.map(doc => {
             const data = doc.data();
@@ -76,7 +75,7 @@ export default function MemoryEditorPage({ params }: { params: { memoryId: strin
     
     loadData();
 
-  }, [memoryId, user, authLoading]);
+  }, [params.memoryId, user, authLoading]);
 
   if (loading || authLoading || !memory) {
      return (
