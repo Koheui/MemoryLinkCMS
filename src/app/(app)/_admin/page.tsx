@@ -44,41 +44,56 @@ export default function AdminDashboardPage() {
 
     const fetchOrders = async () => {
       setLoading(true);
-      const ordersSnapshot = await getDocs(query(collection(db, 'orders'), orderBy('createdAt', 'desc')));
-      
-      if (ordersSnapshot.empty) {
-          setOrders([]);
-          setLoading(false);
-          return;
+      try {
+        const ordersQuery = query(collection(db, 'orders'), orderBy('createdAt', 'desc'));
+        const ordersSnapshot = await getDocs(ordersQuery);
+        
+        if (ordersSnapshot.empty) {
+            setOrders([]);
+            setLoading(false);
+            return;
+        }
+
+        const ordersData = await Promise.all(ordersSnapshot.docs.map(async (orderDoc) => {
+            const data = orderDoc.data();
+            let userEmail = 'N/A';
+            let memoryTitle = 'N/A';
+
+            if (data.userUid) {
+                try {
+                    const userDoc = await getDoc(doc(db, 'users', data.userUid));
+                    if(userDoc.exists()) userEmail = userDoc.data()?.email;
+                } catch (e) {
+                    console.error(`Failed to fetch user ${data.userUid}`, e);
+                }
+            }
+            if (data.memoryId) {
+                try {
+                    const memoryDoc = await getDoc(doc(db, 'memories', data.memoryId));
+                    if(memoryDoc.exists()) memoryTitle = memoryDoc.data()?.title;
+                } catch (e) {
+                    console.error(`Failed to fetch memory ${data.memoryId}`, e);
+                }
+            }
+            
+            return {
+                id: orderDoc.id,
+                userUid: data.userUid,
+                memoryId: data.memoryId,
+                status: data.status,
+                createdAt: format(data.createdAt.toDate(), 'yyyy/MM/dd HH:mm'),
+                updatedAt: format(data.updatedAt.toDate(), 'yyyy/MM/dd HH:mm'),
+                userEmail,
+                memoryTitle,
+            } as Order;
+        }));
+        
+        setOrders(ordersData);
+      } catch (error) {
+        console.error("Error fetching orders:", error);
+      } finally {
+        setLoading(false);
       }
-
-      const ordersPromises = ordersSnapshot.docs.map(async (orderDoc) => {
-          const data = orderDoc.data();
-          let userEmail = 'N/A';
-          let memoryTitle = 'N/A';
-
-          if (data.userUid) {
-              const userDoc = await getDoc(doc(db, 'users', data.userUid));
-              if(userDoc.exists()) userEmail = userDoc.data()?.email;
-          }
-          if (data.memoryId) {
-              const memoryDoc = await getDoc(doc(db, 'memories', data.memoryId));
-              if(memoryDoc.exists()) memoryTitle = memoryDoc.data()?.title;
-          }
-          
-          return {
-              id: orderDoc.id,
-              ...data,
-              createdAt: format(data.createdAt.toDate(), 'yyyy/MM/dd HH:mm'),
-              updatedAt: format(data.updatedAt.toDate(), 'yyyy/MM/dd HH:mm'),
-              userEmail,
-              memoryTitle,
-          } as Order;
-      });
-
-      const resolvedOrders = await Promise.all(ordersPromises);
-      setOrders(resolvedOrders);
-      setLoading(false);
     }
     
     fetchOrders();
