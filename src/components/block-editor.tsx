@@ -1,6 +1,8 @@
+
 // src/components/block-editor.tsx
 'use client';
 
+import * as React from 'react';
 import type { Memory, Asset, PublicPageBlock } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import {

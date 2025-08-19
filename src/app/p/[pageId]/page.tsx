@@ -1,9 +1,11 @@
+
 // src/app/p/[pageId]/page.tsx
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import Image from 'next/image';
 import { PublicPage, PublicPageBlock } from '@/lib/types';
+import { Globe, Phone, Mail, Link as LinkIcon, Milestone } from 'lucide-react';
 
 // This function fetches the static manifest.json from Firebase Storage.
 // In a real implementation, this would be a direct fetch to a public URL.
@@ -17,25 +19,33 @@ async function fetchPublicPageManifest(pageId: string): Promise<PublicPage | nul
     return {
         id: "preview",
         memoryId: "mockMemoryId",
-        title: "おばあちゃんの米寿のお祝い",
+        title: "岡 浩平", // From OCR
         about: {
-            text: "これは、家族みんなでお祝いした、おばあちゃんの88歳の誕生日の記録です。たくさんの笑顔と、美味しいご馳走に囲まれて、本当に幸せな一日でした。",
+            text: "FutureStudio株式会社 代表取締役", // From OCR
             format: "plain",
         },
         design: {
-            theme: "light",
-            accentColor: "#8A2BE2",
-            bgColor: "#F5F5F5",
+            theme: "dark", // From image
+            accentColor: "#3B82F6", // Placeholder
+            bgColor: "#1E293B", // Dark slate color from image
             fontScale: 1.0,
-            fontFamily: "Literata",
-            headlineFontFamily: "Poppins",
+            fontFamily: "sans-serif",
+            headlineFontFamily: "sans-serif",
         },
         media: {
-            cover: { url: "https://placehold.co/1200x630.png", width: 1200, height: 630 },
+            cover: { url: "https://placehold.co/1200x400.png", width: 1200, height: 400 },
             profile: { url: "https://placehold.co/400x400.png", width: 400, height: 400 },
         },
         ordering: "custom",
-        blocks: [],
+        blocks: [
+          { id: '1', type: 'text', title: 'Google Drive 内の動画リンク', order: 0, visibility: 'show', icon: 'globe' },
+          { id: '2', type: 'text', title: 'YouTubeの動画リンク', order: 1, visibility: 'show', icon: 'youtube' },
+          { id: '3', type: 'text', title: 'TEL', order: 2, visibility: 'show', icon: 'tel' },
+          { id: '4', type: 'text', title: 'MAIL', order: 3, visibility: 'show', icon: 'mail' },
+          { id: '5', type: 'text', title: 'X', order: 4, visibility: 'show', icon: 'x' },
+          { id: '6', type: 'text', title: 'Instagram', order: 5, visibility: 'show', icon: 'instagram' },
+          { id: '7', type: 'album', title: '新婚旅行アルバム', order: 6, visibility: 'show' },
+        ] as any,
         publish: {
             status: "published",
             publishedAt: new Date().toISOString(),
@@ -46,6 +56,18 @@ async function fetchPublicPageManifest(pageId: string): Promise<PublicPage | nul
   return null;
 }
 
+const blockIcons: { [key: string]: React.ReactNode } = {
+  globe: <Globe className="h-6 w-6" />,
+  youtube: <Globe className="h-6 w-6" />, // Replace with actual youtube icon if available
+  tel: <Phone className="h-6 w-6" />,
+  mail: <Mail className="h-6 w-6" />,
+  x: <LinkIcon className="h-6 w-6" />, // Replace with actual x icon if available
+  instagram: <LinkIcon className="h-6 w-6" />, // Replace with actual instagram icon if available
+  album: <Milestone className="h-6 w-6" />,
+  video: <Phone className="h-6 w-6" />,
+  default: <LinkIcon className="h-6 w-6" />,
+};
+
 
 // Generate metadata for SEO and social sharing (OGP)
 export async function generateMetadata({ params }: { params: { pageId: string } }): Promise<Metadata> {
@@ -53,7 +75,7 @@ export async function generateMetadata({ params }: { params: { pageId: string } 
 
   if (!manifest) {
     return {
-      title: '想い出ページが見つかりません',
+      title: 'ページが見つかりません',
     };
   }
 
@@ -71,7 +93,7 @@ export async function generateMetadata({ params }: { params: { pageId: string } 
           alt: manifest.title,
         },
       ],
-      type: 'article',
+      type: 'profile',
     },
     twitter: {
         card: 'summary_large_image',
@@ -90,83 +112,60 @@ export default async function PublicPage({ params }: { params: { pageId: string 
     notFound();
   }
 
-  // TODO: Render blocks based on manifest.blocks array
-
   return (
-    // The inline styles will be replaced by a proper theme system later
     <div style={{ 
-        backgroundColor: manifest.design.bgColor, 
-        fontFamily: manifest.design.fontFamily,
-        '--font-scale': manifest.design.fontScale,
-        '--headline-font': manifest.design.headlineFontFamily
+        backgroundColor: manifest.design.bgColor || '#F0E6FF', 
+        fontFamily: manifest.design.fontFamily || 'sans-serif',
      } as React.CSSProperties}
-     className="min-h-screen"
+     className="min-h-screen text-white"
      >
-      <main className="container mx-auto max-w-2xl p-4 md:p-8">
-        <header className="mb-8">
-          <div className="relative w-full h-48 md:h-64 rounded-lg overflow-hidden mb-4">
+      <main className="container mx-auto max-w-2xl p-4 md:p-0">
+        <header className="mb-8 flex flex-col items-center">
+          <div className="relative w-full h-40 md:h-48 rounded-lg overflow-hidden mb-[-60px]">
              <Image 
                 src={manifest.media.cover.url}
                 alt={manifest.title}
                 fill
                 priority
-                data-ai-hint="memorial event"
+                data-ai-hint="background scenery"
                 className="object-cover"
             />
           </div>
-          <div className="flex items-center gap-4">
-             <div className="relative w-20 h-20 md:w-24 md:h-24 rounded-full overflow-hidden border-4 border-[var(--background-color)] -mt-12">
+          <div className="relative w-32 h-32 md:w-36 md:h-36 rounded-full overflow-hidden border-4 border-background shadow-lg">
                  <Image 
                     src={manifest.media.profile.url}
                     alt="Profile"
                     fill
-                    data-ai-hint="portrait elderly"
+                    data-ai-hint="portrait person"
                     className="object-cover"
                 />
-             </div>
-             <div>
-                <h1 className="text-3xl md:text-4xl font-bold" style={{fontFamily: 'var(--headline-font)'}}>{manifest.title}</h1>
-             </div>
+          </div>
+          <div className="text-center mt-4">
+            <h1 className="text-3xl font-bold">{manifest.title}</h1>
+            <p className="text-base text-gray-300">{manifest.about.text}</p>
           </div>
         </header>
 
-        <Card className="mb-8">
-            <CardHeader>
-                 <CardTitle style={{fontFamily: 'var(--headline-font)'}}>はじめに</CardTitle>
-            </CardHeader>
-            <CardContent>
-                <p className="whitespace-pre-wrap text-base leading-relaxed">{manifest.about.text}</p>
-            </CardContent>
-        </Card>
-
-        {/* This is where content blocks will be rendered in the future */}
-        <div className="space-y-6">
-            <Card>
-                 <CardHeader>
-                    <CardTitle style={{fontFamily: 'var(--headline-font)'}}>1歳の誕生日 (アルバムブロック)</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                        <Image src="https://placehold.co/400x400.png" alt="album photo" width={400} height={400} className="rounded-md" data-ai-hint="first birthday" />
-                         <Image src="https://placehold.co/400x400.png" alt="album photo" width={400} height={400} className="rounded-md" data-ai-hint="baby smiling" />
-                         <Image src="https://placehold.co/400x400.png" alt="album photo" width={400} height={400} className="rounded-md" data-ai-hint="birthday cake" />
+        <div className="space-y-4 px-4 pb-12">
+            {manifest.blocks.map(block => (
+               <a href="#" key={block.id} className="block w-full p-1 rounded-lg bg-white/10 hover:bg-white/20 transition-all transform hover:scale-[1.02]">
+                    <div className="w-full bg-slate-700 rounded-md p-4 flex items-center gap-4">
+                        <div className="flex-shrink-0 text-white">
+                           {(blockIcons as any)[block.type] || blockIcons.default}
+                        </div>
+                        <div className="flex-grow text-white text-lg font-semibold text-center">
+                            {block.title}
+                        </div>
+                         <div className="flex-shrink-0 text-white/50">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="9" y1="18" x2="15" y2="18"></line><line x1="9" y1="12" x2="15" y2="12"></line><line x1="9" y1="6" x2="15" y2="6"></line></svg>
+                        </div>
                     </div>
-                </CardContent>
-            </Card>
-             <Card>
-                 <CardHeader>
-                    <CardTitle style={{fontFamily: 'var(--headline-font)'}}>メッセージ (テキストブロック)</CardTitle>
-                </CardHeader>
-                <CardContent>
-                     <p className="whitespace-pre-wrap text-base leading-relaxed">
-                        たくさんの人に愛されて、元気に育ってね。
-                     </p>
-                </CardContent>
-            </Card>
+                </a>
+            ))}
         </div>
 
-        <footer className="mt-12 text-center text-sm text-muted-foreground">
-            <p>&copy; {new Date().getFullYear()} {manifest.title}. Powered by 想い出リンク.</p>
+        <footer className="mt-12 text-center text-sm text-gray-400 pb-8">
+            <p>&copy; {new Date().getFullYear()}. Powered by MemoryLink</p>
         </footer>
       </main>
     </div>

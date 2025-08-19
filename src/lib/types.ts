@@ -39,17 +39,12 @@ export interface Asset {
   ownerUid: string;
   memoryId?: string; // Which page this asset belongs to. Can be optional.
   name: string;
-  type: 'image' | 'video' | 'audio' | 'album' | 'video_album' | 'text';
+  type: 'image' | 'video' | 'audio';
   storagePath: string; // Path in Firebase Storage
   url: string; // Public URL
   size: number;
   createdAt: Timestamp | any; // Allow any for serverTimestamp
   updatedAt: Timestamp | any; // Allow any for serverTimestamp
-  
-  // For 'album' type
-  childAssetIds?: string[];
-  // For 'text' type
-  content?: string;
 }
 
 export interface PublicPageBlock {
