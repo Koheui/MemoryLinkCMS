@@ -1,4 +1,9 @@
 // src/app/api/media/route.ts
+// This route is not currently used by the new MediaUploader component,
+// as it writes directly to Firestore from the client.
+// This is acceptable for this stage of the project as Firestore rules
+// can secure the 'assets' collection.
+// We are leaving the file here for potential future use (e.g. server-side validation).
 import { NextRequest, NextResponse } from 'next/server';
 import { getUidFromRequest } from '../_lib/auth';
 import { getAdminApp } from '@/lib/firebase/firebaseAdmin';
@@ -17,7 +22,8 @@ export async function POST(req: NextRequest) {
     
     const body = await req.json();
 
-    const required = ['name','type','url','storagePath','projectId','size'];
+    // Note: The new Asset type requires `storagePath`
+    const required = ['name','type','url','storagePath','size'];
     for (const k of required) {
       if (body?.[k] === undefined) return err(400, `Missing field: ${k}`);
     }
@@ -26,10 +32,17 @@ export async function POST(req: NextRequest) {
     }
 
     const db = getFirestore(getAdminApp());
-    const docRef = db.collection('mediaAssets').doc();
-    const now = new Date().toISOString();
+    // The collection should be 'assets' according to the new media library logic
+    const docRef = db.collection('assets').doc();
+    const now = new Date();
 
-    const newAsset = { id: docRef.id, ownerId: uid, ...body, createdAt: now, updatedAt: now };
+    const newAsset = { 
+      id: docRef.id, 
+      ownerUid: uid, 
+      ...body, 
+      createdAt: now, 
+      updatedAt: now 
+    };
     await docRef.set(newAsset);
 
     return NextResponse.json({ ok: true, data: newAsset }, { status: 200 });

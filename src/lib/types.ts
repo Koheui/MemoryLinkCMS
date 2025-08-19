@@ -1,4 +1,3 @@
-
 import type { Timestamp } from 'firebase/firestore';
 
 export interface UserProfile {
@@ -38,14 +37,17 @@ export interface Asset {
   id: string;
   ownerUid: string;
   name: string;
-  // 'album' and 'text' types are for logical organization in the library, they may not be direct file uploads
   type: 'image' | 'video' | 'audio' | 'album' | 'video_album' | 'text';
-  rawPath?: string; // For file-based assets
-  content?: string; // For text-based assets
-  childAssetIds?: string[]; // For album assets
-  url?: string;
-  size?: number; // Add size to calculate total usage
-  createdAt: Timestamp | string;
+  storagePath: string; // Path in Firebase Storage
+  url: string; // Public URL
+  size: number;
+  createdAt: Timestamp | any; // Allow any for serverTimestamp
+  updatedAt: Timestamp | any; // Allow any for serverTimestamp
+  
+  // For 'album' type
+  childAssetIds?: string[];
+  // For 'text' type
+  content?: string;
 }
 
 export interface PublicPageBlock {

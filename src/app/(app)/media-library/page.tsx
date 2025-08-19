@@ -1,4 +1,3 @@
-
 // src/app/(app)/media-library/page.tsx
 'use client';
 
@@ -12,12 +11,13 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion"
+import { MediaUploader } from '@/components/media-uploader';
 import { PlusCircle, Loader2, Image as ImageIcon, Video, Mic, FileText, Trash2, Folder, Film } from 'lucide-react';
 import type { Asset } from '@/lib/types';
 import { useAuth } from '@/hooks/use-auth';
 import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase/client';
-import { collectionGroup, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, onSnapshot } from 'firebase/firestore';
 import { format } from 'date-fns';
 
 function formatBytes(bytes: number, decimals = 2) {  
@@ -32,13 +32,13 @@ function formatBytes(bytes: number, decimals = 2) {
 const TOTAL_STORAGE_LIMIT_MB = 200;
 const TOTAL_STORAGE_LIMIT_BYTES = TOTAL_STORAGE_LIMIT_MB * 1024 * 1024;
 
-const assetCategories: { type: Asset['type']; label: string; icon: React.ReactNode }[] = [
-    { type: 'image', label: '写真', icon: <ImageIcon className="h-5 w-5" /> },
-    { type: 'album', label: 'アルバム', icon: <Folder className="h-5 w-5" /> },
-    { type: 'video', label: '動画', icon: <Video className="h-5 w-5" /> },
-    { type: 'video_album', label: '動画アルバム', icon: <Film className="h-5 w-5" /> },
-    { type: 'text', label: 'テキスト', icon: <FileText className="h-5 w-5" /> },
-    { type: 'audio', label: '音声', icon: <Mic className="h-5 w-5" /> },
+const assetCategories: { type: Asset['type']; label: string; icon: React.ReactNode; uploaderType: 'image' | 'video' | 'audio' | 'text' | 'album' | 'video_album', accept: string }[] = [
+    { type: 'image', label: '写真', icon: <ImageIcon className="h-5 w-5" />, uploaderType: 'image', accept: 'image/*' },
+    { type: 'album', label: 'アルバム', icon: <Folder className="h-5 w-5" />, uploaderType: 'album', accept: '' },
+    { type: 'video', label: '動画', icon: <Video className="h-5 w-5" />, uploaderType: 'video', accept: 'video/*' },
+    { type: 'video_album', label: '動画アルバム', icon: <Film className="h-5 w-5" />, uploaderType: 'video_album', accept: ''},
+    { type: 'text', label: 'テキスト', icon: <FileText className="h-5 w-5" />, uploaderType: 'text', accept: ''},
+    { type: 'audio', label: '音声', icon: <Mic className="h-5 w-5" />, uploaderType: 'audio', accept: 'audio/*' },
 ];
 
 
@@ -50,23 +50,13 @@ export default function MediaLibraryPage() {
 
   useEffect(() => {
     if (!user) return;
+    setLoading(true);
+    const assetsCollectionRef = collection(db, 'assets');
+    const q = query(assetsCollectionRef, where('ownerUid', '==', user.uid), orderBy('createdAt', 'desc'));
 
-    async function fetchAssets() {
-      setLoading(true);
-      try {
-        const assetsCollectionGroup = collectionGroup(db, 'assets');
-        const q = query(assetsCollectionGroup, where('ownerUid', '==', user.uid), orderBy('createdAt', 'desc'));
-        const assetsSnapshot = await getDocs(q);
-
-        if (assetsSnapshot.empty) {
-          setAssets([]);
-          setTotalSize(0);
-          setLoading(false);
-          return;
-        }
-
+    const unsubscribe = onSnapshot(q, (snapshot) => {
         let currentTotalSize = 0;
-        const resolvedAssets = assetsSnapshot.docs.map((docSnapshot) => {
+        const resolvedAssets = snapshot.docs.map((docSnapshot) => {
           const data = docSnapshot.data();
           currentTotalSize += data.size || 0;
           return {
@@ -78,15 +68,13 @@ export default function MediaLibraryPage() {
 
         setAssets(resolvedAssets);
         setTotalSize(currentTotalSize);
-
-      } catch (error) {
-        console.error("Failed to fetch assets:", error);
-      } finally {
         setLoading(false);
-      }
-    }
+    }, (error) => {
+      console.error("Failed to fetch assets in real-time:", error);
+      setLoading(false);
+    });
 
-    fetchAssets();
+    return () => unsubscribe();
   }, [user]);
 
   const storagePercentage = (totalSize / TOTAL_STORAGE_LIMIT_BYTES) * 100;
@@ -95,10 +83,15 @@ export default function MediaLibraryPage() {
     const filteredAssets = assets.filter(asset => asset.type === type);
     
     // For album types, show a placeholder
-    if (type === 'album' || type === 'video_album') {
+    if (type === 'album' || type === 'video_album' || type === 'text') {
         return (
              <div className="text-center py-10 border-2 border-dashed rounded-lg m-4">
-                <h3 className="text-sm font-semibold text-muted-foreground">アルバム機能は準備中です</h3>
+                <h3 className="text-sm font-semibold text-muted-foreground">この機能は準備中です</h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {type === 'album' && 'まず写真をアップロードしてください。写真を選択してアルバムを作成できます。'}
+                  {type === 'video_album' && 'まず動画をアップロードしてください。動画を選択してアルバムを作成できます。'}
+                  {type === 'text' && 'テキストブロックは公開ページエディタで直接追加します。'}
+                </p>
              </div>
         )
     }
@@ -158,7 +151,7 @@ export default function MediaLibraryPage() {
                 <CardDescription>
                     合計 {formatBytes(totalSize)} / {TOTAL_STORAGE_LIMIT_MB}MB を使用中
                 </CardDescription>
-            </CardHeader>
+            </Header>
             <CardContent>
                 <Progress value={storagePercentage} className="w-full" />
             </CardContent>
@@ -172,18 +165,23 @@ export default function MediaLibraryPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-            <Accordion type="single" collapsible className="w-full" defaultValue="photo">
-                {assetCategories.map(({ type, label, icon }) => (
+            <Accordion type="single" collapsible className="w-full" defaultValue="image">
+                {assetCategories.map(({ type, label, icon, uploaderType, accept }) => (
                     <AccordionItem value={type} key={type}>
                         <AccordionTrigger className="text-lg hover:no-underline">
                            <div className="flex items-center gap-3">
                              <span className="text-primary">{icon}</span>
                              <span>{label}</span>
                            </div>
-                           <Button size="sm" onClick={(e) => { e.stopPropagation(); /* TODO: Implement upload */ alert(`「${label}」をアップロードします`); }}>
-                                <PlusCircle className="mr-2 h-4 w-4"/>
-                                新規アップロード
-                            </Button>
+                            <MediaUploader
+                              type={uploaderType}
+                              accept={accept}
+                            >
+                               <Button size="sm" onClick={(e) => e.stopPropagation()}>
+                                  <PlusCircle className="mr-2 h-4 w-4"/>
+                                  新規アップロード
+                              </Button>
+                           </MediaUploader>
                         </AccordionTrigger>
                         <AccordionContent>
                            {renderAssetTable(type)}
