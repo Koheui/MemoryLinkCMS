@@ -110,7 +110,8 @@ export function AuthForm({ type }: AuthFormProps) {
           throw new Error(errorData.details || `セッションの作成に失敗しました。ステータス: ${res.status}`);
       }
       
-      // Per LOGIN_FIX_MEMO.md, redirect to a generic protected route and let middleware handle it.
+      // Per the new logic, always redirect to /pages.
+      // The middleware will rewrite this to /memories, and that page will handle the final redirect.
       window.location.assign('/pages');
 
     } catch (error: any) {
