@@ -20,16 +20,12 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { db } from '@/lib/firebase/client';
-import { collection, query, where, getDocs, limit } from 'firebase/firestore';
 
 
 function AppLayoutContent({ children }: { children: React.ReactNode }) {
   const { user, loading, isAdmin, handleLogout } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
-  const [memoryId, setMemoryId] = useState<string | null>(null);
-  const [isFetchingMemoryId, setIsFetchingMemoryId] = useState(true);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -37,33 +33,8 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
     }
   }, [user, loading, router]);
 
-  useEffect(() => {
-    const fetchMemoryId = async () => {
-      if (user) {
-        setIsFetchingMemoryId(true);
-        try {
-          const memoriesCollectionRef = collection(db, 'memories');
-          const q = query(memoriesCollectionRef, where('ownerUid', '==', user.uid), limit(1));
-          const querySnapshot = await getDocs(q);
-          if (!querySnapshot.empty) {
-            setMemoryId(querySnapshot.docs[0].id);
-          } else {
-            // Handle case where user has no memory page yet, maybe redirect to a create page or show a message.
-            // For now, we'll just leave it as null.
-             console.log("No memory page found for this user.");
-          }
-        } catch (error) {
-          console.error("Failed to fetch memory ID:", error);
-        } finally {
-          setIsFetchingMemoryId(false);
-        }
-      }
-    };
-    fetchMemoryId();
-  }, [user]);
 
-
-  if (loading || (user && isFetchingMemoryId)) {
+  if (loading) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="flex items-center gap-2">
@@ -83,26 +54,18 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
       <Sidebar>
         <SidebarHeader>
           <div className="flex items-center gap-2">
-             <Link href={memoryId ? `/memories/${memoryId}` : '#'} className="flex items-center gap-2 font-headline" prefetch={false}>
+             <Link href="/dashboard" className="flex items-center gap-2 font-headline" prefetch={false}>
                 <Heart className="h-6 w-6 text-primary" />
                 <span className="text-lg font-bold">想い出リンク</span>
              </Link>
           </div>
         </SidebarHeader>
         <SidebarMenu className="flex-1">
-          {memoryId ? (
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive={pathname.startsWith('/memories')}>
-                <Link href={`/memories/${memoryId}`}><Edit/> ページ編集</Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          ) : (
-            <SidebarMenuItem>
-              <SidebarMenuButton disabled>
-                  <Edit/> ページ編集
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          )}
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild isActive={pathname.startsWith('/memories')}>
+              <Link href={`/memories`}><Edit/> ページ編集</Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
           <SidebarMenuItem>
              <SidebarMenuButton asChild isActive={pathname.startsWith('/media-library')}>
                 <Link href="/media-library"><Library /> メディアライブラリ</Link>
