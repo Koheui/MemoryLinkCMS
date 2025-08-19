@@ -16,7 +16,7 @@ interface MediaUploaderProps {
   accept: string;
   children: ReactNode;
   onUploadSuccess?: (asset: Asset) => void;
-  memoryId?: string; // Make memoryId optional, but it's crucial for uploads
+  memoryId?: string;
 }
 
 export function MediaUploader({ type, accept, children, onUploadSuccess, memoryId: memoryIdProp }: MediaUploaderProps) {
@@ -48,7 +48,9 @@ export function MediaUploader({ type, accept, children, onUploadSuccess, memoryI
 
     if (fileInputRef.current) fileInputRef.current.value = "";
     
-    const storagePath = `users/${user.uid}/memories/${memoryId}/${type}/${Date.now()}_${file.name}`;
+    // Corrected type usage to align with asset type
+    const assetType = type.startsWith('video') ? 'video' : type.startsWith('audio') ? 'audio' : 'image';
+    const storagePath = `users/${user.uid}/memories/${memoryId}/${assetType}/${Date.now()}_${file.name}`;
     const storageRef = ref(storage, storagePath);
 
     try {
@@ -69,7 +71,7 @@ export function MediaUploader({ type, accept, children, onUploadSuccess, memoryI
           const assetData: Omit<Asset, 'id' | 'createdAt' | 'updatedAt'> = {
             ownerUid: user.uid,
             name: file.name,
-            type: type,
+            type: assetType, // Use the determined asset type
             storagePath: storagePath,
             url: downloadURL,
             size: file.size,
@@ -96,9 +98,7 @@ export function MediaUploader({ type, accept, children, onUploadSuccess, memoryI
     }
   };
 
-  const handleClick = (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
-    e.stopPropagation();
-    
+  const handleClick = () => {
     if (type === 'album' || type === 'video_album' || type === 'text') {
         toast({ title: '準備中', description: 'この機能は現在準備中です。' });
         return;
@@ -112,14 +112,28 @@ export function MediaUploader({ type, accept, children, onUploadSuccess, memoryI
     fileInputRef.current?.click();
   };
   
-  const uploaderContent = React.cloneElement(children as React.ReactElement, {
+  // Clone the child element and add our own onClick logic, while preserving the original.
+  const child = React.Children.only(children) as React.ReactElement;
+  const uploaderContent = React.cloneElement(child, {
     disabled: isUploading,
+    onClick: (e: React.MouseEvent<HTMLElement>) => {
+        // Prevent default behavior if it's a trigger that would otherwise do something else
+        e.preventDefault(); 
+        
+        // Call our uploader logic
+        handleClick();
+
+        // If the original child had an onClick, call it too.
+        if (child.props.onClick) {
+            child.props.onClick(e);
+        }
+    },
     children: isUploading ? (
         <>
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             アップロード中...
         </>
-    ) : (children as React.ReactElement).props.children
+    ) : child.props.children
   });
 
   return (
@@ -132,9 +146,7 @@ export function MediaUploader({ type, accept, children, onUploadSuccess, memoryI
         style={{ display: 'none' }}
         disabled={isUploading}
       />
-      <div onClick={handleClick} className="inline-block">
-        {uploaderContent}
-      </div>
+      {uploaderContent}
     </>
   );
 }
