@@ -90,7 +90,7 @@ export default async function AdminDashboardPage() {
                         <TableRow>
                             <TableHead>注文日時</TableHead>
                             <TableHead>ユーザー</TableHead>
-                            <TableHead>想い出タイトル</TableHead>
+                            <TableHead>ページタイトル</TableHead>
                             <TableHead>ステータス</TableHead>
                             <TableHead>最終更新</TableHead>
                         </TableRow>

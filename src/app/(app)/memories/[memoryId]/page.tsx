@@ -1,3 +1,4 @@
+
 // src/app/(app)/memories/[memoryId]/page.tsx
 'use server';
 
@@ -71,7 +72,7 @@ export default async function MemoryEditorPage({ params }: { params: { memoryId:
   return (
     <div className="space-y-6">
        <div>
-            <h1 className="text-2xl font-bold tracking-tight font-headline">想い出の編集</h1>
+            <h1 className="text-2xl font-bold tracking-tight font-headline">ページの編集</h1>
             <p className="text-muted-foreground">編集中のページ: <span className="font-semibold text-primary">{memory.title}</span></p>
         </div>
         
@@ -91,7 +92,7 @@ export default async function MemoryEditorPage({ params }: { params: { memoryId:
             <CardHeader>
                 <CardTitle className="font-headline">概要</CardTitle>
                 <CardDescription>
-                    想い出ページの冒頭に表示される紹介文です。Markdown形式で記述できます。
+                    ページの冒頭に表示される紹介文です。Markdown形式で記述できます。
                 </CardDescription>
             </CardHeader>
             <CardContent>
@@ -115,7 +116,7 @@ export default async function MemoryEditorPage({ params }: { params: { memoryId:
             <CardHeader>
                 <CardTitle className="font-headline">AIテーマデザイナー</CardTitle>
                 <CardDescription>
-                    AIがタイトルや説明を分析し、あなたの想い出ページにぴったりのテーマを提案します。
+                    AIがタイトルや説明を分析し、あなたのページにぴったりのテーマを提案します。
                 </CardDescription>
             </CardHeader>
             <CardContent>

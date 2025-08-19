@@ -1,3 +1,4 @@
+
 import type { Timestamp } from 'firebase/firestore';
 
 export interface UserProfile {
@@ -36,7 +37,7 @@ export interface Memory {
 export interface Asset {
   id: string;
   ownerUid: string;
-  memoryId?: string; // Which memory this asset belongs to. Can be optional.
+  memoryId?: string; // Which page this asset belongs to. Can be optional.
   name: string;
   type: 'image' | 'video' | 'audio' | 'album' | 'video_album' | 'text';
   storagePath: string; // Path in Firebase Storage

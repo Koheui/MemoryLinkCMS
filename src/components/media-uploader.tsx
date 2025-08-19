@@ -1,3 +1,4 @@
+
 // src/components/media-uploader.tsx
 'use client';
 import * as React from 'react';
@@ -36,7 +37,7 @@ export function MediaUploader({ type, accept, children, onUploadSuccess, memoryI
     }
 
     if (!memoryId) {
-        toast({ variant: 'destructive', title: 'アップロード先がありません', description: 'ファイルをアップロードするには、まず想い出ページを選択または作成してください。' });
+        toast({ variant: 'destructive', title: 'アップロード先がありません', description: 'ファイルをアップロードするには、まずページを選択または作成してください。' });
         if (fileInputRef.current) fileInputRef.current.value = "";
         return;
     }
@@ -105,7 +106,7 @@ export function MediaUploader({ type, accept, children, onUploadSuccess, memoryI
     }
 
     if (!memoryId) {
-      toast({ variant: 'destructive', title: 'アップロード先がありません', description: 'ファイルをアップロードするには、まず想い出ページを選択または作成してください。' });
+      toast({ variant: 'destructive', title: 'アップロード先がありません', description: 'ファイルをアップロードするには、まずページを選択または作成してください。' });
       return;
     }
 
@@ -118,7 +119,9 @@ export function MediaUploader({ type, accept, children, onUploadSuccess, memoryI
     disabled: isUploading,
     onClick: (e: React.MouseEvent<HTMLElement>) => {
         // Prevent default behavior if it's a trigger that would otherwise do something else
-        e.preventDefault(); 
+        if (child.props.onClick) {
+            e.preventDefault(); 
+        }
         
         // Call our uploader logic
         handleClick();
