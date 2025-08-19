@@ -28,11 +28,10 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const checkAdminStatus = async () => {
-      if (user) {
+      if (user && !isAdmin) { // Only run if user exists and not already identified as admin
         try {
           const idTokenResult = await user.getIdTokenResult(true); // Force refresh
-          const role = idTokenResult.claims.role;
-          if (role === 'admin') {
+          if (idTokenResult.claims.role === 'admin') {
             setIsAdmin(true);
             // Admin user, try to create a session
             const idToken = await user.getIdToken();
@@ -44,11 +43,13 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
           }
         } catch (error) {
           console.error("Error checking admin status:", error);
+          // It's normal for non-admins to not have the role claim, so we don't need to show an error.
+          // The session creation might fail for other reasons, but we won't block the user.
         }
       }
     };
     checkAdminStatus();
-  }, [user]);
+  }, [user, isAdmin]);
 
 
   const handleLogout = async () => {
