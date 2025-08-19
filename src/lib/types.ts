@@ -10,7 +10,11 @@ export interface UserProfile {
 
 export interface Design {
   theme: 'light' | 'dark' | 'cream' | 'ink';
+  accentColor: string;
+  bgColor: string;
   fontScale: number;
+  fontFamily: string;
+  headlineFontFamily: string;
 }
 
 export interface Memory {
@@ -21,8 +25,8 @@ export interface Memory {
   publicPageId: string | null;
   coverAssetId: string | null;
   profileAssetId: string | null;
-  description: string;
-  design?: Design;
+  description: string; // This is the "About" text
+  design?: Design; // This might be deprecated in favor of PublicPage.design
   createdAt: Timestamp | string; // Allow string for serialized data
   updatedAt: Timestamp | string; // Allow string for serialized data
   // For UI display
@@ -50,13 +54,47 @@ export interface PublicPageBlock {
     layout: 'grid' | 'carousel';
     cols?: 2 | 3;
     assetIds: string[]; 
+    items?: { src: string, thumb?: string, caption?: string }[];
   };
-  video?: { assetId: string; };
-  audio?: { assetId: string; };
-  text?: { content: string; }; 
+  video?: { 
+    assetId: string;
+    src?: string; 
+    poster?: string;
+  };
+  audio?: { 
+    assetId: string;
+    src?: string;
+  };
+  text?: { 
+    content: string; 
+  }; 
   createdAt: Timestamp | string;
   updatedAt: Timestamp | string;
 }
+
+export interface PublicPage {
+    id: string;
+    memoryId: string;
+    title: string;
+    about: { 
+        text: string, 
+        format: "md" | "plain" 
+    };
+    design: Design & {
+      // Potentially other design props from the spec
+    };
+    media: {
+        cover: { url: string, width: number, height: number };
+        profile: { url: string, width: number, height: number };
+    };
+    ordering: "custom" | "dateDesc";
+    blocks: PublicPageBlock[];
+    publish: {
+        status: "draft" | "published";
+        publishedAt?: Timestamp | string;
+    }
+}
+
 
 export interface Order {
     id: string;
