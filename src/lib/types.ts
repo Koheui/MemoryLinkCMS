@@ -43,16 +43,14 @@ export interface PublicPageBlock {
   order: number;
   visibility: 'show' | 'hide';
   title?: string;
-  // Body is deprecated, use text.content instead for text blocks
-  body?: string; 
   album?: {
     layout: 'grid' | 'carousel';
     cols?: 2 | 3;
-    items: { assetId: string; caption?: string }[];
+    assetIds: string[]; 
   };
   video?: { assetId: string; };
   audio?: { assetId: string; };
-  text?: { content: string; }; // Markdown supported
+  text?: { content: string; }; 
   createdAt: Timestamp | string;
   updatedAt: Timestamp | string;
 }

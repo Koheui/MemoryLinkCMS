@@ -1,43 +1,50 @@
 rules_version = '2';
 
+function isSignedIn() { return request.auth != null; }
+function isAdmin() { return isSignedIn() && request.auth.token.role == 'admin'; }
+function isOwner(memoryId) {
+  return isSignedIn() &&
+         get(/databases/$(database)/documents/memories/$(memoryId)).data.ownerUid == request.auth.uid;
+}
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    function isAdmin() {
-      return isSignedIn() && request.auth.token.role == 'admin';
-    }
-
-    function isOwner(memoryId) {
-      return isSignedIn() && get(/databases/$(database)/documents/memories/$(memoryId)).data.ownerUid == request.auth.uid;
-    }
-
+    // 自分のユーザードキュメントのみ
     match /users/{uid} {
       allow read, write: if (isSignedIn() && request.auth.uid == uid) || isAdmin();
     }
 
+    // 想い出本体
     match /memories/{memoryId} {
       allow read, write: if isOwner(memoryId) || isAdmin();
     }
 
+    // 資産メタ（想い出配下）
     match /memories/{memoryId}/assets/{assetId} {
       allow read, write: if isOwner(memoryId) || isAdmin();
     }
 
-    match /orders/{orderId} {
-      allow read, write: if isAdmin();
+    // ブロック（想い出配下）
+    match /memories/{memoryId}/blocks/{blockId} {
+      allow read, write: if isOwner(memoryId) || isAdmin();
     }
 
+    // 顧客/進捗（管理者主体、本人は自分のorderをread可にしても良い）
+    match /orders/{orderId} {
+      allow read, write: if isAdmin();  // MVPは管理者のみ
+    }
+
+    // 公開メタ：閲覧のみ
     match /publicPages/{pageId} {
       allow read: if true;
       allow write: if false;
     }
 
+    // ブロック直編集は不可（Functions経由）
     match /publicPages/{pageId}/blocks/{blockId} {
-      allow read, write: if false;
+      allow read: if false;
+      allow write: if false;
     }
   }
 }
