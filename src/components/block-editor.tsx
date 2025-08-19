@@ -26,7 +26,6 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle,
-    DialogTrigger,
     DialogClose,
 } from "@/components/ui/dialog";
 import { Label } from '@/components/ui/label';
@@ -34,10 +33,28 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { db } from '@/lib/firebase/client';
-import { collection, addDoc, serverTimestamp, query, orderBy, onSnapshot, doc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, query, orderBy, onSnapshot, doc, deleteDoc, updateDoc, writeBatch } from 'firebase/firestore';
 import { PlusCircle, GripVertical, Image as ImageIcon, Video, Mic, Type, Trash2, Loader2, Save } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+
 
 interface BlockEditorProps {
   memory: Memory;
@@ -51,7 +68,7 @@ const blockIcons: { [key in PublicPageBlock['type']]: React.ReactNode } = {
   text: <Type className="h-5 w-5 text-muted-foreground" />,
 };
 
-function EditBlockDialog({ block, assets, memoryId }: { block: PublicPageBlock, assets: Asset[], memoryId: string }) {
+function EditBlockDialog({ open, onOpenChange, block, assets, memoryId }: { open: boolean, onOpenChange: (open: boolean) => void, block: PublicPageBlock, assets: Asset[], memoryId: string }) {
     const [title, setTitle] = useState(block.title || '');
     const [textContent, setTextContent] = useState(block.text?.content || '');
     const [selectedAssetIds, setSelectedAssetIds] = useState<string[]>(block.album?.assetIds || []);
@@ -59,6 +76,16 @@ function EditBlockDialog({ block, assets, memoryId }: { block: PublicPageBlock, 
     const [selectedAudioId, setSelectedAudioId] = useState(block.audio?.assetId || '');
     const [isSaving, setIsSaving] = useState(false);
     const { toast } = useToast();
+
+    // Reset state when block changes
+    useEffect(() => {
+        setTitle(block.title || '');
+        setTextContent(block.text?.content || '');
+        setSelectedAssetIds(block.album?.assetIds || []);
+        setSelectedVideoId(block.video?.assetId || '');
+        setSelectedAudioId(block.audio?.assetId || '');
+    }, [block]);
+
 
     const handleSave = async () => {
         setIsSaving(true);
@@ -85,6 +112,7 @@ function EditBlockDialog({ block, assets, memoryId }: { block: PublicPageBlock, 
         try {
             await updateDoc(blockRef, updateData);
             toast({ title: '成功', description: 'ブロックを更新しました。' });
+            onOpenChange(false); // Close dialog on success
         } catch (error) {
             console.error("Failed to update block:", error);
             toast({ variant: 'destructive', title: 'エラー', description: 'ブロックの更新に失敗しました。' });
@@ -98,6 +126,7 @@ function EditBlockDialog({ block, assets, memoryId }: { block: PublicPageBlock, 
     const audioAssets = assets.filter(a => a.type === 'audio');
 
     return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-[600px]">
             <DialogHeader>
                 <DialogTitle>ブロックを編集: {block.title}</DialogTitle>
@@ -174,25 +203,77 @@ function EditBlockDialog({ block, assets, memoryId }: { block: PublicPageBlock, 
                 )}
             </div>
             <DialogFooter>
-                <DialogClose asChild>
-                    <Button variant="outline">キャンセル</Button>
-                </DialogClose>
-                <DialogClose asChild>
-                    <Button onClick={handleSave} disabled={isSaving}>
-                        {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                        変更を保存
-                    </Button>
-                </DialogClose>
+                <Button variant="outline" onClick={() => onOpenChange(false)}>キャンセル</Button>
+                <Button onClick={handleSave} disabled={isSaving}>
+                    {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                    変更を保存
+                </Button>
             </DialogFooter>
         </DialogContent>
+      </Dialog>
     )
 }
 
+function SortableBlockItem({ block, onEdit, onDelete }: { block: PublicPageBlock, onEdit: () => void, onDelete: () => void }) {
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+    } = useSortable({id: block.id});
+    
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+    };
+
+    return (
+        <div ref={setNodeRef} style={style} className="flex items-center p-2 rounded-lg border bg-card transition-colors">
+            <button {...attributes} {...listeners} className="p-1 cursor-grab focus:outline-none">
+                 <GripVertical className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+            </button>
+             <div onClick={onEdit} className="flex-grow flex items-center gap-3 cursor-pointer hover:bg-muted/50 rounded-md p-2 -m-2 ml-1">
+                <div className="flex-shrink-0">{blockIcons[block.type]}</div>
+                <div className="flex-grow">
+                    <p className="font-medium">{block.title}</p>
+                    <p className="text-sm text-muted-foreground capitalize">{block.type}</p>
+                </div>
+            </div>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 ml-2">
+                    <Trash2 className="h-4 w-4" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>本当に削除しますか？</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    このブロック「{block.title}」を削除します。この操作は元に戻すことはできません。
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>キャンセル</AlertDialogCancel>
+                  <AlertDialogAction onClick={onDelete}>削除</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+        </div>
+    );
+}
 
 export function BlockEditor({ memory, assets }: BlockEditorProps) {
   const [blocks, setBlocks] = useState<PublicPageBlock[]>([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const [editingBlock, setEditingBlock] = useState<PublicPageBlock | null>(null);
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   useEffect(() => {
     setLoading(true);
@@ -214,6 +295,34 @@ export function BlockEditor({ memory, assets }: BlockEditorProps) {
 
     return () => unsubscribe();
   }, [memory.id, toast]);
+
+  async function handleDragEnd(event: DragEndEvent) {
+    const {active, over} = event;
+    
+    if (active.id !== over?.id) {
+      setBlocks((items) => {
+        const oldIndex = items.findIndex((item) => item.id === active.id);
+        const newIndex = items.findIndex((item) => item.id === over?.id);
+        
+        const newItems = arrayMove(items, oldIndex, newIndex);
+
+        // Update order in Firestore
+        const batch = writeBatch(db);
+        newItems.forEach((item, index) => {
+            const blockRef = doc(db, 'memories', memory.id, 'blocks', item.id);
+            batch.update(blockRef, { order: index });
+        });
+        
+        batch.commit().catch(error => {
+            console.error("Failed to reorder blocks:", error);
+            toast({ variant: 'destructive', title: 'エラー', description: 'ブロックの並び替えに失敗しました。' });
+            // Optionally revert local state change
+        });
+
+        return newItems;
+      });
+    }
+  }
 
   const addBlock = async (type: PublicPageBlock['type']) => {
     try {
@@ -256,61 +365,53 @@ export function BlockEditor({ memory, assets }: BlockEditorProps) {
 
   return (
     <div className="space-y-4">
-      <div className="space-y-4">
-        {loading ? (
-            <div className="flex items-center justify-center py-10">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
-        ) : blocks.length > 0 ? (
-            blocks.map((block) => (
-            <Dialog key={block.id}>
-              <div className="flex items-center p-2 rounded-lg border bg-card transition-colors">
-                 <GripVertical className="h-5 w-5 text-muted-foreground cursor-grab mr-3 flex-shrink-0" />
-                 <DialogTrigger asChild>
-                    <div className="flex-grow flex items-center gap-3 cursor-pointer hover:bg-muted/50 rounded-md p-2 -m-2">
-                        <div className="flex-shrink-0">{blockIcons[block.type]}</div>
-                        <div className="flex-grow">
-                            <p className="font-medium">{block.title}</p>
-                            <p className="text-sm text-muted-foreground capitalize">{block.type}</p>
-                        </div>
-                    </div>
-                 </DialogTrigger>
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 ml-2">
-                        <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>本当に削除しますか？</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        このブロック「{block.title}」を削除します。この操作は元に戻すことはできません。
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>キャンセル</AlertDialogCancel>
-                      <AlertDialogAction onClick={() => deleteBlock(block.id)}>削除</AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </div>
-              <EditBlockDialog block={block} assets={assets} memoryId={memory.id} />
-            </Dialog>
-            ))
-        ) : (
-            <div className="text-center py-10 border-2 border-dashed rounded-lg">
-              <h3 className="text-sm font-semibold text-muted-foreground">
-                コンテンツがありません
-              </h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                下のボタンから最初のブロックを追加してください。
-              </p>
-            </div>
+       {editingBlock && (
+            <EditBlockDialog
+                open={!!editingBlock}
+                onOpenChange={(open) => !open && setEditingBlock(null)}
+                block={editingBlock}
+                assets={assets}
+                memoryId={memory.id}
+            />
         )}
-      </div>
+      <DndContext 
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+      >
+        <SortableContext 
+          items={blocks}
+          strategy={verticalListSortingStrategy}
+        >
+            <div className="space-y-4">
+                {loading ? (
+                    <div className="flex items-center justify-center py-10">
+                        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                    </div>
+                ) : blocks.length > 0 ? (
+                    blocks.map((block) => (
+                        <SortableBlockItem 
+                            key={block.id}
+                            block={block}
+                            onEdit={() => setEditingBlock(block)}
+                            onDelete={() => deleteBlock(block.id)}
+                        />
+                    ))
+                ) : (
+                    <div className="text-center py-10 border-2 border-dashed rounded-lg">
+                      <h3 className="text-sm font-semibold text-muted-foreground">
+                        コンテンツがありません
+                      </h3>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        下のボタンから最初のブロックを追加してください。
+                      </p>
+                    </div>
+                )}
+            </div>
+        </SortableContext>
+      </DndContext>
       
-      <div>
+      <div className="mt-6">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline">
