@@ -11,7 +11,7 @@ import { getApps, initializeApp, applicationDefault } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 import { cookies } from 'next/headers';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 
 if (!getApps().length) {
   initializeApp({
@@ -45,9 +45,7 @@ async function fetchMemories(uid: string): Promise<Memory[]> {
 export default async function DashboardPage() {
   const sessionCookie = cookies().get('__session')?.value || '';
   if (!sessionCookie) {
-    // This should technically not be reached due to layout protection,
-    // but it's good practice for a server component that needs auth.
-    return notFound();
+    redirect('/login');
   }
 
   let memories: Memory[] = [];
@@ -56,8 +54,7 @@ export default async function DashboardPage() {
     memories = await fetchMemories(decodedClaims.uid);
   } catch (error) {
      console.error("Error fetching memories or verifying session:", error);
-     // Redirect to login or show an error state
-     // For now, we'll just show an empty list.
+     redirect('/login');
   }
 
   return (
@@ -92,10 +89,8 @@ export default async function DashboardPage() {
             </CardHeader>
             <CardContent className="flex-grow">
                <div className="flex items-center gap-2">
-                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    memory.status === 'published' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'
-                 }`}>
-                    {memory.status === 'published' ? '公開中' : '下書き'}
+                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-secondary text-secondary-foreground`}>
+                    {memory.status === 'active' ? '公開中' : '下書き'}
                  </span>
                </div>
             </CardContent>
@@ -126,3 +121,5 @@ export default async function DashboardPage() {
     </div>
   );
 }
+
+    
