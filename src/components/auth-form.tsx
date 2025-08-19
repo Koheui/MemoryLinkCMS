@@ -95,9 +95,9 @@ export function AuthForm({ type }: AuthFormProps) {
         throw new Error(errorData.details || `セッションの作成に失敗しました。ステータス: ${res.status}`);
       }
       
-      // IMPORTANT: This refresh triggers the middleware to redirect the user
-      // after the session cookie has been set.
-      router.refresh();
+      // THIS IS THE FIX: Explicitly redirect to the main app page.
+      // This was the logic that was working before.
+      window.location.assign('/pages');
 
     } catch (error: any) {
         let description = '予期せぬエラーが発生しました。';
