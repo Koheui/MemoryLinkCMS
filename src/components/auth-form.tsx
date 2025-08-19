@@ -10,7 +10,7 @@ import {
   signInWithEmailAndPassword,
 } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase/client';
-import { doc, setDoc, serverTimestamp, collection, addDoc, getDocs, query, where, limit } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp, collection, addDoc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -110,9 +110,7 @@ export function AuthForm({ type }: AuthFormProps) {
           throw new Error(errorData.details || `セッションの作成に失敗しました。ステータス: ${res.status}`);
       }
       
-      // Per the new logic, always redirect to /pages.
-      // The middleware will rewrite this to /memories, and that page will handle the final redirect.
-      window.location.assign('/pages');
+      window.location.assign('/account');
 
     } catch (error: any) {
         let description = '予期せぬエラーが発生しました。';

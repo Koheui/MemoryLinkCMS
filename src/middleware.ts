@@ -3,19 +3,44 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 export const config = {
-  // middlewareはリクエストの書き換えのみを行うため、軽量なedge runtimeで十分
   runtime: 'edge',
   matcher: [
-    '/pages', // ログイン後のリダイレクト先
+    /*
+     * Match all request paths except for the ones starting with:
+     * - api (API routes)
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - p (public pages)
+     */
+    '/((?!api|_next/static|_next/image|favicon.ico|p|.*\\.png$).*)',
   ],
 };
 
 export function middleware(request: NextRequest) {
-  // 認証チェックは行わない。/pages へのアクセスを /memories に書き換えるだけ。
-  // 実際の認証チェックとリダイレクトは /app/(app)/memories/page.tsx で行われる。
-  if (request.nextUrl.pathname === '/pages') {
-    return NextResponse.rewrite(new URL('/memories', request.url));
+  const sessionCookie = request.cookies.get('__session')?.value;
+  const { pathname } = request.nextUrl;
+
+  const publicPaths = ['/login', '/signup', '/'];
+
+  const isPublicPath = publicPaths.includes(pathname);
+
+  // If user is authenticated
+  if (sessionCookie) {
+    // If they are trying to access a public-only path like login, redirect them to account
+    if (isPublicPath) {
+      return NextResponse.redirect(new URL('/account', request.url));
+    }
+    // Otherwise, allow them to proceed
+    return NextResponse.next();
   }
 
+  // If user is not authenticated
+  // If they are trying to access a protected path, redirect them to login
+  if (!isPublicPath) {
+    return NextResponse.redirect(new URL('/login', request.url));
+  }
+
+  // Otherwise, allow them to access the public path
   return NextResponse.next();
 }
