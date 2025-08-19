@@ -1,3 +1,4 @@
+
 // src/app/(app)/dashboard/page.tsx
 'use client';
 // This page is no longer used for redirection. It can be a simple placeholder
