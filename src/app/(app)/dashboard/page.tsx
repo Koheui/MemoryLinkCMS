@@ -4,23 +4,31 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { PlusCircle, Edit, Loader2 } from 'lucide-react';
+import { PlusCircle, Edit, Loader2, FilePlus } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import type { Memory } from '@/lib/types';
 import { useAuth } from '@/hooks/use-auth';
 import { useState, useEffect } from 'react';
-import { db } from '@/lib/firebase/client';
-import { collection, query, where, getDocs, orderBy, doc, getDoc } from 'firebase/firestore';
+import { db, auth } from '@/lib/firebase/client';
+import { collection, query, where, getDocs, orderBy, doc, getDoc, addDoc, serverTimestamp } from 'firebase/firestore';
+import { useToast } from '@/hooks/use-toast';
+import { useRouter } from 'next/navigation';
 
 
 export default function DashboardPage() {
   const { user } = useAuth();
   const [memories, setMemories] = useState<Memory[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isCreating, setIsCreating] = useState(false);
+  const { toast } = useToast();
+  const router = useRouter();
 
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+        setLoading(false);
+        return;
+    };
 
     async function fetchMemories() {
       setLoading(true);
@@ -44,8 +52,7 @@ export default function DashboardPage() {
             const assetDoc = await getDoc(assetDocRef);
             if (assetDoc.exists()) {
               const assetData = assetDoc.data();
-              // In a real app, you might need to get a download URL if storage rules are tight
-              if (assetData?.url) { // Assuming URL is stored on asset creation
+              if (assetData?.url) {
                 coverImageUrl = assetData.url;
               }
             }
@@ -64,14 +71,48 @@ export default function DashboardPage() {
         setMemories(resolvedMemories);
       } catch (error) {
         console.error("Failed to fetch memories:", error);
-        // Handle error (e.g., show toast)
+        toast({ variant: 'destructive', title: 'エラー', description: 'ページの読み込みに失敗しました。'});
       } finally {
         setLoading(false);
       }
     }
 
     fetchMemories();
-  }, [user]);
+  }, [user, toast]);
+  
+  const handleCreateNewPage = async () => {
+    if (!user) {
+      toast({ variant: 'destructive', title: 'エラー', description: 'ログインしていません。' });
+      return;
+    }
+    setIsCreating(true);
+    try {
+      const memoryDocRef = await addDoc(collection(db, 'memories'), {
+        ownerUid: user.uid,
+        title: '無題のページ',
+        status: 'draft',
+        publicPageId: null,
+        coverAssetId: null,
+        profileAssetId: null,
+        description: '', // 'about' text
+        design: {
+            theme: 'light',
+            fontScale: 1.0,
+        },
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+      
+      toast({ title: '新しいページを作成しました', description: '編集ページに移動します。' });
+      router.push(`/memories/${memoryDocRef.id}`);
+
+    } catch (error) {
+      console.error("Failed to create new page:", error);
+      toast({ variant: 'destructive', title: 'エラー', description: 'ページの作成に失敗しました。' });
+    } finally {
+      setIsCreating(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -86,12 +127,11 @@ export default function DashboardPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight font-headline">ダッシュボード</h1>
-          <p className="text-muted-foreground">作成した想い出ページ一覧</p>
+          <p className="text-muted-foreground">作成した公開ページ一覧</p>
         </div>
-        <Button asChild>
-          <Link href="/memories/new">
-            <PlusCircle className="mr-2 h-4 w-4" /> 新しい想い出を作成
-          </Link>
+        <Button onClick={handleCreateNewPage} disabled={isCreating}>
+            {isCreating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FilePlus className="mr-2 h-4 w-4" />}
+            新しいページを作成
         </Button>
       </div>
 
@@ -109,6 +149,15 @@ export default function DashboardPage() {
                 />
               </div>
               <CardTitle className="font-headline">{memory.title}</CardTitle>
+               <CardDescription>
+                {memory.publicPageId ? (
+                    <Link href={`/p/${memory.publicPageId}`} target="_blank" className="text-xs text-primary hover:underline">
+                        公開ページを表示
+                    </Link>
+                ) : (
+                    <span className="text-xs">未公開</span>
+                )}
+               </CardDescription>
             </CardHeader>
             <CardContent className="flex-grow">
               <div className="flex items-center gap-2">
@@ -128,15 +177,14 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {memories.length === 0 && (
+      {memories.length === 0 && !loading && (
         <div className="text-center py-12 border-2 border-dashed rounded-lg">
-          <h3 className="mt-2 text-sm font-semibold text-gray-900 dark:text-white font-headline">まだ想い出が作成されていません</h3>
-          <p className="mt-1 text-sm text-gray-500">新しい想い出ページを作成しましょう。</p>
+          <h3 className="mt-2 text-sm font-semibold text-gray-900 dark:text-white font-headline">まだページがありません</h3>
+          <p className="mt-1 text-sm text-gray-500">最初の公開ページを作成しましょう。</p>
           <div className="mt-6">
-            <Button asChild>
-              <Link href="/memories/new">
-                <PlusCircle className="mr-2 h-4 w-4" /> 新しい想い出を作成
-              </Link>
+            <Button onClick={handleCreateNewPage} disabled={isCreating}>
+                {isCreating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FilePlus className="mr-2 h-4 w-4" />}
+                新しいページを作成
             </Button>
           </div>
         </div>

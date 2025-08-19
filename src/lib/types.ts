@@ -11,11 +11,11 @@ export interface UserProfile {
 
 export interface Design {
   theme: 'light' | 'dark' | 'cream' | 'ink';
-  accentColor: string;
-  bgColor: string;
+  accentColor?: string;
+  bgColor?: string;
   fontScale: number;
-  fontFamily: string;
-  headlineFontFamily: string;
+  fontFamily?: string;
+  headlineFontFamily?: string;
 }
 
 export interface Memory {
@@ -27,7 +27,7 @@ export interface Memory {
   coverAssetId: string | null;
   profileAssetId: string | null;
   description: string; // This is the "About" text
-  design?: Design; // This might be deprecated in favor of PublicPage.design
+  design: Design;
   createdAt: Timestamp | string; // Allow string for serialized data
   updatedAt: Timestamp | string; // Allow string for serialized data
   // For UI display
@@ -36,12 +36,13 @@ export interface Memory {
 
 export interface Asset {
   id: string;
-  ownerUid: string; // Add ownerUid to enable collectionGroup queries
+  ownerUid: string;
   name: string;
-  type: 'image' | 'video' | 'audio';
-  rawPath: string;
-  procPath?: string;
-  thumbPath?: string;
+  // 'album' and 'text' types are for logical organization in the library, they may not be direct file uploads
+  type: 'image' | 'video' | 'audio' | 'album' | 'video_album' | 'text';
+  rawPath?: string; // For file-based assets
+  content?: string; // For text-based assets
+  childAssetIds?: string[]; // For album assets
   url?: string;
   size?: number; // Add size to calculate total usage
   createdAt: Timestamp | string;
