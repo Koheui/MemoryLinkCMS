@@ -141,7 +141,7 @@ export function DesignEditor({ memory, assets }: DesignEditorProps) {
                 </Select>
                 {coverImageUrl && (
                   <div className="mt-2 rounded-md overflow-hidden aspect-video relative">
-                     <Image src={coverImageUrl} alt="Cover preview" layout="fill" objectFit="cover" />
+                     <Image src={coverImageUrl} alt="Cover preview" fill className="object-cover" />
                   </div>
                 )}
                 <FormMessage />
@@ -171,7 +171,7 @@ export function DesignEditor({ memory, assets }: DesignEditorProps) {
                 </Select>
                  {profileImageUrl && (
                   <div className="mt-2 rounded-full overflow-hidden relative w-32 h-32">
-                     <Image src={profileImageUrl} alt="Profile preview" layout="fill" objectFit="cover" />
+                     <Image src={profileImageUrl} alt="Profile preview" fill className="object-cover" />
                   </div>
                 )}
                 <FormMessage />

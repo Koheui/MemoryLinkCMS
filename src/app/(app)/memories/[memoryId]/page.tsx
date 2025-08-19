@@ -1,3 +1,4 @@
+
 // src/app/(app)/memories/[memoryId]/page.tsx
 'use server';
 
@@ -43,6 +44,7 @@ async function fetchMemory(uid: string, memoryId: string): Promise<Memory> {
 
 async function fetchAssets(uid: string, memoryId: string): Promise<Asset[]> {
     const db = getFirestore();
+    // Correctly query the subcollection
     const assetsSnapshot = await db.collection('memories').doc(memoryId).collection('assets').where('type', '==', 'image').get();
     
     if (assetsSnapshot.empty) {

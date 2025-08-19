@@ -60,15 +60,17 @@ export default function NewMemoryPage() {
     },
   });
 
-  const handlePhotoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files;
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
     if (files) {
-      const newPreviews = Array.from(files).map(file => URL.createObjectURL(file));
-      setPhotoPreviews(newPreviews);
-      form.setValue('photos', files);
+      const newPreviews = Array.from(files).map((file) => URL.createObjectURL(file));
+      setPhotoPreviews((prev) => {
+        prev.forEach(URL.revokeObjectURL);
+        return newPreviews;
+      });
     }
   };
-
+  
   async function onSubmit(data: NewMemoryFormValues) {
     if (!user) {
         toast({ variant: 'destructive', title: 'エラー', description: 'ログインしていません。' });
@@ -213,7 +215,17 @@ export default function NewMemoryPage() {
                                   <p className="mb-2 text-sm text-muted-foreground"><span className="font-semibold">クリックしてアップロード</span> またはドラッグ＆ドロップ</p>
                                   <p className="text-xs text-muted-foreground">まず5〜10枚の写真をアップロードしてください</p>
                               </div>
-                              <Input id="dropzone-file" type="file" className="hidden" multiple onChange={handlePhotoChange} />
+                              <Input 
+                                id="dropzone-file" 
+                                type="file" 
+                                className="hidden" 
+                                multiple 
+                                accept="image/*,video/*"
+                                onChange={(e) => {
+                                  field.onChange(e.target.files);
+                                  handlePhotoChange(e);
+                                }}
+                              />
                           </label>
                       </div> 
                       </FormControl>
