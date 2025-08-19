@@ -119,13 +119,12 @@ export function AuthForm({ type }: AuthFormProps) {
         throw new Error(errorData.details || `セッションの作成に失敗しました。ステータス: ${res.status}`);
       }
       
-      // 5. ★★★【THE ONLY CORRECT WAY as documented in LOGIN_FIX_MEMO.md】★★★
-      // After all server processing is complete, command a direct client-side
-      // navigation to a protected page.
-      // This ensures the new session cookie is present in the request,
-      // preventing middleware race conditions.
-      // The dashboard page will then handle redirecting to the actual memory page.
-      window.location.assign('/dashboard');
+      // 5. ★★★【最重要 as documented in LOGIN_FIX_MEMO.md】★★★
+      //    全ての処理が完了した後、クライアントサイドから保護されたページ（/pages）へ
+      //    直接画面遷移を命令する。これにより、新しいセッションCookieを持った状態で
+      //    リクエストが送信され、Middlewareが正しく認証状態を判断できる。
+      //    `/pages` is an alias that will be correctly handled by middleware/routing.
+      window.location.assign('/pages');
 
     } catch (error: any) {
         let description = '予期せぬエラーが発生しました。';
