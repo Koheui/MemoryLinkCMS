@@ -2,7 +2,6 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-// This function can be marked `async` if using `await` inside
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   const sessionCookie = request.cookies.get('__session')?.value
@@ -12,14 +11,17 @@ export function middleware(request: NextRequest) {
   const isProtectedRoute = ['/dashboard', '/memories', '/_admin'].some((path) =>
     pathname.startsWith(path)
   )
-  const isAuthRoute = ['/login', 'signup'].some((path) =>
+  
+  const isAuthRoute = ['/login', '/signup'].some((path) =>
     pathname.startsWith(path)
   )
 
+  // If user is not logged in and tries to access a protected route, redirect to login
   if (!isLoggedIn && isProtectedRoute) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
+  // If user is logged in and tries to access login or signup page, redirect to dashboard
   if (isLoggedIn && isAuthRoute) {
     return NextResponse.redirect(new URL('/dashboard', request.url))
   }
@@ -36,7 +38,8 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
+     * - p (public pages)
      */
-    '/((?!api|_next/static|_next/image|favicon.ico).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|p).*)',
   ],
 }

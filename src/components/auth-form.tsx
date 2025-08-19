@@ -82,12 +82,10 @@ export function AuthForm({ type }: AuthFormProps) {
       if (!res.ok) {
         const errorData = await res.json();
         console.error('Session creation failed:', errorData);
-        throw new Error(errorData.details || `Failed to create session. Status: ${res.status}. Raw: ${JSON.stringify(errorData)}`);
+        throw new Error(errorData.details || `Failed to create session. Status: ${res.status}.`);
       }
-
-      // **CRITICAL CHANGE**: Remove client-side redirect.
-      // The middleware will handle the redirect after the page is refreshed.
-      router.refresh();
+      
+      router.push('/dashboard');
 
     } catch (error: any) {
         console.error("Auth error:", error);

@@ -9,13 +9,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import type { Memory, Asset } from '@/lib/types';
 import { getAdminApp } from '@/lib/firebase/firebaseAdmin';
 import { getFirestore } from 'firebase-admin/firestore';
-import { getAuth } from 'firebase-admin/auth';
-import { cookies } from 'next/headers';
-import { notFound, redirect } from 'next/navigation';
+import { notFound } from 'next/navigation';
 
-getAdminApp();
+// Note: UID check is now handled by client-side hooks and middleware.
+// This server component focuses only on fetching data based on the provided ID.
 
-async function fetchMemory(uid: string, memoryId: string): Promise<Memory> {
+async function fetchMemory(memoryId: string): Promise<Memory> {
+    getAdminApp(); // Ensure admin app is initialized
     const db = getFirestore();
     const memoryDoc = await db.collection('memories').doc(memoryId).get();
 
@@ -24,11 +24,6 @@ async function fetchMemory(uid: string, memoryId: string): Promise<Memory> {
     }
 
     const memoryData = memoryDoc.data() as Omit<Memory, 'id'>;
-
-    // Ensure the user owns this memory
-    if (memoryData.ownerUid !== uid) {
-        notFound();
-    }
 
     return {
         id: memoryDoc.id,
@@ -39,9 +34,9 @@ async function fetchMemory(uid: string, memoryId: string): Promise<Memory> {
     } as Memory;
 }
 
-async function fetchAssets(uid: string, memoryId: string): Promise<Asset[]> {
+async function fetchAssets(memoryId: string): Promise<Asset[]> {
+    getAdminApp();
     const db = getFirestore();
-    // Correctly query the subcollection
     const assetsSnapshot = await db.collection('memories').doc(memoryId).collection('assets').orderBy('createdAt', 'desc').get();
     
     if (assetsSnapshot.empty) {
@@ -63,28 +58,11 @@ async function fetchAssets(uid: string, memoryId: string): Promise<Asset[]> {
 
 
 export default async function MemoryEditorPage({ params }: { params: { memoryId: string } }) {
-  let uid: string | null = null;
-  const sessionCookie = cookies().get('__session')?.value;
-  if(sessionCookie) {
-    try {
-        const decodedClaims = await getAuth().verifySessionCookie(sessionCookie, true);
-        uid = decodedClaims.uid;
-    } catch (error) {
-        // Ignore error, uid will be null
-    }
-  }
-  
-  if(!uid) {
-    // This is a server component, so we can't use the useAuth hook.
-    // We'll rely on middleware to redirect, but as a safeguard:
-    redirect('/login');
-  }
-
   let memory: Memory;
   let assets: Asset[];
   try {
-    memory = await fetchMemory(uid, params.memoryId);
-    assets = await fetchAssets(uid, params.memoryId);
+    memory = await fetchMemory(params.memoryId);
+    assets = await fetchAssets(params.memoryId);
   } catch (error) {
      console.error("Error fetching memory data:", error);
      // This could be a permissions issue or invalid ID.

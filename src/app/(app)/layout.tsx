@@ -17,28 +17,12 @@ import { Button } from '@/components/ui/button';
 import { Heart, LayoutDashboard, LogOut, Settings, ShieldCheck, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { signOut } from 'firebase/auth';
-import { auth } from '@/lib/firebase/client';
 import { useRouter } from 'next/navigation';
 
 function AppLayoutContent({ children }: { children: React.ReactNode }) {
-  const { user, loading, isAdmin } = useAuth();
+  const { user, loading, isAdmin, handleLogout } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
-
-  const handleLogout = async () => {
-    try {
-      // Clear client-side auth state
-      await signOut(auth);
-      // Clear server-side session
-      await fetch('/api/auth/sessionLogout', { method: 'POST' });
-    } catch (error) {
-        console.error("Logout failed:", error);
-    } finally {
-        // Redirect to login page
-        window.location.assign('/login');
-    }
-  };
 
   if (loading) {
     return (
@@ -52,12 +36,20 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
   }
 
   if (!user) {
-    // Middleware should handle this, but as a fallback.
-    // Using window.location.assign to ensure a full refresh.
+    // This case should ideally be handled by middleware redirecting to /login.
+    // However, as a fallback, especially during initial client-side load,
+    // we can explicitly redirect.
     if (typeof window !== 'undefined') {
-      window.location.assign('/login');
+      router.push('/login');
     }
-    return null;
+    return (
+        <div className="flex h-screen items-center justify-center">
+            <div className="flex items-center gap-2">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <span className="text-lg text-muted-foreground">リダイレクト中...</span>
+            </div>
+        </div>
+    );
   }
 
   return (
