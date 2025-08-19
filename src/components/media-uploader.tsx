@@ -13,22 +13,17 @@ import { Loader2 } from 'lucide-react';
 import { useParams } from 'next/navigation';
 
 interface MediaUploaderProps {
-  type: 'image' | 'video' | 'audio' | 'text' | 'album' | 'video_album';
+  assetType: 'image' | 'video' | 'audio';
   accept: string;
   children: ReactNode;
   onUploadSuccess?: (asset: Asset) => void;
-  memoryId?: string;
 }
 
-export function MediaUploader({ type, accept, children, onUploadSuccess, memoryId: memoryIdProp }: MediaUploaderProps) {
+export function MediaUploader({ assetType, accept, children, onUploadSuccess }: MediaUploaderProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const params = useParams();
-  
-  const memoryIdFromParams = Array.isArray(params.memoryId) ? params.memoryId[0] : params.memoryId;
-  const memoryId = memoryIdProp || memoryIdFromParams;
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (!user) {
@@ -36,22 +31,13 @@ export function MediaUploader({ type, accept, children, onUploadSuccess, memoryI
       return;
     }
 
-    if (!memoryId) {
-        toast({ variant: 'destructive', title: 'アップロード先がありません', description: 'ファイルをアップロードするには、まずページを選択または作成してください。' });
-        if (fileInputRef.current) fileInputRef.current.value = "";
-        return;
-    }
-
     const file = event.target.files?.[0];
     if (!file) return;
 
     setIsUploading(true);
-
     if (fileInputRef.current) fileInputRef.current.value = "";
     
-    // Corrected type usage to align with asset type
-    const assetType = type.startsWith('video') ? 'video' : type.startsWith('audio') ? 'audio' : 'image';
-    const storagePath = `users/${user.uid}/memories/${memoryId}/${assetType}/${Date.now()}_${file.name}`;
+    const storagePath = `users/${user.uid}/assets/${assetType}/${Date.now()}_${file.name}`;
     const storageRef = ref(storage, storagePath);
 
     try {
@@ -72,14 +58,15 @@ export function MediaUploader({ type, accept, children, onUploadSuccess, memoryI
           const assetData: Omit<Asset, 'id' | 'createdAt' | 'updatedAt'> = {
             ownerUid: user.uid,
             name: file.name,
-            type: assetType, // Use the determined asset type
+            type: assetType,
             storagePath: storagePath,
             url: downloadURL,
             size: file.size,
-            memoryId: memoryId,
           };
           
-          const docRef = await addDoc(collection(db, 'memories', memoryId, 'assets'), {
+          // Note: All assets are now stored in a single top-level 'assets' collection.
+          // This is a simplified approach for the media library.
+          const docRef = await addDoc(collection(db, 'assets'), {
              ...assetData,
              createdAt: serverTimestamp(),
              updatedAt: serverTimestamp(),
@@ -100,36 +87,17 @@ export function MediaUploader({ type, accept, children, onUploadSuccess, memoryI
   };
 
   const handleClick = () => {
-    if (type === 'album' || type === 'video_album' || type === 'text') {
-        toast({ title: '準備中', description: 'この機能は現在準備中です。' });
-        return;
-    }
-
-    if (!memoryId) {
-      toast({ variant: 'destructive', title: 'アップロード先がありません', description: 'ファイルをアップロードするには、まずページを選択または作成してください。' });
-      return;
-    }
-
     fileInputRef.current?.click();
   };
   
-  // Clone the child element and add our own onClick logic, while preserving the original.
   const child = React.Children.only(children) as React.ReactElement;
   const uploaderContent = React.cloneElement(child, {
     disabled: isUploading,
     onClick: (e: React.MouseEvent<HTMLElement>) => {
-        // Prevent default behavior if it's a trigger that would otherwise do something else
-        if (child.props.onClick) {
-            e.preventDefault(); 
-        }
-        
-        // Call our uploader logic
-        handleClick();
-
-        // If the original child had an onClick, call it too.
-        if (child.props.onClick) {
-            child.props.onClick(e);
-        }
+      if (child.props.onClick) {
+        e.stopPropagation(); 
+      }
+      handleClick();
     },
     children: isUploading ? (
         <>

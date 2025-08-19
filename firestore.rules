@@ -1,49 +1,40 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    function isOwner(uid) {
-      return request.auth != null && request.auth.uid == uid;
-    }
     
-    function isMemoryOwner(memoryId) {
-      return get(/databases/$(database)/documents/memories/$(memoryId)).data.ownerUid == request.auth.uid;
-    }
-    
-    function isAdmin() {
-      return request.auth != null && request.auth.token.role == 'admin';
+    // User can only read/write their own user document
+    match /users/{uid} {
+      allow read, write: if request.auth.uid == uid;
     }
 
-    match /users/{userId} {
-      allow read, write: if isOwner(userId) || isAdmin();
-    }
-
+    // Memories can be read/written by their owner.
     match /memories/{memoryId} {
-      allow read, write: if isOwner(get(/databases/$(database)/documents/memories/$(memoryId)).data.ownerUid) || isAdmin();
+      allow read, write: if request.auth.uid == resource.data.ownerUid;
+
+      // Anyone can read the blocks of a memory if the memory is published
+      // This might need refinement based on public page logic
+      match /blocks/{blockId} {
+         allow read, write: if request.auth.uid == get(/databases/$(database)/documents/memories/$(memoryId)).data.ownerUid;
+      }
     }
 
-    // This rule allows the owner of a memory to access its subcollection of assets.
-    match /memories/{memoryId}/assets/{assetId} {
-      allow read, write: if isMemoryOwner(memoryId) || isAdmin();
+    // Assets can be read/written by their owner.
+    // This uses a collection group query.
+    match /{path=**}/assets/{assetId} {
+      allow read, write: if request.auth.uid == resource.data.ownerUid;
     }
 
+    // Orders are admin-only for now
     match /orders/{orderId} {
-      allow read, write: if isAdmin();
+      allow read, write: if request.auth.token.role == 'admin';
     }
 
+    // Public pages are read-only for everyone, and cannot be written by clients.
     match /publicPages/{pageId} {
       allow read: if true;
       allow write: if false; // Should be written by functions only
-    }
-
-    match /publicPages/{pageId}/{subcollection}/{docId} {
-      allow read, write: if false; // Should be written by functions only
-    }
-    
-    // Explicitly deny access to root assets collection if not owner
-    match /assets/{assetId} {
-      allow read, write: if isOwner(resource.data.ownerUid) || isAdmin();
     }
   }
 }

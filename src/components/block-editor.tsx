@@ -204,21 +204,21 @@ function EditBlockDialog({ open, onOpenChange, block, assets, memoryId }: { open
                         </div>
                     </div>
                 )}
-
+{/* 
                 <div className="grid grid-cols-4 items-start gap-4">
                    <Label className="text-right pt-2">メディア追加</Label>
                    <div className="col-span-3 flex gap-2">
-                     <MediaUploader type="image" accept="image/*" memoryId={memoryId} onUploadSuccess={() => {}}>
+                     <MediaUploader assetType="image" accept="image/*" onUploadSuccess={() => {}}>
                        <Button variant="outline" size="sm"><ImageIcon className="mr-2 h-4 w-4"/>写真</Button>
                      </MediaUploader>
-                      <MediaUploader type="video" accept="video/*" memoryId={memoryId} onUploadSuccess={() => {}}>
+                      <MediaUploader assetType="video" accept="video/*" onUploadSuccess={() => {}}>
                        <Button variant="outline" size="sm"><Video className="mr-2 h-4 w-4"/>動画</Button>
                      </MediaUploader>
-                      <MediaUploader type="audio" accept="audio/*" memoryId={memoryId} onUploadSuccess={() => {}}>
+                      <MediaUploader assetType="audio" accept="audio/*" onUploadSuccess={() => {}}>
                        <Button variant="outline" size="sm"><Mic className="mr-2 h-4 w-4"/>音声</Button>
                      </MediaUploader>
                    </div>
-                </div>
+                </div> */}
 
             </div>
             <DialogFooter>

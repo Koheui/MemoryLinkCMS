@@ -165,7 +165,7 @@ export default function MediaLibraryPage() {
                              <span>{label}</span>
                            </div>
                            <MediaUploader
-                              type={type}
+                              assetType={type}
                               accept={accept}
                               onUploadSuccess={() => { /* can be used to refresh list if needed */ }}
                             >
