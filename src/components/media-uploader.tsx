@@ -6,10 +6,9 @@ import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { storage, db } from '@/lib/firebase/client';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, collectionGroup } from 'firebase/firestore';
 import type { Asset } from '@/lib/types';
-import { Button } from '@/components/ui/button'; // Import Button
-import { Loader2 } from 'lucide-react'; // Import Loader
+import { Loader2 } from 'lucide-react';
 import { useParams } from 'next/navigation';
 
 interface MediaUploaderProps {
@@ -17,25 +16,23 @@ interface MediaUploaderProps {
   accept: string;
   children: ReactNode;
   onUploadSuccess?: (asset: Asset) => void;
-  // memoryId is optional here, but we will get it from params
+  memoryId?: string; // Make memoryId optional
 }
 
-export function MediaUploader({ type, accept, children, onUploadSuccess }: MediaUploaderProps) {
+export function MediaUploader({ type, accept, children, onUploadSuccess, memoryId: memoryIdProp }: MediaUploaderProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
   const params = useParams();
-  const memoryId = params.memoryId as string;
+  
+  // Use memoryId from props if available, otherwise fallback to params (for memory editor page)
+  const memoryId = memoryIdProp || params.memoryId as string;
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (!user) {
       toast({ variant: 'destructive', title: 'エラー', description: 'ログインしていません。' });
       return;
-    }
-    if (!memoryId && type !== 'album' && type !== 'video_album' && type !== 'text') {
-        toast({ variant: 'destructive', title: 'エラー', description: 'どのページにアップロードするか不明です。' });
-        return;
     }
 
     const file = event.target.files?.[0];
@@ -44,8 +41,10 @@ export function MediaUploader({ type, accept, children, onUploadSuccess }: Media
     setIsUploading(true);
 
     if(fileInputRef.current) fileInputRef.current.value = "";
-
-    const storagePath = `users/${user.uid}/memories/${memoryId}/${type}/${Date.now()}_${file.name}`;
+    
+    // Determine storage path. If memoryId exists, use it.
+    const pathPrefix = memoryId ? `users/${user.uid}/memories/${memoryId}` : `users/${user.uid}/library`;
+    const storagePath = `${pathPrefix}/${type}/${Date.now()}_${file.name}`;
     const storageRef = ref(storage, storagePath);
 
     try {
@@ -53,8 +52,7 @@ export function MediaUploader({ type, accept, children, onUploadSuccess }: Media
 
       uploadTask.on('state_changed',
         (snapshot) => {
-          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-          console.log('Upload is ' + progress + '% done');
+          // Progress can be handled here if needed
         },
         (error) => {
           console.error("Upload failed:", error);
@@ -66,7 +64,6 @@ export function MediaUploader({ type, accept, children, onUploadSuccess }: Media
           
           const assetData: Omit<Asset, 'id' | 'createdAt' | 'updatedAt'> = {
             ownerUid: user.uid,
-            memoryId: memoryId, // This might be null for library uploads
             name: file.name,
             type: type,
             storagePath: storagePath,
@@ -74,9 +71,18 @@ export function MediaUploader({ type, accept, children, onUploadSuccess }: Media
             size: file.size,
           };
           
-          const collectionPath = memoryId ? `memories/${memoryId}/assets` : 'assets';
+          if (memoryId) {
+            assetData.memoryId = memoryId;
+          }
           
-          const docRef = await addDoc(collection(db, collectionPath), {
+          // All assets are stored in a subcollection of a memory now.
+          // For media library, we could create a "library" memory or store them at the top level.
+          // Let's assume for now they go into a subcollection of the memory
+          const collectionPath = memoryId 
+            ? `memories/${memoryId}/assets` 
+            : `users/${user.uid}/assets`; // Fallback for library, might need review
+
+          const docRef = await addDoc(collection(db, `memories/${memoryId}/assets`), {
              ...assetData,
              createdAt: serverTimestamp(),
              updatedAt: serverTimestamp(),
@@ -101,11 +107,6 @@ export function MediaUploader({ type, accept, children, onUploadSuccess }: Media
     
     if (type === 'album' || type === 'video_album' || type === 'text') {
         toast({ title: '準備中', description: 'この機能は現在準備中です。' });
-        return;
-    }
-    // For media library, no memoryId is needed to open the dialog
-    if (!memoryId && window.location.pathname.startsWith('/memories/')) {
-        toast({ variant: 'destructive', title: 'エラー', description: 'アップロード先のページが特定できませんでした。' });
         return;
     }
     fileInputRef.current?.click();

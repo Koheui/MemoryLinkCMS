@@ -82,10 +82,12 @@ memories/{memoryId}                 // 想い出コンテナ（1公開ページ�
   createdAt, updatedAt
 
 memories/{memoryId}/assets/{assetId}
+  ownerUid: string // Denormalized for rules
+  name: string
   type: "image" | "video" | "audio"
-  rawPath: string
-  procPath?: string
-  thumbPath?: string
+  storagePath: string
+  url: string
+  size: number
   createdAt
 
 orders/{orderId}                    // 顧客・進捗管理の中核
@@ -123,7 +125,8 @@ publicPages/{pageId}/blocks/{blockId} // 編集側ブロック（writeはFunctio
 
 2.2 Storage
 # 編集（非公開）
-raw/users/{uid}/memories/{memoryId}/uploads/{fileId}.{ext}
+users/{uid}/memories/{memoryId}/uploads/{fileId}.{ext}
+users/{uid}/library/{type}/{fileId}.{ext} // For assets not yet assigned to a memory
 proc/users/{uid}/memories/{memoryId}/images/{fileId}_w1600.jpg
 proc/users/{uid}/memories/{memoryId}/thumbs/{fileId}_w400.jpg
 proc/users/{uid}/memories/{memoryId}/video/{fileId}.mp4
@@ -145,41 +148,44 @@ rules_version = '2';
 
 function isSignedIn() { return request.auth != null; }
 function isAdmin() { return isSignedIn() && request.auth.token.role == 'admin'; }
-function isOwner(memoryId) {
-  return isSignedIn() &&
-         get(/databases/$(database)/documents/memories/$(memoryId)).data.ownerUid == request.auth.uid;
+function isOwner(uid) { return isSignedIn() && request.auth.uid == uid; }
+
+// Function to check ownership of the parent memory document
+function isMemoryOwner(memoryId) {
+  return get(/databases/$(database)/documents/memories/$(memoryId)).data.ownerUid == request.auth.uid;
 }
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // 自分のユーザードキュメントのみ
+    // User can only read/write their own user document
     match /users/{uid} {
-      allow read, write: if (isSignedIn() && request.auth.uid == uid) || isAdmin();
+      allow read, write: if isOwner(uid) || isAdmin();
     }
 
-    // 想い出本体
+    // Memories can only be read/written by their owner or an admin
     match /memories/{memoryId} {
-      allow read, write: if isOwner(memoryId) || isAdmin();
+      allow read, write: if isMemoryOwner(memoryId) || isAdmin();
     }
 
-    // 資産メタ（想い出配下）
+    // Assets can be read/written by the owner of the parent memory, or an admin.
+    // This uses a collection group query, so the rule must be robust.
     match /memories/{memoryId}/assets/{assetId} {
-      allow read, write: if isOwner(memoryId) || isAdmin();
+      allow read, write: if isMemoryOwner(memoryId) || isAdmin();
     }
 
-    // 顧客/進捗（管理者主体、本人は自分のorderをread可にしても良い）
+    // Orders are admin-only for now
     match /orders/{orderId} {
-      allow read, write: if isAdmin();  // MVPは管理者のみ
+      allow read, write: if isAdmin();
     }
 
-    // 公開メタ：閲覧のみ
+    // Public pages are read-only for everyone, and cannot be written by clients.
     match /publicPages/{pageId} {
       allow read: if true;
       allow write: if false;
     }
 
-    // ブロック直編集は不可（Functions経由）
+    // Blocks cannot be edited directly by clients.
     match /publicPages/{pageId}/blocks/{blockId} {
       allow read: if false;
       allow write: if false;
@@ -216,18 +222,17 @@ function withinSizeLimit() {
 service firebase.storage {
   match /b/{bucket}/o {
 
-    // 編集（非公開）
-    match /raw/users/{uid}/memories/{memoryId}/{rest=**} {
-      allow read, write: if (isUser(uid) || isAdmin()) && isAllowedContentType() && withinSizeLimit();
+    // User can write to their own memory or library folders
+    match /users/{uid}/{path=**} {
+      allow read, write: if isUser(uid) && isAllowedContentType() && withinSizeLimit();
     }
-    match /proc/users/{uid}/memories/{memoryId}/{rest=**} {
-      allow read, write: if (isUser(uid) || isAdmin()) && isAllowedContentType() && withinSizeLimit();
-    }
+    
+    // Models are admin-only
     match /models/orders/{orderId}/{file=**} {
-      allow read, write: if isAdmin(); // 3D候補は管理限定（MVP）
+      allow read, write: if isAdmin();
     }
 
-    // 公開（閲覧のみ）
+    // Public delivery assets are read-only for everyone, and cannot be written.
     match /deliver/publicPages/{pageId}/{all=**} {
       allow read: if true;
       allow write: if false;
