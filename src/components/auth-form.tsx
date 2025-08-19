@@ -8,8 +8,10 @@ import * as z from 'zod';
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
+  User,
 } from 'firebase/auth';
-import { auth } from '@/lib/firebase/client';
+import { auth, db } from '@/lib/firebase/client';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -24,6 +26,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { Loader2 } from 'lucide-react';
+import type { UserProfile } from '@/lib/types';
 
 const formSchema = z.object({
   email: z.string().email({ message: '有効なメールアドレスを入力してください。' }),
@@ -37,6 +40,18 @@ type AuthFormValues = z.infer<typeof formSchema>;
 interface AuthFormProps {
   type: 'login' | 'signup';
 }
+
+// Function to create user profile in Firestore
+const createUserProfile = async (user: User) => {
+  const userRef = doc(db, 'users', user.uid);
+  const userProfile: Omit<UserProfile, 'id'> = {
+      email: user.email!,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+  };
+  await setDoc(userRef, userProfile);
+};
+
 
 export function AuthForm({ type }: AuthFormProps) {
   const router = useRouter();
@@ -55,7 +70,8 @@ export function AuthForm({ type }: AuthFormProps) {
     setLoading(true);
     try {
       if (type === 'signup') {
-        await createUserWithEmailAndPassword(auth, data.email, data.password);
+        const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
+        await createUserProfile(userCredential.user); // Create user profile in Firestore
         router.push('/memories/new'); // Redirect to new memory page on sign up
       } else {
         await signInWithEmailAndPassword(auth, data.email, data.password);
@@ -63,13 +79,15 @@ export function AuthForm({ type }: AuthFormProps) {
       }
     } catch (error: any) {
       console.error("Auth error:", error);
-      let description = 'メールアドレスまたはパスワードが正しくありません。';
+      let description = 'エラーが発生しました。もう一度お試しください。';
       if (error.code === 'auth/email-already-in-use') {
-        description = 'このメールアドレスは既に使用されています。'
+        description = 'このメールアドレスは既に使用されています。ログインするか、別のメールアドレスで登録してください。'
+      } else if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+        description = 'メールアドレスまたはパスワードが正しくありません。'
       }
       toast({
         variant: 'destructive',
-        title: '認証に失敗しました',
+        title: type === 'signup' ? 'アカウント作成に失敗しました' : 'ログインに失敗しました',
         description: description,
       });
     } finally {
