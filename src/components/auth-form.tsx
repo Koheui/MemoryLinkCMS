@@ -79,7 +79,7 @@ export function AuthForm({ type }: AuthFormProps) {
         await setDoc(userRef, userProfile);
         
         // Create the single memory page for the new user
-        await addDoc(collection(db, 'memories'), {
+        const newMemoryDoc = await addDoc(collection(db, 'memories'), {
             ownerUid: user.uid,
             title: '無題のページ',
             status: 'draft',
@@ -94,45 +94,66 @@ export function AuthForm({ type }: AuthFormProps) {
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
         });
+        
+        const memoryId = newMemoryDoc.id;
+        
+        // Get ID token
+        const idToken = await user.getIdToken(true);
 
-      } else {
+        // Create session cookie
+        const res = await fetch('/api/auth/sessionLogin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ idToken }),
+        });
+
+        if (!res.ok) {
+            const errorData = await res.json();
+            throw new Error(errorData.details || `セッションの作成に失敗しました。ステータス: ${res.status}`);
+        }
+
+        // Redirect to the newly created memory page
+        window.location.assign(`/memories/${memoryId}`);
+
+      } else { // Login
         userCredential = await signInWithEmailAndPassword(
           auth,
           data.email,
           data.password
         );
+        
+        // 1. Get user
+        const user = userCredential.user;
+
+        // 2. Get the ID token
+        const idToken = await user.getIdToken(true);
+
+        // 3. Send token to server to create session cookie and WAIT for it to complete.
+        const res = await fetch('/api/auth/sessionLogin', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ idToken }),
+        });
+
+        // 4. Check for server-side errors
+        if (!res.ok) {
+            const errorData = await res.json();
+            throw new Error(errorData.details || `セッションの作成に失敗しました。ステータス: ${res.status}`);
+        }
+        
+        // 5. Fetch the user's memory ID to redirect to the correct page.
+        const memoriesCollectionRef = collection(db, 'memories');
+        const q = query(memoriesCollectionRef, where('ownerUid', '==', user.uid), limit(1));
+        const querySnapshot = await getDocs(q);
+
+        if (querySnapshot.empty) {
+            throw new Error("ユーザーの編集ページが見つかりませんでした。");
+        }
+        const memoryId = querySnapshot.docs[0].id;
+
+        // 6. Redirect to the user's memory page
+        window.location.assign(`/memories/${memoryId}`);
       }
-
-      // 2. Get the ID token
-      const idToken = await userCredential.user.getIdToken(true);
-
-      // 3. Send token to server to create session cookie and WAIT for it to complete.
-      const res = await fetch('/api/auth/sessionLogin', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ idToken }),
-      });
-
-      // 4. Check for server-side errors
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.details || `セッションの作成に失敗しました。ステータス: ${res.status}`);
-      }
-      
-      // 5. Fetch the user's memory ID to redirect to the correct page.
-      const memoriesCollectionRef = collection(db, 'memories');
-      const q = query(memoriesCollectionRef, where('ownerUid', '==', userCredential.user.uid), limit(1));
-      const querySnapshot = await getDocs(q);
-
-      if (querySnapshot.empty) {
-          throw new Error("ユーザーの編集ページが見つかりませんでした。");
-      }
-      const memoryId = querySnapshot.docs[0].id;
-
-      // 6. ★★★【最重要】★★★
-      //    全ての処理が完了した後、クライアントサイドから保護されたページへ
-      //    直接画面遷移を命令する。これによりリダイレクトの衝突を回避する。
-      window.location.assign(`/memories/${memoryId}`);
 
     } catch (error: any) {
         let description = '予期せぬエラーが発生しました。';
