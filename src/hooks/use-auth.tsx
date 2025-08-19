@@ -2,10 +2,10 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
-import { User, onIdTokenChanged, signOut } from 'firebase/auth';
+import { User, onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase/client';
 import { useRouter, usePathname } from 'next/navigation';
-import Cookies from 'js-cookie';
+import { apiClient } from '@/lib/api-client';
 
 interface AuthContextType {
   user: User | null;
@@ -30,13 +30,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const router = useRouter();
 
   useEffect(() => {
-    const unsubscribe = onIdTokenChanged(auth, async (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         setUser(user);
         const idTokenResult = await user.getIdTokenResult();
+        apiClient.setToken(idTokenResult.token);
         setIsAdmin(!!idTokenResult.claims.role);
       } else {
         setUser(null);
+        apiClient.setToken(null);
         setIsAdmin(false);
       }
       setLoading(false);
@@ -46,27 +48,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const handleAuthSuccess = useCallback(async (idToken: string) => {
-    const response = await fetch('/api/auth/sessionLogin', {
+    await fetch('/api/auth/sessionLogin', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ idToken }),
     });
-
-    if (response.ok) {
-        const user = auth.currentUser;
-        if (user && user.metadata.creationTime === user.metadata.lastSignInTime) {
-          router.push('/memories/new');
-        } else {
-          router.push('/dashboard');
-        }
-    } else {
-        console.error('Session login failed');
-    }
-  }, [router]);
+    // Let the middleware handle the redirect
+  }, []);
 
   const handleLogout = useCallback(async () => {
     await fetch('/api/auth/sessionLogout', { method: 'POST' });
     await signOut(auth);
+    // Let the middleware handle the redirect
     router.push('/login');
   }, [router]);
 
