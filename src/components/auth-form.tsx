@@ -110,7 +110,8 @@ export function AuthForm({ type }: AuthFormProps) {
           throw new Error(errorData.details || `セッションの作成に失敗しました。ステータス: ${res.status}`);
       }
       
-      window.location.assign('/account');
+      // *** MOST IMPORTANT PART: Redirect to /pages as per LOGIN_FIX_MEMO.md ***
+      window.location.assign('/pages');
 
     } catch (error: any) {
         let description = '予期せぬエラーが発生しました。';
