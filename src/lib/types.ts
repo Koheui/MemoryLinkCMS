@@ -7,6 +7,11 @@ export interface UserProfile {
   updatedAt: Timestamp;
 }
 
+export interface Design {
+  theme: 'light' | 'dark' | 'cream' | 'ink';
+  fontScale: number;
+}
+
 export interface Memory {
   id: string;
   ownerUid: string;
@@ -16,6 +21,7 @@ export interface Memory {
   publicPageId: string | null;
   coverAssetId: string | null;
   profileAssetId: string | null;
+  design?: Design;
   createdAt: Timestamp | string; // Allow string for serialized data
   updatedAt: Timestamp | string; // Allow string for serialized data
   description?: string;
@@ -27,7 +33,8 @@ export interface Asset {
   rawPath: string;
   procPath?: string;
   thumbPath?: string;
-  createdAt: Timestamp;
+  url?: string;
+  createdAt: Timestamp | string;
 }
 
 export interface PublicPageBlock {

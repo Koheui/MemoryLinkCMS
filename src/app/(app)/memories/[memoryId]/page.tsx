@@ -2,8 +2,9 @@
 'use server';
 
 import { ThemeSuggester } from '@/components/theme-suggester';
+import { DesignEditor } from '@/components/design-editor';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import type { Memory } from '@/lib/types';
+import type { Memory, Asset } from '@/lib/types';
 import { getApps, initializeApp, applicationDefault } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
@@ -40,6 +41,27 @@ async function fetchMemory(uid: string, memoryId: string): Promise<Memory> {
     } as Memory;
 }
 
+async function fetchAssets(uid: string, memoryId: string): Promise<Asset[]> {
+    const db = getFirestore();
+    const assetsSnapshot = await db.collection('memories').doc(memoryId).collection('assets').where('type', '==', 'image').get();
+    
+    if (assetsSnapshot.empty) {
+        return [];
+    }
+
+    const assets: Asset[] = assetsSnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+            id: doc.id,
+            ...data,
+            // FirestoreのTimestampをJSONでシリアライズ可能な形式に変換
+            createdAt: data.createdAt.toDate().toISOString(),
+        } as Asset;
+    });
+
+    return assets;
+}
+
 
 export default async function MemoryEditorPage({ params }: { params: { memoryId: string } }) {
   const sessionCookie = cookies().get('__session')?.value || '';
@@ -48,9 +70,11 @@ export default async function MemoryEditorPage({ params }: { params: { memoryId:
   }
 
   let memory: Memory;
+  let assets: Asset[];
   try {
     const decodedClaims = await getAuth().verifySessionCookie(sessionCookie, true);
     memory = await fetchMemory(decodedClaims.uid, params.memoryId);
+    assets = await fetchAssets(decodedClaims.uid, params.memoryId);
   } catch (error) {
      console.error("Error fetching memory or verifying session:", error);
      notFound();
@@ -63,6 +87,18 @@ export default async function MemoryEditorPage({ params }: { params: { memoryId:
             <p className="text-muted-foreground">編集中のページ: <span className="font-semibold text-primary">{memory.title}</span></p>
         </div>
         
+        <Card>
+            <CardHeader>
+                <CardTitle className="font-headline">デザイン</CardTitle>
+                <CardDescription>
+                    公開ページの見た目をカスタマイズします。カバー画像、プロフィール写真、テーマ、フォントサイズなどを設定できます。
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <DesignEditor memory={memory} assets={assets} />
+            </CardContent>
+        </Card>
+
         <Card>
             <CardHeader>
                 <CardTitle className="font-headline">AIテーマデザイナー</CardTitle>
@@ -79,5 +115,3 @@ export default async function MemoryEditorPage({ params }: { params: { memoryId:
     </div>
   );
 }
-
-    

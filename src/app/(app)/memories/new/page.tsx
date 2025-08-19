@@ -31,6 +31,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
+import Image from 'next/image';
 
 const newMemorySchema = z.object({
   title: z.string().min(2, 'タイトルは2文字以上で入力してください。'),
@@ -50,6 +51,7 @@ export default function NewMemoryPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
 
   const form = useForm<NewMemoryFormValues>({
     resolver: zodResolver(newMemorySchema),
@@ -58,7 +60,14 @@ export default function NewMemoryPage() {
     },
   });
 
-  const photoRef = form.register("photos");
+  const handlePhotoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (files) {
+      const newPreviews = Array.from(files).map(file => URL.createObjectURL(file));
+      setPhotoPreviews(newPreviews);
+      form.setValue('photos', files);
+    }
+  };
 
   async function onSubmit(data: NewMemoryFormValues) {
     if (!user) {
@@ -189,7 +198,7 @@ export default function NewMemoryPage() {
                     この想い出に関連する写真、動画、音声をアップロードします。後から追加することも可能です。
                 </CardDescription>
             </Header>
-            <CardContent>
+            <CardContent className="space-y-4">
                 <FormField
                   control={form.control}
                   name="photos"
@@ -204,7 +213,7 @@ export default function NewMemoryPage() {
                                   <p className="mb-2 text-sm text-muted-foreground"><span className="font-semibold">クリックしてアップロード</span> またはドラッグ＆ドロップ</p>
                                   <p className="text-xs text-muted-foreground">まず5〜10枚の写真をアップロードしてください</p>
                               </div>
-                              <Input id="dropzone-file" type="file" className="hidden" multiple {...photoRef} />
+                              <Input id="dropzone-file" type="file" className="hidden" multiple onChange={handlePhotoChange} />
                           </label>
                       </div> 
                       </FormControl>
@@ -212,6 +221,23 @@ export default function NewMemoryPage() {
                   </FormItem>
                   )}
                 />
+                 {photoPreviews.length > 0 && (
+                    <div>
+                        <p className="font-medium text-sm mb-2">プレビュー:</p>
+                        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-4">
+                            {photoPreviews.map((src, index) => (
+                                <div key={index} className="relative aspect-square">
+                                    <Image
+                                        src={src}
+                                        alt={`Preview ${index + 1}`}
+                                        fill
+                                        className="rounded-md object-cover"
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
             </CardContent>
           </Card>
 
