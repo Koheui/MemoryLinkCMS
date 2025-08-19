@@ -12,10 +12,9 @@ export function middleware(request: NextRequest) {
   
   // If user is authenticated
   if (isAuthenticated) {
-    // If they are on a auth page (login, signup) or the root, redirect them.
-    // The dashboard page will handle redirecting to the correct memory page.
+    // If they are on an auth page (login, signup) or the root, redirect them.
     if (isAuthPage || pathname === '/') {
-      return NextResponse.redirect(new URL('/dashboard', request.url));
+      return NextResponse.redirect(new URL('/account', request.url));
     }
   } 
   // If user is not authenticated

@@ -26,7 +26,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { Loader2 } from 'lucide-react';
-import type { UserProfile } from '@/lib/types';
+import type { UserProfile, Memory } from '@/lib/types';
 
 
 const formSchema = z.object({
@@ -60,6 +60,7 @@ export function AuthForm({ type }: AuthFormProps) {
 
     try {
       let userCredential: UserCredential;
+      let memoryId: string;
 
       if (type === 'signup') {
         userCredential = await createUserWithEmailAndPassword(
@@ -79,7 +80,7 @@ export function AuthForm({ type }: AuthFormProps) {
         await setDoc(userRef, userProfile);
         
         // Create the single memory page for the new user
-        await addDoc(collection(db, 'memories'), {
+        const newMemoryDoc = await addDoc(collection(db, 'memories'), {
             ownerUid: user.uid,
             title: '無題のページ',
             status: 'draft',
@@ -94,6 +95,7 @@ export function AuthForm({ type }: AuthFormProps) {
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
         });
+        memoryId = newMemoryDoc.id;
         
       } else { // Login
         userCredential = await signInWithEmailAndPassword(
@@ -101,33 +103,32 @@ export function AuthForm({ type }: AuthFormProps) {
           data.email,
           data.password
         );
+         const user = userCredential.user;
+        // Fetch the user's memory page
+        const memoriesQuery = query(collection(db, 'memories'), where('ownerUid', '==', user.uid), limit(1));
+        const memoriesSnapshot = await getDocs(memoriesQuery);
+        if (memoriesSnapshot.empty) {
+            throw new Error('このユーザーのページが見つかりませんでした。');
+        }
+        memoryId = memoriesSnapshot.docs[0].id;
       }
       
-      // This logic is now common for both signup and login.
-      // 1. Get user
       const user = userCredential.user;
-
-      // 2. Get the ID token
       const idToken = await user.getIdToken(true);
 
-      // 3. Send token to server to create session cookie and WAIT for it to complete.
       const res = await fetch('/api/auth/sessionLogin', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ idToken }),
       });
 
-      // 4. Check for server-side errors
       if (!res.ok) {
           const errorData = await res.json();
           throw new Error(errorData.details || `セッションの作成に失敗しました。ステータス: ${res.status}`);
       }
 
-      // 5. ★★★【最重要】★★★
-      //    全ての処理が完了した後、クライアントサイドから保護されたページ（/dashboard）へ
-      //    直接画面遷移を命令する。これにより、新しいセッションCookieを持った状態で
-      //    リクエストが送信され、Middlewareが正しく認証状態を判断できる。
-      window.location.assign('/dashboard');
+      // Redirect to the user's memory page directly. This is the one true path.
+      window.location.assign(`/memories/${memoryId}`);
 
 
     } catch (error: any) {
