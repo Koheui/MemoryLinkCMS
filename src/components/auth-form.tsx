@@ -59,7 +59,6 @@ export function AuthForm({ type }: AuthFormProps) {
 
     try {
       let userCredential;
-      let memoryId;
 
       if (type === 'signup') {
         userCredential = await createUserWithEmailAndPassword(
@@ -79,7 +78,7 @@ export function AuthForm({ type }: AuthFormProps) {
         await setDoc(userRef, userProfile);
         
         // Create the single memory page for the new user
-        const memoryDocRef = await addDoc(collection(db, 'memories'), {
+        await addDoc(collection(db, 'memories'), {
             ownerUid: user.uid,
             title: '無題のページ',
             status: 'draft',
@@ -94,7 +93,6 @@ export function AuthForm({ type }: AuthFormProps) {
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
         });
-        memoryId = memoryDocRef.id;
 
       } else {
         userCredential = await signInWithEmailAndPassword(
@@ -102,22 +100,6 @@ export function AuthForm({ type }: AuthFormProps) {
           data.email,
           data.password
         );
-        
-        // Find the user's existing memory page
-        const memoriesCollectionRef = collection(db, 'memories');
-        const q = query(memoriesCollectionRef, where('ownerUid', '==', userCredential.user.uid), limit(1));
-        const querySnapshot = await getDocs(q);
-        
-        if (!querySnapshot.empty) {
-            memoryId = querySnapshot.docs[0].id;
-        } else {
-            // This is a fallback for an edge case where a user exists but has no memory page.
-            // This should ideally not happen with the new signup flow.
-            toast({ variant: 'destructive', title: 'エラー', description: '編集ページの読み込みに失敗しました。アカウントを作り直してください。' });
-            await auth.signOut(); // Log out the user
-            setLoading(false);
-            return;
-        }
       }
 
       const idToken = await userCredential.user.getIdToken(true);
@@ -133,7 +115,9 @@ export function AuthForm({ type }: AuthFormProps) {
         throw new Error(errorData.details || `セッションの作成に失敗しました。ステータス: ${res.status}`);
       }
       
-      window.location.assign(`/memories/${memoryId}`);
+      // Redirect to the dashboard page, which will then handle redirecting to the specific memory page.
+      // This two-step process is more robust against race conditions.
+      window.location.assign('/dashboard');
 
 
     } catch (error: any) {
