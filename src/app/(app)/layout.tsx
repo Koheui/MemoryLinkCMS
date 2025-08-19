@@ -36,24 +36,17 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
     }
   }, [user]);
 
-  useEffect(() => {
-    // This is now the single source of truth for redirection.
-    // We wait until loading is complete before making any decisions.
-    if (!loading && !user) {
-      router.push('/login');
-    }
-  }, [loading, user, router]);
-
   const handleLogout = async () => {
     try {
       await auth.signOut();
-      // The useEffect above will handle the redirect to /login
+       // After signing out, redirect to the login page
+      router.push('/login');
+      router.refresh(); // Force a refresh to ensure middleware catches the change
     } catch (error) {
         console.error('Logout failed', error);
     }
   };
   
-  // 1. While loading, show a spinner to prevent flicker or premature redirects.
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -65,13 +58,19 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // 2. After loading, if there's no user, the useEffect will have already
-  // started the redirection. Render nothing to avoid showing the layout.
   if (!user) {
-    return null;
+    // Middleware should handle the redirection, so we can return null or a loader.
+    // Returning a loader is a good fallback.
+     return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="flex items-center gap-2">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <span className="text-lg text-muted-foreground">認証情報を確認中...</span>
+        </div>
+      </div>
+    );
   }
 
-  // 3. If loading is done and we have a user, render the full layout.
   return (
     <SidebarProvider>
       <Sidebar>
