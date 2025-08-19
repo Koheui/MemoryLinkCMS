@@ -55,28 +55,12 @@ export function AuthForm({ type }: AuthFormProps) {
     },
   });
 
-  const getFirstMemoryId = async (uid: string): Promise<string | null> => {
-    const memoriesQuery = query(
-        collection(db, 'memories'), 
-        where('ownerUid', '==', uid), 
-        limit(1)
-    );
-    const querySnapshot = await getDocs(memoriesQuery);
-    if (!querySnapshot.empty) {
-        return querySnapshot.docs[0].id;
-    }
-    return null;
-  }
-
   const onSubmit = async (data: AuthFormValues) => {
     setLoading(true);
 
     try {
-      let userCredential: UserCredential;
-      let memoryId: string | null = null;
-
       if (type === 'signup') {
-        userCredential = await createUserWithEmailAndPassword(
+        const userCredential = await createUserWithEmailAndPassword(
           auth,
           data.email,
           data.password
@@ -93,7 +77,7 @@ export function AuthForm({ type }: AuthFormProps) {
         await setDoc(userRef, userProfile);
         
         // Create the single memory page for the new user
-        const newMemoryDoc = await addDoc(collection(db, 'memories'), {
+        await addDoc(collection(db, 'memories'), {
             ownerUid: user.uid,
             title: '無題のページ',
             status: 'draft',
@@ -108,37 +92,41 @@ export function AuthForm({ type }: AuthFormProps) {
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
         });
-        memoryId = newMemoryDoc.id;
+        
+        const idToken = await userCredential.user.getIdToken(true);
+        const res = await fetch('/api/auth/sessionLogin', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ idToken }),
+        });
+
+        if (!res.ok) {
+            const errorData = await res.json();
+            throw new Error(errorData.details || `セッションの作成に失敗しました。ステータス: ${res.status}`);
+        }
         
       } else { // Login
-        userCredential = await signInWithEmailAndPassword(
+        const userCredential = await signInWithEmailAndPassword(
           auth,
           data.email,
           data.password
         );
-        memoryId = await getFirstMemoryId(userCredential.user.uid);
+        
+        const idToken = await userCredential.user.getIdToken(true);
+        const res = await fetch('/api/auth/sessionLogin', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ idToken }),
+        });
+        
+        if (!res.ok) {
+            const errorData = await res.json();
+            throw new Error(errorData.details || `セッションの作成に失敗しました。ステータス: ${res.status}`);
+        }
       }
       
-      const user = userCredential.user;
-      const idToken = await user.getIdToken(true);
-
-      const res = await fetch('/api/auth/sessionLogin', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ idToken }),
-      });
-
-      if (!res.ok) {
-          const errorData = await res.json();
-          throw new Error(errorData.details || `セッションの作成に失敗しました。ステータス: ${res.status}`);
-      }
-
-      if (memoryId) {
-        window.location.assign(`/memories/${memoryId}`);
-      } else {
-        // Fallback to account page if memoryId not found for some reason
-        window.location.assign('/account');
-      }
+      // Redirect to the protected area. Middleware will handle routing to the correct memory page.
+      window.location.assign('/pages');
 
     } catch (error: any) {
         let description = '予期せぬエラーが発生しました。';
