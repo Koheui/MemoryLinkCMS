@@ -62,10 +62,15 @@ export function AuthForm({ type }: AuthFormProps) {
         router.push('/dashboard'); // Redirect to dashboard on login
       }
     } catch (error: any) {
+      console.error("Auth error:", error);
+      let description = 'メールアドレスまたはパスワードが正しくありません。';
+      if (error.code === 'auth/email-already-in-use') {
+        description = 'このメールアドレスは既に使用されています。'
+      }
       toast({
         variant: 'destructive',
         title: '認証に失敗しました',
-        description: 'メールアドレスまたはパスワードが正しくありません。',
+        description: description,
       });
     } finally {
       setLoading(false);
@@ -99,6 +104,7 @@ export function AuthForm({ type }: AuthFormProps) {
               placeholder="m@example.com"
               required
               {...form.register('email')}
+              autoComplete="email"
             />
             {form.formState.errors.email && (
               <p className="text-sm text-destructive">{form.formState.errors.email.message}</p>
@@ -111,6 +117,7 @@ export function AuthForm({ type }: AuthFormProps) {
               type="password"
               required
               {...form.register('password')}
+              autoComplete={type === 'login' ? 'current-password' : 'new-password'}
             />
              {form.formState.errors.password && (
               <p className="text-sm text-destructive">{form.formState.errors.password.message}</p>

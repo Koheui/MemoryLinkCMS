@@ -5,10 +5,15 @@ import { getAdminApp } from '@/lib/firebase/firebaseAdmin';
 
 export async function getUidFromRequest(req: NextRequest): Promise<string | null> {
   const authHeader = req.headers.get('authorization');
-  const idToken = authHeader?.split('Bearer ')[1];
+  if (!authHeader?.startsWith('Bearer ')) {
+    console.error("getUidFromRequest: No Bearer token found in Authorization header.");
+    return null;
+  }
+  
+  const idToken = authHeader.split('Bearer ')[1];
 
   if (!idToken) {
-    console.error("getUidFromRequest: No ID token found in Authorization header.");
+    console.error("getUidFromRequest: ID token is empty after splitting.");
     return null;
   }
 
