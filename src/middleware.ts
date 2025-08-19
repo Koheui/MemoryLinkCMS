@@ -19,8 +19,7 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith(path)
   );
 
-  // If user is authenticated and on login/signup, redirect to dashboard.
-  // The dashboard will then handle the redirect to the specific memory page.
+  // If user is authenticated and on login/signup/root, redirect to dashboard.
   if (isAuthenticated && (pathname === '/login' || pathname === '/signup' || pathname === '/')) {
       return NextResponse.redirect(new URL('/dashboard', request.url));
   }
