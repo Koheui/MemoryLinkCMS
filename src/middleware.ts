@@ -2,12 +2,19 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   const sessionCookie = request.cookies.get('__session')?.value
 
-  const isLoggedIn = !!sessionCookie
-
+  // We are calling the verify endpoint to get the user's auth status on the server.
+  // This is the source of truth.
+  const response = await fetch(new URL('/api/auth/verify', request.url), {
+    headers: {
+      'Cookie': `__session=${sessionCookie || ''}`
+    }
+  });
+  const { isAuthenticated } = await response.json();
+  
   const isProtectedRoute = ['/dashboard', '/memories', '/_admin'].some((path) =>
     pathname.startsWith(path)
   )
@@ -16,13 +23,13 @@ export function middleware(request: NextRequest) {
     pathname.startsWith(path)
   )
 
-  // If user is not logged in and tries to access a protected route, redirect to login
-  if (!isLoggedIn && isProtectedRoute) {
+  // If user is not authenticated and tries to access a protected route, redirect to login
+  if (!isAuthenticated && isProtectedRoute) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  // If user is logged in and tries to access login or signup page, redirect to dashboard
-  if (isLoggedIn && isAuthRoute) {
+  // If user is authenticated and tries to access login or signup page, redirect to dashboard
+  if (isAuthenticated && isAuthRoute) {
     return NextResponse.redirect(new URL('/dashboard', request.url))
   }
 
@@ -34,12 +41,13 @@ export const config = {
   matcher: [
     /*
      * Match all request paths except for the ones starting with:
-     * - api (API routes)
+     * - api (API routes, we want to protect them individually)
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      * - p (public pages)
+     * - debug-token (the debug page)
      */
-    '/((?!api|_next/static|_next/image|favicon.ico|p).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|p|debug-token).*)',
   ],
 }
