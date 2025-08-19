@@ -20,33 +20,33 @@ import { db } from '@/lib/firebase/client';
 import { collection, query, where, getDocs, orderBy, onSnapshot } from 'firebase/firestore';
 import { format } from 'date-fns';
 
-function formatBytes(bytes: number, decimals = 2) {  
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const dm = decimals < 0 ? 0 : decimals;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
-}
-
-const TOTAL_STORAGE_LIMIT_MB = 200;
-const TOTAL_STORAGE_LIMIT_BYTES = TOTAL_STORAGE_LIMIT_MB * 1024 * 1024;
-
-const assetCategories: { type: Asset['type']; label: string; icon: React.ReactNode; uploaderType: 'image' | 'video' | 'audio' | 'text' | 'album' | 'video_album', accept: string }[] = [
-    { type: 'image', label: '写真', icon: <ImageIcon className="h-5 w-5" />, uploaderType: 'image', accept: 'image/*' },
-    { type: 'album', label: 'アルバム', icon: <Folder className="h-5 w-5" />, uploaderType: 'album', accept: '' },
-    { type: 'video', label: '動画', icon: <Video className="h-5 w-5" />, uploaderType: 'video', accept: 'video/*' },
-    { type: 'video_album', label: '動画アルバム', icon: <Film className="h-5 w-5" />, uploaderType: 'video_album', accept: ''},
-    { type: 'text', label: 'テキスト', icon: <FileText className="h-5 w-5" />, uploaderType: 'text', accept: ''},
-    { type: 'audio', label: '音声', icon: <Mic className="h-5 w-5" />, uploaderType: 'audio', accept: 'audio/*' },
-];
-
-
 export default function MediaLibraryPage() {
   const { user } = useAuth();
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalSize, setTotalSize] = useState(0);
+
+  // Helper functions and constants moved inside the component
+  function formatBytes(bytes: number, decimals = 2) {  
+      if (bytes === 0) return '0 Bytes';
+      const k = 1024;
+      const dm = decimals < 0 ? 0 : decimals;
+      const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+  }
+
+  const TOTAL_STORAGE_LIMIT_MB = 200;
+  const TOTAL_STORAGE_LIMIT_BYTES = TOTAL_STORAGE_LIMIT_MB * 1024 * 1024;
+
+  const assetCategories: { type: Asset['type']; label: string; icon: React.ReactNode; uploaderType: 'image' | 'video' | 'audio' | 'text' | 'album' | 'video_album', accept: string }[] = [
+      { type: 'image', label: '写真', icon: <ImageIcon className="h-5 w-5" />, uploaderType: 'image', accept: 'image/*' },
+      { type: 'album', label: 'アルバム', icon: <Folder className="h-5 w-5" />, uploaderType: 'album', accept: '' },
+      { type: 'video', label: '動画', icon: <Video className="h-5 w-5" />, uploaderType: 'video', accept: 'video/*' },
+      { type: 'video_album', label: '動画アルバム', icon: <Film className="h-5 w-5" />, uploaderType: 'video_album', accept: ''},
+      { type: 'text', label: 'テキスト', icon: <FileText className="h-5 w-5" />, uploaderType: 'text', accept: ''},
+      { type: 'audio', label: '音声', icon: <Mic className="h-5 w-5" />, uploaderType: 'audio', accept: 'audio/*' },
+  ];
 
   useEffect(() => {
     if (!user) return;
@@ -82,7 +82,6 @@ export default function MediaLibraryPage() {
   const renderAssetTable = (type: Asset['type']) => {
     const filteredAssets = assets.filter(asset => asset.type === type);
     
-    // For album types, show a placeholder
     if (type === 'album' || type === 'video_album' || type === 'text') {
         return (
              <div className="text-center py-10 border-2 border-dashed rounded-lg m-4">
