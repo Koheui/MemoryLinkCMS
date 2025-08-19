@@ -93,11 +93,9 @@ export function AuthForm({ type }: AuthFormProps) {
         throw new Error(errorData.details || `Failed to create session. Status: ${res.status}.`);
       }
       
-      // Refresh the current route. This will trigger the middleware to re-evaluate
-      // and redirect if the user is now authenticated.
-      // We await this to ensure the refresh logic completes before we potentially
-      // re-enable the form.
-      await router.refresh();
+      // This is the most reliable way to redirect after session is set.
+      // It forces a full page reload, ensuring the middleware catches the new session.
+      window.location.assign('/dashboard');
 
     } catch (error: any) {
         console.error("Auth error:", error);
@@ -114,11 +112,11 @@ export function AuthForm({ type }: AuthFormProps) {
             title: type === 'signup' ? 'アカウント作成失敗' : 'ログイン失敗',
             description: description,
         });
-    } finally {
-        // Only re-enable the form after all processing is complete.
-        // If the refresh leads to a redirect, this component will unmount anyway.
+        // Ensure loading is stopped on error
         setLoading(false);
-    }
+    } 
+    // Do not set loading to false here, because window.location.assign will navigate away.
+    // Only set it in the catch block for the error case.
   };
 
   const title = type === 'signup' ? 'アカウント作成' : 'おかえりなさい';
