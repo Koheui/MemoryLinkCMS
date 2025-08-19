@@ -17,7 +17,7 @@ import type { Asset } from '@/lib/types';
 import { useAuth } from '@/hooks/use-auth';
 import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase/client';
-import { collection, query, where, getDocs, orderBy, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
 import { format } from 'date-fns';
 
 export default function MediaLibraryPage() {
@@ -49,7 +49,10 @@ export default function MediaLibraryPage() {
   ];
 
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+        setLoading(false);
+        return;
+    }
     setLoading(true);
     const assetsCollectionRef = collection(db, 'assets');
     const q = query(assetsCollectionRef, where('ownerUid', '==', user.uid), orderBy('createdAt', 'desc'));
