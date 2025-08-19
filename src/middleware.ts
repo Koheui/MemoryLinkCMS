@@ -7,6 +7,11 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   const sessionCookie = request.cookies.get('__session')?.value
 
+  // Early exit for API routes, static files, etc.
+  if (pathname.startsWith('/api') || pathname.startsWith('/_next') || pathname.includes('.')) {
+    return NextResponse.next();
+  }
+  
   // Check for authentication status via API route. Use absolute URL for fetch in middleware.
   const verifyUrl = new URL('/api/auth/verify', request.url);
   const authResponse = await fetch(verifyUrl.toString(), {
