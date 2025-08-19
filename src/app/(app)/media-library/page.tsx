@@ -159,22 +159,26 @@ export default function MediaLibraryPage() {
             <Accordion type="single" collapsible className="w-full" defaultValue="image">
                 {assetCategories.map(({ type, label, icon, accept }) => (
                     <AccordionItem value={type} key={type}>
-                        <AccordionTrigger className="text-lg hover:no-underline">
-                           <div className="flex items-center gap-3">
-                             <span className="text-primary">{icon}</span>
-                             <span>{label}</span>
+                        <div className="flex items-center justify-between w-full py-4">
+                          <AccordionTrigger className="text-lg hover:no-underline flex-1 py-0 pr-4">
+                            <div className="flex items-center gap-3">
+                              <span className="text-primary">{icon}</span>
+                              <span>{label}</span>
+                            </div>
+                          </AccordionTrigger>
+                           <div onClick={(e) => e.stopPropagation()}>
+                              <MediaUploader
+                                assetType={type}
+                                accept={accept}
+                                onUploadSuccess={() => { /* can be used to refresh list if needed */ }}
+                              >
+                                 <Button size="sm">
+                                    <PlusCircle className="mr-2 h-4 w-4"/>
+                                    新規アップロード
+                                </Button>
+                              </MediaUploader>
                            </div>
-                           <MediaUploader
-                              assetType={type}
-                              accept={accept}
-                              onUploadSuccess={() => { /* can be used to refresh list if needed */ }}
-                            >
-                               <Button size="sm" onClick={(e) => e.stopPropagation()}>
-                                  <PlusCircle className="mr-2 h-4 w-4"/>
-                                  新規アップロード
-                              </Button>
-                           </MediaUploader>
-                        </AccordionTrigger>
+                        </div>
                         <AccordionContent>
                            {renderAssetTable(type)}
                         </AccordionContent>
