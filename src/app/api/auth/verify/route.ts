@@ -10,16 +10,16 @@ export async function GET(request: NextRequest) {
   const sessionCookie = cookies().get('__session')?.value;
 
   if (!sessionCookie) {
-    return NextResponse.json({ isAuthenticated: false, isAdmin: false }, { status: 200 });
+    return NextResponse.json({ isAuthenticated: false, isAdmin: false, uid: null }, { status: 200 });
   }
 
   try {
     getAdminApp();
     const decodedClaims = await getAuth().verifySessionCookie(sessionCookie, true /** checkRevoked */);
     const isAdmin = decodedClaims.role === 'admin';
-    return NextResponse.json({ isAuthenticated: true, isAdmin }, { status: 200 });
+    return NextResponse.json({ isAuthenticated: true, isAdmin, uid: decodedClaims.uid }, { status: 200 });
   } catch (error) {
     // Session cookie is invalid or expired.
-    return NextResponse.json({ isAuthenticated: false, isAdmin: false }, { status: 200 });
+    return NextResponse.json({ isAuthenticated: false, isAdmin: false, uid: null }, { status: 200 });
   }
 }
