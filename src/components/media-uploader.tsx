@@ -10,12 +10,14 @@ import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import type { Asset } from '@/lib/types';
 import { Button } from '@/components/ui/button'; // Import Button
 import { Loader2 } from 'lucide-react'; // Import Loader
+import { useParams } from 'next/navigation';
 
 interface MediaUploaderProps {
   type: 'image' | 'video' | 'audio' | 'text' | 'album' | 'video_album';
   accept: string;
   children: ReactNode;
   onUploadSuccess?: (asset: Asset) => void;
+  // memoryId is optional here, but we will get it from params
 }
 
 export function MediaUploader({ type, accept, children, onUploadSuccess }: MediaUploaderProps) {
@@ -23,21 +25,27 @@ export function MediaUploader({ type, accept, children, onUploadSuccess }: Media
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const params = useParams();
+  const memoryId = params.memoryId as string;
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (!user) {
       toast({ variant: 'destructive', title: 'エラー', description: 'ログインしていません。' });
       return;
     }
+    if (!memoryId) {
+        toast({ variant: 'destructive', title: 'エラー', description: 'どのページにアップロードするか不明です。' });
+        return;
+    }
+
     const file = event.target.files?.[0];
     if (!file) return;
 
     setIsUploading(true);
 
-    // Reset file input value to allow re-uploading the same file
     if(fileInputRef.current) fileInputRef.current.value = "";
 
-    const storagePath = `users/${user.uid}/assets/${type}/${Date.now()}_${file.name}`;
+    const storagePath = `users/${user.uid}/memories/${memoryId}/${type}/${Date.now()}_${file.name}`;
     const storageRef = ref(storage, storagePath);
 
     try {
@@ -45,22 +53,20 @@ export function MediaUploader({ type, accept, children, onUploadSuccess }: Media
 
       uploadTask.on('state_changed',
         (snapshot) => {
-          // Optional: handle progress updates
           const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
           console.log('Upload is ' + progress + '% done');
         },
         (error) => {
-          // Handle unsuccessful uploads
           console.error("Upload failed:", error);
           toast({ variant: 'destructive', title: 'アップロード失敗', description: error.message });
           setIsUploading(false);
         },
         async () => {
-          // Handle successful uploads on complete
           const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
           
           const assetData: Omit<Asset, 'id' | 'createdAt' | 'updatedAt'> = {
             ownerUid: user.uid,
+            memoryId: memoryId,
             name: file.name,
             type: type,
             storagePath: storagePath,
@@ -68,7 +74,8 @@ export function MediaUploader({ type, accept, children, onUploadSuccess }: Media
             size: file.size,
           };
 
-          const docRef = await addDoc(collection(db, 'assets'), {
+          // Note: The collection is now `/memories/{memoryId}/assets`
+          const docRef = await addDoc(collection(db, 'memories', memoryId, 'assets'), {
              ...assetData,
              createdAt: serverTimestamp(),
              updatedAt: serverTimestamp(),
@@ -89,16 +96,19 @@ export function MediaUploader({ type, accept, children, onUploadSuccess }: Media
   };
 
   const handleClick = (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
-    e.stopPropagation(); // Stop propagation to prevent Accordion from toggling
+    e.stopPropagation();
     
-    // For album/text types, we don't trigger file input, we'll handle them differently
     if (type === 'album' || type === 'video_album' || type === 'text') {
         toast({ title: '準備中', description: 'この機能は現在準備中です。' });
         return;
     }
+    if (!memoryId) {
+        toast({ variant: 'destructive', title: 'エラー', description: 'アップロード先のページが特定できませんでした。' });
+        return;
+    }
     fileInputRef.current?.click();
   };
-
+  
   const uploaderContent = React.cloneElement(children as React.ReactElement, {
     disabled: isUploading,
     children: isUploading ? (

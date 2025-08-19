@@ -36,6 +36,7 @@ export default function MediaLibraryPage() {
         return;
     }
     setLoading(true);
+    // The collection is now 'assets' at the root, and we query by owner.
     const assetsCollectionRef = collection(db, 'assets');
     const q = query(assetsCollectionRef, where('ownerUid', '==', user.uid), orderBy('createdAt', 'desc'));
 
