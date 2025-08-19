@@ -17,7 +17,7 @@ import type { Asset } from '@/lib/types';
 import { useAuth } from '@/hooks/use-auth';
 import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase/client';
-import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
+import { collectionGroup, query, where, orderBy, onSnapshot } from 'firebase/firestore';
 import { format } from 'date-fns';
 
 export default function MediaLibraryPage() {
@@ -36,11 +36,14 @@ export default function MediaLibraryPage() {
         return;
     }
     setLoading(true);
-    // The collection is now 'assets' at the root, and we query by owner.
-    const assetsCollectionRef = collection(db, 'assets');
-    const q = query(assetsCollectionRef, where('ownerUid', '==', user.uid), orderBy('createdAt', 'desc'));
+    // Use a collectionGroup query to fetch assets across all memories for the user.
+    const assetsQuery = query(
+      collectionGroup(db, 'assets'), 
+      where('ownerUid', '==', user.uid), 
+      orderBy('createdAt', 'desc')
+    );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    const unsubscribe = onSnapshot(assetsQuery, (snapshot) => {
         let currentTotalSize = 0;
         const resolvedAssets = snapshot.docs.map((docSnapshot) => {
           const data = docSnapshot.data();

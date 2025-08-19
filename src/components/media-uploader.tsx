@@ -1,6 +1,6 @@
 // src/components/media-uploader.tsx
 'use client';
-
+import * as React from 'react';
 import { useRef, useState, type ReactNode } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
@@ -33,7 +33,7 @@ export function MediaUploader({ type, accept, children, onUploadSuccess }: Media
       toast({ variant: 'destructive', title: 'エラー', description: 'ログインしていません。' });
       return;
     }
-    if (!memoryId) {
+    if (!memoryId && type !== 'album' && type !== 'video_album' && type !== 'text') {
         toast({ variant: 'destructive', title: 'エラー', description: 'どのページにアップロードするか不明です。' });
         return;
     }
@@ -66,16 +66,17 @@ export function MediaUploader({ type, accept, children, onUploadSuccess }: Media
           
           const assetData: Omit<Asset, 'id' | 'createdAt' | 'updatedAt'> = {
             ownerUid: user.uid,
-            memoryId: memoryId,
+            memoryId: memoryId, // This might be null for library uploads
             name: file.name,
             type: type,
             storagePath: storagePath,
             url: downloadURL,
             size: file.size,
           };
-
-          // Note: The collection is now `/memories/{memoryId}/assets`
-          const docRef = await addDoc(collection(db, 'memories', memoryId, 'assets'), {
+          
+          const collectionPath = memoryId ? `memories/${memoryId}/assets` : 'assets';
+          
+          const docRef = await addDoc(collection(db, collectionPath), {
              ...assetData,
              createdAt: serverTimestamp(),
              updatedAt: serverTimestamp(),
@@ -102,7 +103,8 @@ export function MediaUploader({ type, accept, children, onUploadSuccess }: Media
         toast({ title: '準備中', description: 'この機能は現在準備中です。' });
         return;
     }
-    if (!memoryId) {
+    // For media library, no memoryId is needed to open the dialog
+    if (!memoryId && window.location.pathname.startsWith('/memories/')) {
         toast({ variant: 'destructive', title: 'エラー', description: 'アップロード先のページが特定できませんでした。' });
         return;
     }
