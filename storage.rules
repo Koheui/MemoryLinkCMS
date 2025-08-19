@@ -1,0 +1,55 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.role == 'admin';
+    }
+
+    function isUser(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function isAllowedContentType() {
+      return request.resource != null && (
+        request.resource.contentType.matches('image/.*') ||
+        request.resource.contentType.matches('video/.*') ||
+        request.resource.contentType.matches('audio/.*') ||
+        request.resource.contentType.matches('model/.*') ||
+        request.resource.contentType.matches('application/octet-stream')
+      );
+    }
+
+    function withinSizeLimit() {
+      return request.resource != null && (
+        (request.resource.contentType.matches('image/.*') && request.resource.size < 25 * 1024 * 1024) ||
+        (request.resource.contentType.matches('video/.*') && request.resource.size < 200 * 1024 * 1024) ||
+        (request.resource.contentType.matches('audio/.*') && request.resource.size < 30 * 1024 * 1024) ||
+        (request.resource.contentType.matches('model/.*') && request.resource.size < 150 * 1024 * 1024) ||
+        request.resource.contentType.matches('application/octet-stream')
+      );
+    }
+
+    // Editable (private)
+    match /raw/users/{uid}/memories/{memoryId}/{rest=**} {
+      allow read, write: if (isUser(uid) || isAdmin()) && isAllowedContentType() && withinSizeLimit();
+    }
+    match /proc/users/{uid}/memories/{memoryId}/{rest=**} {
+      allow read, write: if (isUser(uid) || isAdmin()) && isAllowedContentType() && withinSizeLimit();
+    }
+    match /models/orders/{orderId}/{file=**} {
+      allow read, write: if isAdmin();
+    }
+
+    // Public (read-only)
+    match /deliver/publicPages/{pageId}/{all=**} {
+      allow read: if true;
+      allow write: if false;
+    }
+  }
+}
