@@ -1,3 +1,4 @@
+
 // src/components/design-editor.tsx
 'use client';
 
@@ -64,9 +65,9 @@ export function DesignEditor({ memory, assets }: DesignEditorProps) {
     const fetchAssetUrls = async () => {
       const urls: Record<string, string> = {};
       for (const asset of assets) {
-        if (asset.rawPath) {
+        if (asset.storagePath) {
           try {
-            const url = await getDownloadURL(ref(storage, asset.rawPath));
+            const url = await getDownloadURL(ref(storage, asset.storagePath));
             urls[asset.id] = url;
           } catch (error) {
             console.error('Error getting download URL:', error);
@@ -134,7 +135,7 @@ export function DesignEditor({ memory, assets }: DesignEditorProps) {
                     <SelectItem value="">選択なし</SelectItem>
                     {assets.map((asset) => (
                       <SelectItem key={asset.id} value={asset.id}>
-                        {asset.rawPath.split('/').pop()}
+                        {asset.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -164,7 +165,7 @@ export function DesignEditor({ memory, assets }: DesignEditorProps) {
                     <SelectItem value="">選択なし</SelectItem>
                     {assets.map((asset) => (
                       <SelectItem key={asset.id} value={asset.id}>
-                        {asset.rawPath.split('/').pop()}
+                        {asset.name}
                       </SelectItem>
                     ))}
                   </SelectContent>

@@ -30,14 +30,12 @@ export interface Memory {
   design: Design;
   createdAt: Timestamp | string; // Allow string for serialized data
   updatedAt: Timestamp | string; // Allow string for serialized data
-  // For UI display
-  coverImageUrl?: string | null;
 }
 
 export interface Asset {
   id: string;
   ownerUid: string;
-  memoryId?: string; // Which page this asset belongs to. Can be optional.
+  memoryId?: string; 
   name: string;
   type: 'image' | 'video' | 'audio';
   storagePath: string; // Path in Firebase Storage
@@ -53,6 +51,7 @@ export interface PublicPageBlock {
   order: number;
   visibility: 'show' | 'hide';
   title?: string;
+  icon?: string;
   album?: {
     layout: 'grid' | 'carousel';
     cols?: 2 | 3;
