@@ -14,19 +14,53 @@ import {
 } from '@/components/ui/sidebar';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Heart, LayoutDashboard, LogOut, Settings } from 'lucide-react';
+import { Heart, LayoutDashboard, LogOut, Settings, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { auth } from '@/lib/firebase/client';
+import { useState, useEffect } from 'react';
 
 function AppLayoutContent({ children }: { children: React.ReactNode }) {
   const { user, loading } = useRequireAuth();
+  const [isAdmin, setIsAdmin] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
 
+  useEffect(() => {
+    const checkAdminStatus = async () => {
+      if (user) {
+        try {
+          const idTokenResult = await user.getIdTokenResult(true); // Force refresh
+          const role = idTokenResult.claims.role;
+          if (role === 'admin') {
+            setIsAdmin(true);
+            // Admin user, try to create a session
+            const idToken = await user.getIdToken();
+            await fetch('/api/admin/sessionLogin', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ idToken }),
+            });
+          }
+        } catch (error) {
+          console.error("Error checking admin status:", error);
+        }
+      }
+    };
+    checkAdminStatus();
+  }, [user]);
+
+
   const handleLogout = async () => {
-    await auth.signOut();
-    router.push('/login');
+    try {
+      if (isAdmin) {
+        await fetch('/api/admin/sessionLogout', { method: 'POST' });
+      }
+      await auth.signOut();
+      router.push('/login');
+    } catch (error) {
+        console.error('Logout failed', error);
+    }
   };
 
   if (loading || !user) {
@@ -81,6 +115,13 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
                 <Link href="/dashboard"><Settings /> 想い出の管理</Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
+          {isAdmin && (
+            <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={pathname.startsWith('/_admin')}>
+                    <Link href="/_admin"><ShieldCheck/> 管理者</Link>
+                </SidebarMenuButton>
+            </SidebarMenuItem>
+          )}
         </SidebarMenu>
         <div className="p-2 border-t">
             <div className="flex items-center justify-between">
