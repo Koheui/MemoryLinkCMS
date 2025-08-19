@@ -109,8 +109,8 @@ export function AuthForm({ type }: AuthFormProps) {
           const errorData = await res.json();
           throw new Error(errorData.details || `セッションの作成に失敗しました。ステータス: ${res.status}`);
       }
-
-      // **CRITICAL FIX**: Redirect to a stable, protected page first.
+      
+      // Redirect to a stable, protected page first.
       // The layout will then handle fetching the correct memoryId.
       window.location.assign('/account');
 

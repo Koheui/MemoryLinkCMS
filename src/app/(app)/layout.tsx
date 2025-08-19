@@ -52,6 +52,8 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
                     setMemoryId(querySnapshot.docs[0].id);
                 } else {
                     console.warn("No memory found for user:", user.uid);
+                    // This can happen if a user is created but memory creation fails.
+                    // A more robust app might handle this by creating a memory here or redirecting to a creation page.
                 }
             } catch (error) {
                 console.error("Error fetching memoryId:", error);
@@ -80,6 +82,8 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
   }
 
   if (!user) {
+    // This will be briefly visible before the useEffect above redirects.
+    // Or, if redirection is blocked, it's a fallback.
     return null;
   }
   
