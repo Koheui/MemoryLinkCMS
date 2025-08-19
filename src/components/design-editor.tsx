@@ -1,4 +1,3 @@
-
 // src/components/design-editor.tsx
 'use client';
 
@@ -54,8 +53,8 @@ export function DesignEditor({ memory, assets }: DesignEditorProps) {
   const form = useForm<DesignFormValues>({
     resolver: zodResolver(designSchema),
     defaultValues: {
-      coverAssetId: memory.coverAssetId || null,
-      profileAssetId: memory.profileAssetId || null,
+      coverAssetId: memory.coverAssetId || '',
+      profileAssetId: memory.profileAssetId || '',
       theme: memory.design?.theme || 'light',
       fontScale: memory.design?.fontScale || 1.0,
     },
@@ -87,8 +86,8 @@ export function DesignEditor({ memory, assets }: DesignEditorProps) {
     try {
       const memoryRef = doc(db, 'memories', memory.id);
       await updateDoc(memoryRef, {
-        coverAssetId: data.coverAssetId,
-        profileAssetId: data.profileAssetId,
+        coverAssetId: data.coverAssetId || null,
+        profileAssetId: data.profileAssetId || null,
         design: {
           theme: data.theme,
           fontScale: data.fontScale,
@@ -114,6 +113,7 @@ export function DesignEditor({ memory, assets }: DesignEditorProps) {
   const profileAssetId = form.watch('profileAssetId');
   const coverImageUrl = coverAssetId ? assetUrls[coverAssetId] : null;
   const profileImageUrl = profileAssetId ? assetUrls[profileAssetId] : null;
+  const imageAssets = assets.filter(asset => asset.type === 'image');
 
   return (
     <Form {...form}>
@@ -125,15 +125,14 @@ export function DesignEditor({ memory, assets }: DesignEditorProps) {
             render={({ field }) => (
               <FormItem>
                 <FormLabel>カバー画像</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value || ""}>
+                <Select onValueChange={field.onChange} value={field.value ?? ''}>
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue placeholder="カバー画像を選択..." />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    <SelectItem value="">選択なし</SelectItem>
-                    {assets.map((asset) => (
+                    {imageAssets.map((asset) => (
                       <SelectItem key={asset.id} value={asset.id}>
                         {asset.name}
                       </SelectItem>
@@ -155,15 +154,14 @@ export function DesignEditor({ memory, assets }: DesignEditorProps) {
             render={({ field }) => (
               <FormItem>
                 <FormLabel>プロフィール画像</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value || ""}>
+                <Select onValueChange={field.onChange} value={field.value ?? ''}>
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue placeholder="プロフィール画像を選択..." />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    <SelectItem value="">選択なし</SelectItem>
-                    {assets.map((asset) => (
+                    {imageAssets.map((asset) => (
                       <SelectItem key={asset.id} value={asset.id}>
                         {asset.name}
                       </SelectItem>
@@ -216,7 +214,7 @@ export function DesignEditor({ memory, assets }: DesignEditorProps) {
                     <FormLabel>フォントサイズ倍率: {value.toFixed(2)}x</FormLabel>
                      <FormControl>
                         <Slider
-                            defaultValue={[value]}
+                            value={[value]}
                             onValueChange={(values) => onChange(values[0])}
                             min={0.8}
                             max={1.5}
