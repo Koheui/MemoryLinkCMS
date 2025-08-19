@@ -95,8 +95,8 @@ export function AuthForm({ type }: AuthFormProps) {
         throw new Error(errorData.details || `セッションの作成に失敗しました。ステータス: ${res.status}`);
       }
       
-      // The middleware will handle the redirect. We just need to trigger a page refresh
-      // so the browser sends the new session cookie to the server.
+      // IMPORTANT: This refresh triggers the middleware to redirect the user
+      // after the session cookie has been set.
       router.refresh();
 
     } catch (error: any) {
@@ -107,6 +107,8 @@ export function AuthForm({ type }: AuthFormProps) {
                     description = 'このメールアドレスは既に使用されています。';
                     break;
                 case 'auth/invalid-credential':
+                     description = 'メールアドレスまたはパスワードが正しくありません。';
+                     break;
                 case 'auth/user-not-found':
                 case 'auth/wrong-password':
                      description = 'メールアドレスまたはパスワードが正しくありません。';
