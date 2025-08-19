@@ -59,18 +59,26 @@ export function AuthForm({ type }: AuthFormProps) {
     try {
       let userCredential;
       if (type === 'signup') {
-        userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
+        userCredential = await createUserWithEmailAndPassword(
+          auth,
+          data.email,
+          data.password
+        );
         const userRef = doc(db, 'users', userCredential.user.uid);
         const userProfile: Omit<UserProfile, 'id'> = {
-            email: userCredential.user.email!,
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
+          email: userCredential.user.email!,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
         };
         await setDoc(userRef, userProfile);
       } else {
-        userCredential = await signInWithEmailAndPassword(auth, data.email, data.password);
+        userCredential = await signInWithEmailAndPassword(
+          auth,
+          data.email,
+          data.password
+        );
       }
-      
+
       const idToken = await userCredential.user.getIdToken(true);
 
       const res = await fetch('/api/auth/sessionLogin', {
@@ -85,9 +93,11 @@ export function AuthForm({ type }: AuthFormProps) {
         throw new Error(errorData.details || `Failed to create session. Status: ${res.status}.`);
       }
       
-      // Refresh the current route to allow middleware to handle the redirect.
-      // This is safer than a hard redirect or client-side push.
-      router.refresh();
+      // Refresh the current route. This will trigger the middleware to re-evaluate
+      // and redirect if the user is now authenticated.
+      // We await this to ensure the refresh logic completes before we potentially
+      // re-enable the form.
+      await router.refresh();
 
     } catch (error: any) {
         console.error("Auth error:", error);
@@ -105,6 +115,8 @@ export function AuthForm({ type }: AuthFormProps) {
             description: description,
         });
     } finally {
+        // Only re-enable the form after all processing is complete.
+        // If the refresh leads to a redirect, this component will unmount anyway.
         setLoading(false);
     }
   };
