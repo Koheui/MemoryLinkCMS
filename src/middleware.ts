@@ -6,6 +6,7 @@ import { getAdminApp } from '@/lib/firebase/firebaseAdmin';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 
+export const runtime = 'nodejs'
 
 async function getFirstMemoryId(uid: string): Promise<string | null> {
     try {
@@ -49,17 +50,17 @@ export async function middleware(request: NextRequest) {
 
   // If user is authenticated
   if (decodedClaims) {
+    // If trying to access login/signup, redirect to their memory page
     if (pathname === '/login' || pathname === '/signup' || pathname === '/') {
        const memoryId = await getFirstMemoryId(decodedClaims.uid);
        if (memoryId) {
             return NextResponse.redirect(new URL(`/memories/${memoryId}`, request.url));
        }
-       // If user has no page yet, they will be redirected to the account page,
-       // where they could be prompted to create their page.
-       return NextResponse.redirect(new URL('/account', request.url)); // Fallback redirect
+       // This case should be rare if signup creates a page, but as a fallback:
+       return NextResponse.redirect(new URL('/account', request.url));
     }
     
-    // Allow access to protected routes
+    // Allow access to other protected routes
     return NextResponse.next();
   }
 
@@ -77,16 +78,17 @@ export async function middleware(request: NextRequest) {
 }
 
 // See "Matching Paths" below to learn more
-export const config = {
-  matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - api (API routes)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - p (public pages)
-     */
-    '/((?!api|_next/static|_next/image|favicon.ico|p).*)',
-  ],
-}
+// We remove the config object to allow the runtime export to take effect.
+// export const config = {
+//   matcher: [
+//     /*
+//      * Match all request paths except for the ones starting with:
+//      * - api (API routes)
+//      * - _next/static (static files)
+//      * - _next/image (image optimization files)
+//      * - favicon.ico (favicon file)
+//      * - p (public pages)
+//      */
+//     '/((?!api|_next/static|_next/image|favicon.ico|p).*)',
+//   ],
+// }
