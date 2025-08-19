@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { getAdminApp } from '@/lib/firebase/firebaseAdmin';
 import { getAuth } from 'firebase-admin/auth';
-import { collection, query, where, getDocs, limit, getFirestore } from 'firebase/admin/firestore';
+import { getFirestore } from 'firebase-admin/firestore';
 
 
 export async function middleware(request: NextRequest) {
@@ -33,12 +33,11 @@ export async function middleware(request: NextRequest) {
       // If the user is authenticated and trying to access the special '/pages' route
       if (pathname === '/pages') {
         const db = getFirestore(app);
-        const memoriesQuery = query(
-            collection(db, 'memories'), 
-            where('ownerUid', '==', decodedClaims.uid), 
-            limit(1)
-        );
-        const querySnapshot = await getDocs(memoriesQuery);
+        const memoriesQuery = db.collection('memories')
+            .where('ownerUid', '==', decodedClaims.uid)
+            .limit(1);
+        
+        const querySnapshot = await memoriesQuery.get();
 
         if (!querySnapshot.empty) {
             const memoryId = querySnapshot.docs[0].id;
