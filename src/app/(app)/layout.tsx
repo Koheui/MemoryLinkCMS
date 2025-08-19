@@ -1,7 +1,7 @@
 // src/app/(app)/layout.tsx
 "use client";
 
-import { AuthProvider, useRequireAuth } from '@/hooks/use-auth';
+import { AuthProvider, useAuth } from '@/hooks/use-auth';
 import {
   Sidebar,
   SidebarProvider,
@@ -17,54 +17,36 @@ import { Button } from '@/components/ui/button';
 import { Heart, LayoutDashboard, LogOut, Settings, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { auth } from '@/lib/firebase/client';
 import { useState, useEffect } from 'react';
 
 function AppLayoutContent({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useRequireAuth();
+  const { user, loading } = useAuth();
   const [isAdmin, setIsAdmin] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
 
   useEffect(() => {
-    const checkAdminStatus = async () => {
-      if (user && !isAdmin) { // Only run if user exists and not already identified as admin
-        try {
-          const idTokenResult = await user.getIdTokenResult(true); // Force refresh
-          if (idTokenResult.claims.role === 'admin') {
-            setIsAdmin(true);
-            // Admin user, try to create a session
-            const idToken = await user.getIdToken();
-            await fetch('/api/admin/sessionLogin', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ idToken }),
-            });
-          }
-        } catch (error) {
-          console.error("Error checking admin status:", error);
-          // It's normal for non-admins to not have the role claim, so we don't need to show an error.
-          // The session creation might fail for other reasons, but we won't block the user.
-        }
-      }
-    };
-    checkAdminStatus();
-  }, [user, isAdmin]);
-
+    if (user) {
+      user.getIdTokenResult().then((idTokenResult) => {
+        setIsAdmin(idTokenResult.claims.role === 'admin');
+      });
+    }
+  }, [user]);
 
   const handleLogout = async () => {
     try {
-      if (isAdmin) {
-        await fetch('/api/admin/sessionLogout', { method: 'POST' });
+      const response = await fetch('/api/auth/session', { method: 'DELETE' });
+      if (response.ok) {
+        router.push('/login');
+      } else {
+        throw new Error('Logout failed');
       }
-      await auth.signOut();
-      router.push('/login');
     } catch (error) {
         console.error('Logout failed', error);
     }
   };
 
-  if (loading || !user) {
+  if (loading) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="flex items-center gap-2">
@@ -128,10 +110,10 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                     <Avatar className="h-8 w-8">
-                        <AvatarImage src={user.photoURL ?? ''} />
-                        <AvatarFallback>{user.email?.[0].toUpperCase()}</AvatarFallback>
+                        <AvatarImage src={user?.photoURL ?? ''} />
+                        <AvatarFallback>{user?.email?.[0].toUpperCase()}</AvatarFallback>
                     </Avatar>
-                    <span className="text-sm font-medium truncate">{user.email}</span>
+                    <span className="text-sm font-medium truncate">{user?.email}</span>
                 </div>
                 <Button variant="ghost" size="icon" onClick={handleLogout} aria-label="Log out">
                     <LogOut className="h-4 w-4"/>

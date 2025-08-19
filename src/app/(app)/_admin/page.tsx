@@ -6,16 +6,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import type { Order } from '@/lib/types';
-import { getApps, initializeApp, applicationDefault } from 'firebase-admin/app';
+import { getAdminApp } from '@/lib/firebase/firebaseAdmin';
 import { getFirestore } from 'firebase-admin/firestore';
 import { format } from 'date-fns';
 
-if (!getApps().length) {
-  initializeApp({
-    credential: applicationDefault(),
-  });
-}
-
+getAdminApp(); // Initialize Firebase Admin
 const db = getFirestore();
 
 async function fetchOrders(): Promise<Order[]> {

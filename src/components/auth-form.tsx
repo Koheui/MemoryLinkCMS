@@ -52,6 +52,22 @@ const createUserProfile = async (user: User) => {
   await setDoc(userRef, userProfile);
 };
 
+async function createSession(user: User) {
+    const idToken = await user.getIdToken(true);
+    const response = await fetch('/api/auth/session', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ idToken })
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Session creation failed');
+    }
+}
+
 
 export function AuthForm({ type }: AuthFormProps) {
   const router = useRouter();
@@ -69,14 +85,20 @@ export function AuthForm({ type }: AuthFormProps) {
   const onSubmit = async (data: AuthFormValues) => {
     setLoading(true);
     try {
+      let userCredential;
       if (type === 'signup') {
-        const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
-        await createUserProfile(userCredential.user); // Create user profile in Firestore
-        router.push('/memories/new'); // Redirect to new memory page on sign up
+        userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
+        await createUserProfile(userCredential.user);
+        await createSession(userCredential.user);
+        router.push('/memories/new');
       } else {
-        await signInWithEmailAndPassword(auth, data.email, data.password);
-        router.push('/dashboard'); // Redirect to dashboard on login
+        userCredential = await signInWithEmailAndPassword(auth, data.email, data.password);
+        await createSession(userCredential.user);
+        router.push('/dashboard');
       }
+      // Force a page refresh to ensure new server-side state is loaded
+      router.refresh();
+
     } catch (error: any) {
       console.error("Auth error:", error);
       let description = 'エラーが発生しました。もう一度お試しください。';

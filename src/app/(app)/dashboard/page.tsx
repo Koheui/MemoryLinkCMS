@@ -9,26 +9,22 @@ import { PlusCircle, Edit } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import type { Memory } from '@/lib/types';
-import { getApps, initializeApp, applicationDefault } from 'firebase-admin/app';
+import { getAdminApp } from '@/lib/firebase/firebaseAdmin';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 import { getStorage } from 'firebase-admin/storage';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
-if (!getApps().length) {
-  initializeApp({
-    credential: applicationDefault(),
-  });
-}
+getAdminApp(); // Initialize Firebase Admin
 
 const db = getFirestore();
-const storage = getStorage();
+const storage = getStorage().bucket(process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET);
 
 async function getAssetUrl(path: string | undefined | null): Promise<string | null> {
     if (!path) return null;
     try {
-        const fileRef = storage.bucket(process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET).file(path);
+        const fileRef = storage.file(path);
         const [url] = await fileRef.getSignedUrl({
             action: 'read',
             expires: Date.now() + 15 * 60 * 1000, // 15 minutes
@@ -76,6 +72,7 @@ async function fetchMemories(uid: string): Promise<Memory[]> {
 
 export default async function DashboardPage() {
   const sessionCookie = (await cookies().get('__session'))?.value || '';
+  // Middleware should have redirected if no cookie, so this is a sanity check
   if (!sessionCookie) {
     redirect('/login');
   }

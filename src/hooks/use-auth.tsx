@@ -2,9 +2,8 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { onAuthStateChanged, User } from 'firebase/auth';
+import { onIdTokenChanged, User } from 'firebase/auth';
 import { auth } from '@/lib/firebase/client';
-import { usePathname, useRouter } from 'next/navigation';
 
 interface AuthContextType {
   user: User | null;
@@ -18,8 +17,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user);
+    // onIdTokenChanged is more responsive than onAuthStateChanged for session-based auth
+    const unsubscribe = onIdTokenChanged(auth, async (user) => {
+      if (user) {
+        setUser(user);
+      } else {
+        setUser(null);
+      }
       setLoading(false);
     });
 
@@ -35,18 +39,4 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
 export const useAuth = () => {
   return useContext(AuthContext);
-};
-
-export const useRequireAuth = (redirectUrl = '/login') => {
-    const { user, loading } = useAuth();
-    const router = useRouter();
-  
-    useEffect(() => {
-      // Wait for the loading to complete before checking for user
-      if (!loading && !user) {
-        router.push(redirectUrl);
-      }
-    }, [user, loading, router, redirectUrl]);
-  
-    return { user, loading };
 };

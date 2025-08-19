@@ -7,17 +7,13 @@ import { AboutEditor } from '@/components/about-editor';
 import { BlockEditor } from '@/components/block-editor';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import type { Memory, Asset } from '@/lib/types';
-import { getApps, initializeApp, applicationDefault } from 'firebase-admin/app';
+import { getAdminApp } from '@/lib/firebase/firebaseAdmin';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 import { cookies } from 'next/headers';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 
-if (!getApps().length) {
-  initializeApp({
-    credential: applicationDefault(),
-  });
-}
+getAdminApp();
 
 async function fetchMemory(uid: string, memoryId: string): Promise<Memory> {
     const db = getFirestore();
@@ -46,7 +42,7 @@ async function fetchMemory(uid: string, memoryId: string): Promise<Memory> {
 async function fetchAssets(uid: string, memoryId: string): Promise<Asset[]> {
     const db = getFirestore();
     // Correctly query the subcollection
-    const assetsSnapshot = await db.collection('memories').doc(memoryId).collection('assets').where('type', '==', 'image').get();
+    const assetsSnapshot = await db.collection('memories').doc(memoryId).collection('assets').orderBy('createdAt', 'desc').get();
     
     if (assetsSnapshot.empty) {
         return [];
@@ -67,9 +63,9 @@ async function fetchAssets(uid: string, memoryId: string): Promise<Asset[]> {
 
 
 export default async function MemoryEditorPage({ params }: { params: { memoryId: string } }) {
-  const sessionCookie = cookies().get('__session')?.value || '';
+  const sessionCookie = (await cookies().get('__session'))?.value || '';
   if (!sessionCookie) {
-    notFound();
+    redirect('/login');
   }
 
   let memory: Memory;
@@ -80,7 +76,7 @@ export default async function MemoryEditorPage({ params }: { params: { memoryId:
     assets = await fetchAssets(decodedClaims.uid, params.memoryId);
   } catch (error) {
      console.error("Error fetching memory or verifying session:", error);
-     notFound();
+     redirect('/login');
   }
 
   return (
