@@ -31,13 +31,15 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
       user.getIdTokenResult().then((idTokenResult) => {
         setIsAdmin(idTokenResult.claims.role === 'admin');
       });
+    } else {
+      setIsAdmin(false);
     }
   }, [user]);
 
   const handleLogout = async () => {
     try {
       await auth.signOut();
-      router.push('/login');
+      // useAuth hook will handle the redirect
     } catch (error) {
         console.error('Logout failed', error);
     }

@@ -30,25 +30,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   useEffect(() => {
-    // Do nothing while loading
     if (loading) {
-      return;
+      return; // Do nothing while loading
     }
 
     const isAuthPage = pathname === '/login' || pathname === '/signup';
-    
-    // If there's no user, redirect to login page if not already there or on a public page
     const isProtectedRoute = !isAuthPage && pathname !== '/' && !pathname.startsWith('/p/');
-    
+
     if (!user && isProtectedRoute) {
       router.push('/login');
     }
 
-    // If there is a user, redirect from auth pages to the dashboard
     if (user && isAuthPage) {
       router.push('/dashboard');
     }
-
+    
   }, [user, loading, pathname, router]);
 
   return (
