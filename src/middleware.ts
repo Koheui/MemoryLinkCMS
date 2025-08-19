@@ -7,20 +7,21 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   const sessionCookie = request.cookies.get('__session')?.value
 
-  // Check for authentication status via API route
-  const authResponse = await fetch(new URL('/api/auth/verify', request.url), {
+  // Check for authentication status via API route. Use absolute URL for fetch in middleware.
+  const verifyUrl = new URL('/api/auth/verify', request.url);
+  const authResponse = await fetch(verifyUrl.toString(), {
     headers: {
       'Cookie': `__session=${sessionCookie || ''}`
     }
   });
+  
   const { isAuthenticated } = await authResponse.json();
 
-  const isProtectedRoute = ['/memories', '/media-library', '/account', '/_admin', '/dashboard'].some((path) =>
-    pathname.startsWith(path)
-  );
+  const isPublicPath = ['/login', '/signup', '/'].includes(pathname);
+  const isProtectedRoute = !isPublicPath;
 
-  // If user is authenticated and on login/signup/root, redirect to dashboard.
-  if (isAuthenticated && (pathname === '/login' || pathname === '/signup' || pathname === '/')) {
+  // If user is authenticated and on a public page (login, signup, root), redirect to dashboard.
+  if (isAuthenticated && isPublicPath) {
       return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 
