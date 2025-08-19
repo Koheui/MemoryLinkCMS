@@ -73,6 +73,15 @@ export default function DebugTokenPage() {
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="space-y-4">
+            <p className="text-sm font-medium">ステップ1: サーバー設定の確認</p>
+            <p className="text-sm text-muted-foreground">新しいタブで以下のリンクを開き、サーバー側の設定が正しいか確認してください。</p>
+            <ul className="list-disc pl-5 text-sm space-y-2">
+              <li><a href="/api/env-check" target="_blank" rel="noopener noreferrer" className="underline text-primary">/api/env-check</a>: 環境変数が読み込まれているか確認します。`hasFIREBASE_SERVICE_ACCOUNT_JSON` と `isParseable` が `true` になるはずです。</li>
+              <li><a href="/api/debug-admin" target="_blank" rel="noopener noreferrer" className="underline text-primary">/api/debug-admin</a>: Admin SDKが正常に初期化できるか確認します。`ok: true` とプロジェクトIDが表示されるはずです。</li>
+            </ul>
+          </div>
+          <div className="space-y-4">
+             <p className="text-sm font-medium">ステップ2: クライアント側でのトークン取得</p>
             <Button onClick={getToken} disabled={loading}>
               {loading ? <Loader2 className="mr-2 animate-spin" /> : null}
               1. 匿名ユーザーでサインインし、IDトークンを取得
@@ -87,6 +96,7 @@ export default function DebugTokenPage() {
             </div>
           </div>
           <div className="space-y-4">
+             <p className="text-sm font-medium">ステップ3: サーバー側でのトークン検証</p>
             <Button onClick={callApi} disabled={!token || loading}>
               {loading ? <Loader2 className="mr-2 animate-spin" /> : null}
               2. 取得したトークンをサーバーの検証APIに送る
