@@ -13,14 +13,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'ID token is required.' }, { status: 400 });
     }
 
+    // Initialize Firebase Admin SDK
+    getAdminApp();
+
     // Set session expiration to 14 days.
     const expiresIn = 60 * 60 * 24 * 14 * 1000;
     
-    getAdminApp(); // Initialize Firebase Admin SDK
     const sessionCookie = await getAuth().createSessionCookie(idToken, { expiresIn });
 
     cookies().set('__session', sessionCookie, {
-      maxAge: expiresIn,
+      maxAge: expiresIn / 1000,
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       path: '/',
