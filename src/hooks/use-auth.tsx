@@ -4,7 +4,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth } from '@/lib/firebase/client';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 
 interface AuthContextType {
   user: User | null;
@@ -40,12 +40,13 @@ export const useAuth = () => {
 export const useRequireAuth = (redirectUrl = '/login') => {
     const { user, loading } = useAuth();
     const router = useRouter();
+    const pathname = usePathname();
   
     useEffect(() => {
-      if (!loading && !user) {
+      if (!loading && !user && pathname !== redirectUrl) {
         router.push(redirectUrl);
       }
-    }, [user, loading, router, redirectUrl]);
+    }, [user, loading, router, redirectUrl, pathname]);
   
     return { user, loading };
 };
