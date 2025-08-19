@@ -40,13 +40,13 @@ export const useAuth = () => {
 export const useRequireAuth = (redirectUrl = '/login') => {
     const { user, loading } = useAuth();
     const router = useRouter();
-    const pathname = usePathname();
   
     useEffect(() => {
-      if (!loading && !user && pathname !== redirectUrl) {
+      // Wait for the loading to complete before checking for user
+      if (!loading && !user) {
         router.push(redirectUrl);
       }
-    }, [user, loading, router, redirectUrl, pathname]);
+    }, [user, loading, router, redirectUrl]);
   
     return { user, loading };
 };
