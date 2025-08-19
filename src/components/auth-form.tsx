@@ -81,7 +81,7 @@ export function AuthForm({ type }: AuthFormProps) {
       if (!res.ok) {
         const errorData = await res.json();
         console.error('Session creation failed:', errorData);
-        throw new Error('Failed to create session');
+        throw new Error(errorData.details || 'Failed to create session');
       }
 
       window.location.assign(type === 'signup' ? '/memories/new' : '/dashboard');
@@ -93,7 +93,7 @@ export function AuthForm({ type }: AuthFormProps) {
             description = 'このメールアドレスは既に使用されています。'
         } else if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
              description = 'メールアドレスまたはパスワードが正しくありません。';
-        } else if (error.message === 'Failed to create session') {
+        } else if (error.message.includes('session')) {
             description = 'サーバーとのセッション確立に失敗しました。管理者にお問い合わせください。';
         }
         toast({
