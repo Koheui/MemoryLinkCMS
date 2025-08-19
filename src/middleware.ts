@@ -1,40 +1,21 @@
-
 // src/middleware.ts
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { getAdminApp } from '@/lib/firebase/firebaseAdmin';
-import { getAuth } from 'firebase-admin/auth';
-import { collection, query, where, getDocs, limit } from 'firebase/firestore';
-import { getFirestore } from 'firebase-admin/firestore';
 
-export async function middleware(request: NextRequest) {
+export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   const sessionCookie = request.cookies.get('__session')?.value
 
-  // Verify the session cookie.
-  // Using a try-catch block is a reliable way to handle invalid/expired cookies.
-  let decodedClaims = null;
-  if (sessionCookie) {
-    try {
-        const app = getAdminApp();
-        decodedClaims = await getAuth(app).verifySessionCookie(sessionCookie, true);
-    } catch (error) {
-        // Session cookie is invalid. Clear it.
-        const response = NextResponse.redirect(new URL('/login', request.url));
-        response.cookies.set('__session', '', { maxAge: -1 });
-        return response;
-    }
-  }
-  
-  const isAuthenticated = !!decodedClaims;
+  const isAuthenticated = !!sessionCookie;
 
   const isAuthPage = ['/login', '/signup'].includes(pathname);
   
   // If user is authenticated
   if (isAuthenticated) {
-    // If they are on a auth page (login, signup), redirect them to the account page.
+    // If they are on a auth page (login, signup) or the root, redirect them.
+    // The dashboard page will handle redirecting to the correct memory page.
     if (isAuthPage || pathname === '/') {
-      return NextResponse.redirect(new URL('/account', request.url));
+      return NextResponse.redirect(new URL('/dashboard', request.url));
     }
   } 
   // If user is not authenticated
