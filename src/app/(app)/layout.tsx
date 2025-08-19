@@ -66,7 +66,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
         </SidebarHeader>
         <SidebarMenu className="flex-1">
            <SidebarMenuItem>
-            <SidebarMenuButton asChild isActive={pathname === '/pages'}>
+            <SidebarMenuButton asChild isActive={pathname.startsWith('/pages')}>
                 <Link href="/pages"><Files/> ページ一覧</Link>
             </SidebarMenuButton>
           </SidebarMenuItem>

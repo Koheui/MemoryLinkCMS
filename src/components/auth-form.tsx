@@ -95,10 +95,9 @@ export function AuthForm({ type }: AuthFormProps) {
         throw new Error(errorData.details || `セッションの作成に失敗しました。ステータス: ${res.status}`);
       }
       
-      // Redirect to the main authenticated page.
-      // This will trigger the middleware to verify the session and allow access.
-      window.location.assign('/pages');
-
+      // The middleware will handle the redirect. We just need to trigger a page refresh
+      // so the browser sends the new session cookie to the server.
+      router.refresh();
 
     } catch (error: any) {
         let description = '予期せぬエラーが発生しました。';
