@@ -8,6 +8,8 @@ import { storage, db } from '@/lib/firebase/client';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import type { Asset } from '@/lib/types';
+import { Button } from '@/components/ui/button'; // Import Button
+import { Loader2 } from 'lucide-react'; // Import Loader
 
 interface MediaUploaderProps {
   type: 'image' | 'video' | 'audio' | 'text' | 'album' | 'video_album';
@@ -57,20 +59,22 @@ export function MediaUploader({ type, accept, children, onUploadSuccess }: Media
           // Handle successful uploads on complete
           const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
           
-          const assetData: Omit<Asset, 'id' | 'createdAt'> = {
+          const assetData: Omit<Asset, 'id' | 'createdAt' | 'updatedAt'> = {
             ownerUid: user.uid,
             name: file.name,
             type: type,
             storagePath: storagePath,
             url: downloadURL,
             size: file.size,
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
           };
 
-          const docRef = await addDoc(collection(db, 'assets'), assetData);
+          const docRef = await addDoc(collection(db, 'assets'), {
+             ...assetData,
+             createdAt: serverTimestamp(),
+             updatedAt: serverTimestamp(),
+          });
           
-          const newAsset = { id: docRef.id, ...assetData } as Asset;
+          const newAsset = { id: docRef.id, ...assetData, createdAt: new Date(), updatedAt: new Date() } as Asset;
           onUploadSuccess?.(newAsset);
           
           toast({ title: '成功', description: `${file.name} をアップロードしました。` });
@@ -84,14 +88,26 @@ export function MediaUploader({ type, accept, children, onUploadSuccess }: Media
     }
   };
 
-  const handleClick = () => {
+  const handleClick = (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
+    e.stopPropagation(); // Stop propagation to prevent Accordion from toggling
+    
     // For album/text types, we don't trigger file input, we'll handle them differently
     if (type === 'album' || type === 'video_album' || type === 'text') {
-        alert('この機能は準備中です。');
+        toast({ title: '準備中', description: 'この機能は現在準備中です。' });
         return;
     }
     fileInputRef.current?.click();
   };
+
+  const uploaderContent = React.cloneElement(children as React.ReactElement, {
+    disabled: isUploading,
+    children: isUploading ? (
+        <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            アップロード中...
+        </>
+    ) : (children as React.ReactElement).props.children
+  });
 
   return (
     <>
@@ -104,7 +120,7 @@ export function MediaUploader({ type, accept, children, onUploadSuccess }: Media
         disabled={isUploading}
       />
       <div onClick={handleClick} className="inline-block">
-        {children}
+        {uploaderContent}
       </div>
     </>
   );

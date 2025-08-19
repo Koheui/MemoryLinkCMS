@@ -1,3 +1,4 @@
+
 // src/app/(app)/media-library/page.tsx
 'use client';
 
@@ -25,28 +26,6 @@ export default function MediaLibraryPage() {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalSize, setTotalSize] = useState(0);
-
-  // Helper functions and constants moved inside the component
-  function formatBytes(bytes: number, decimals = 2) {  
-      if (bytes === 0) return '0 Bytes';
-      const k = 1024;
-      const dm = decimals < 0 ? 0 : decimals;
-      const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-      const i = Math.floor(Math.log(bytes) / Math.log(k));
-      return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
-  }
-
-  const TOTAL_STORAGE_LIMIT_MB = 200;
-  const TOTAL_STORAGE_LIMIT_BYTES = TOTAL_STORAGE_LIMIT_MB * 1024 * 1024;
-
-  const assetCategories: { type: Asset['type']; label: string; icon: React.ReactNode; uploaderType: 'image' | 'video' | 'audio' | 'text' | 'album' | 'video_album', accept: string }[] = [
-      { type: 'image', label: '写真', icon: <ImageIcon className="h-5 w-5" />, uploaderType: 'image', accept: 'image/*' },
-      { type: 'album', label: 'アルバム', icon: <Folder className="h-5 w-5" />, uploaderType: 'album', accept: '' },
-      { type: 'video', label: '動画', icon: <Video className="h-5 w-5" />, uploaderType: 'video', accept: 'video/*' },
-      { type: 'video_album', label: '動画アルバム', icon: <Film className="h-5 w-5" />, uploaderType: 'video_album', accept: ''},
-      { type: 'text', label: 'テキスト', icon: <FileText className="h-5 w-5" />, uploaderType: 'text', accept: ''},
-      { type: 'audio', label: '音声', icon: <Mic className="h-5 w-5" />, uploaderType: 'audio', accept: 'audio/*' },
-  ];
 
   useEffect(() => {
     if (!user) {
@@ -79,9 +58,29 @@ export default function MediaLibraryPage() {
 
     return () => unsubscribe();
   }, [user]);
-
-  const storagePercentage = (totalSize / TOTAL_STORAGE_LIMIT_BYTES) * 100;
   
+  function formatBytes(bytes: number, decimals = 2) {  
+      if (bytes === 0) return '0 Bytes';
+      const k = 1024;
+      const dm = decimals < 0 ? 0 : decimals;
+      const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+  }
+
+  const TOTAL_STORAGE_LIMIT_MB = 200;
+  const TOTAL_STORAGE_LIMIT_BYTES = TOTAL_STORAGE_LIMIT_MB * 1024 * 1024;
+  const storagePercentage = (totalSize / TOTAL_STORAGE_LIMIT_BYTES) * 100;
+
+  const assetCategories: { type: Asset['type']; label: string; icon: React.ReactNode; uploaderType: 'image' | 'video' | 'audio' | 'text' | 'album' | 'video_album', accept: string }[] = [
+      { type: 'image', label: '写真', icon: <ImageIcon className="h-5 w-5" />, uploaderType: 'image', accept: 'image/*' },
+      { type: 'album', label: 'アルバム', icon: <Folder className="h-5 w-5" />, uploaderType: 'album', accept: '' },
+      { type: 'video', label: '動画', icon: <Video className="h-5 w-5" />, uploaderType: 'video', accept: 'video/*' },
+      { type: 'video_album', label: '動画アルバム', icon: <Film className="h-5 w-5" />, uploaderType: 'video_album', accept: ''},
+      { type: 'text', label: 'テキスト', icon: <FileText className="h-5 w-5" />, uploaderType: 'text', accept: ''},
+      { type: 'audio', label: '音声', icon: <Mic className="h-5 w-5" />, uploaderType: 'audio', accept: 'audio/*' },
+  ];
+
   const renderAssetTable = (type: Asset['type']) => {
     const filteredAssets = assets.filter(asset => asset.type === type);
     
@@ -175,9 +174,10 @@ export default function MediaLibraryPage() {
                              <span className="text-primary">{icon}</span>
                              <span>{label}</span>
                            </div>
-                            <MediaUploader
+                           <MediaUploader
                               type={uploaderType}
                               accept={accept}
+                              onUploadSuccess={() => { /* can be used to refresh list if needed */ }}
                             >
                                <Button size="sm" onClick={(e) => e.stopPropagation()}>
                                   <PlusCircle className="mr-2 h-4 w-4"/>
