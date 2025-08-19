@@ -25,6 +25,6 @@ export function getAdminApp() {
     return app;
   } catch (e: any) {
     console.error("Failed to parse FIREBASE_SERVICE_ACCOUNT_JSON:", e.message);
-    throw new Error('Could not initialize Firebase Admin SDK. Service account JSON might be malformed.');
+    throw new Error(`Could not initialize Firebase Admin SDK. Service account JSON might be malformed. Details: ${e.message}`);
   }
 }
