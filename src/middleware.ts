@@ -2,32 +2,78 @@
 // src/middleware.ts
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { getAdminApp } from '@/lib/firebase/firebaseAdmin';
+import { getAuth } from 'firebase-admin/auth';
+import { getFirestore } from 'firebase-admin/firestore';
+
+
+async function getFirstMemoryId(uid: string): Promise<string | null> {
+    try {
+        const app = getAdminApp();
+        const db = getFirestore(app);
+        
+        // Corrected query syntax for firebase-admin SDK
+        const memoriesCollectionRef = db.collection('memories');
+        const querySnapshot = await memoriesCollectionRef
+            .where('ownerUid', '==', uid)
+            .limit(1)
+            .get();
+
+        if (!querySnapshot.empty) {
+            return querySnapshot.docs[0].id;
+        }
+        return null;
+    } catch (error) {
+        console.error("Middleware: Failed to fetch memory ID:", error);
+        return null;
+    }
+}
+
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   const sessionCookie = request.cookies.get('__session')?.value
 
-  // If user is authenticated, redirect from root to /pages.
-  // If not, let them stay on the public landing page (which is now page.tsx at root)
-  // or redirect from auth routes to /pages.
+  let decodedClaims;
   if (sessionCookie) {
-    if (pathname === '/login' || pathname === '/signup') {
-      return NextResponse.redirect(new URL('/pages', request.url))
+    try {
+        getAdminApp();
+        decodedClaims = await getAuth().verifySessionCookie(sessionCookie, true);
+    } catch (error) {
+        // Invalid cookie, clear it and proceed as unauthenticated
+        const response = NextResponse.redirect(new URL('/login', request.url));
+        response.cookies.set('__session', '', { maxAge: -1 });
+        return response;
     }
   }
 
-  const isProtectedRoute = ['/pages', '/memories', '/media-library', '/account', '/_admin'].some((path) =>
+  // If user is authenticated
+  if (decodedClaims) {
+    if (pathname === '/login' || pathname === '/signup' || pathname === '/') {
+       const memoryId = await getFirstMemoryId(decodedClaims.uid);
+       if (memoryId) {
+            return NextResponse.redirect(new URL(`/memories/${memoryId}`, request.url));
+       }
+       // If user has no page yet, they will be redirected to the account page,
+       // where they could be prompted to create their page.
+       return NextResponse.redirect(new URL('/account', request.url)); // Fallback redirect
+    }
+    
+    // Allow access to protected routes
+    return NextResponse.next();
+  }
+
+  // If user is NOT authenticated
+  const isProtectedRoute = ['/memories', '/media-library', '/account', '/_admin'].some((path) =>
     pathname.startsWith(path)
   );
 
-  // If user is not authenticated and tries to access a protected route,
-  // redirect them to the login page.
-  if (!sessionCookie && isProtectedRoute) {
-    return NextResponse.redirect(new URL('/login', request.url))
+  if (isProtectedRoute) {
+    return NextResponse.redirect(new URL('/login', request.url));
   }
   
-  // Allow the request to proceed for all other cases.
-  return NextResponse.next()
+  // Allow access to public pages like /, /login, /signup, /p/*
+  return NextResponse.next();
 }
 
 // See "Matching Paths" below to learn more
