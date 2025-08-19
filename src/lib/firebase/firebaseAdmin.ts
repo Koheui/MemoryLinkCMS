@@ -15,6 +15,7 @@ export function getAdminApp() {
     const cred = JSON.parse(raw);
 
     // 初期化は一度だけ
+    // The [DEFAULT] app instance is returned if no name is provided.
     app = admin.apps.length
       ? admin.app()
       : admin.initializeApp({

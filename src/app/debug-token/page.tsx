@@ -1,12 +1,13 @@
 // src/app/debug-token/page.tsx
 'use client';
 import { initializeApp } from 'firebase/app';
-import { getAuth, signInAnonymously } from 'firebase/auth';
+import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter, CardDescription } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 
 const cfg = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY!,
@@ -20,6 +21,8 @@ const app = initializeApp(cfg);
 const auth = getAuth(app);
 
 export default function DebugTokenPage() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [uid, setUid] = useState<string | undefined>();
   const [token, setToken] = useState<string | undefined>();
   const [result, setResult] = useState<string | undefined>();
@@ -29,8 +32,8 @@ export default function DebugTokenPage() {
     try {
       setLoading(true);
       setResult(undefined);
-      await signInAnonymously(auth);
-      const user = auth.currentUser!;
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
       setUid(user.uid);
       const t = await user.getIdToken(true);
       setToken(t);
@@ -76,15 +79,20 @@ export default function DebugTokenPage() {
             <p className="text-sm font-medium">ステップ1: サーバー設定の確認</p>
             <p className="text-sm text-muted-foreground">新しいタブで以下のリンクを開き、サーバー側の設定が正しいか確認してください。</p>
             <ul className="list-disc pl-5 text-sm space-y-2">
-              <li><a href="/api/env-check" target="_blank" rel="noopener noreferrer" className="underline text-primary">/api/env-check</a>: 環境変数が読み込まれているか確認します。`hasFIREBASE_SERVICE_ACCOUNT_JSON` と `isParseable` が `true` になるはずです。</li>
-              <li><a href="/api/debug-admin" target="_blank" rel="noopener noreferrer" className="underline text-primary">/api/debug-admin</a>: Admin SDKが正常に初期化できるか確認します。`ok: true` とプロジェクトIDが表示されるはずです。</li>
+              <li><a href="/api/env-check" target="_blank" rel="noopener noreferrer" className="underline text-primary">/api/env-check</a>: `hasFIREBASE_SERVICE_ACCOUNT_JSON` と `isParseable` が `true` であることを確認。</li>
+              <li><a href="/api/debug-admin" target="_blank" rel="noopener noreferrer" className="underline text-primary">/api/debug-admin</a>: `ok: true` とプロジェクトIDが表示されることを確認。</li>
             </ul>
           </div>
           <div className="space-y-4">
              <p className="text-sm font-medium">ステップ2: クライアント側でのトークン取得</p>
-            <Button onClick={getToken} disabled={loading}>
+             <p className="text-sm text-muted-foreground">テスト用のメールアドレスとパスワードを入力してください。</p>
+             <div className="grid grid-cols-2 gap-4">
+                <Input placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} disabled={loading} />
+                <Input type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} disabled={loading} />
+             </div>
+            <Button onClick={getToken} disabled={loading || !email || !password}>
               {loading ? <Loader2 className="mr-2 animate-spin" /> : null}
-              1. 匿名ユーザーでサインインし、IDトークンを取得
+              1. サインインし、IDトークンを取得
             </Button>
             <div className="space-y-2 mt-4">
               <Label>UID:</Label>
