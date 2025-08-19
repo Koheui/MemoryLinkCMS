@@ -1,50 +1,59 @@
 rules_version = '2';
 
-function isSignedIn() { return request.auth != null; }
-function isAdmin() { return isSignedIn() && request.auth.token.role == 'admin'; }
-function isOwner(memoryId) {
-  return isSignedIn() &&
-         get(/databases/$(database)/documents/memories/$(memoryId)).data.ownerUid == request.auth.uid;
-}
-
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // 自分のユーザードキュメントのみ
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.role == 'admin';
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+    
+    function isMemoryOwner(memoryId) {
+      return isSignedIn() && get(/databases/$(database)/documents/memories/$(memoryId)).data.ownerUid == request.auth.uid;
+    }
+
+    // Own user document only
     match /users/{uid} {
-      allow read, write: if (isSignedIn() && request.auth.uid == uid) || isAdmin();
+      allow read, write: if isOwner(uid) || isAdmin();
     }
 
-    // 想い出本体
+    // Memory container
     match /memories/{memoryId} {
-      allow read, write: if isOwner(memoryId) || isAdmin();
+      allow read, write: if isMemoryOwner(memoryId) || isAdmin();
     }
 
-    // 資産メタ（想い出配下）
+    // Asset metadata under a memory
     match /memories/{memoryId}/assets/{assetId} {
-      allow read, write: if isOwner(memoryId) || isAdmin();
+      allow read, write: if isMemoryOwner(memoryId) || isAdmin();
     }
-
-    // ブロック（想い出配下）
+    
+    // Content blocks under a memory
     match /memories/{memoryId}/blocks/{blockId} {
-      allow read, write: if isOwner(memoryId) || isAdmin();
+      allow read, write: if isMemoryOwner(memoryId) || isAdmin();
     }
 
-    // 顧客/進捗（管理者主体、本人は自分のorderをread可にしても良い）
+    // Orders (managed by admins, readable by owner)
     match /orders/{orderId} {
-      allow read, write: if isAdmin();  // MVPは管理者のみ
+      allow read: if isAdmin() || (isSignedIn() && get(/databases/$(database)/documents/orders/$(orderId)).data.userUid == request.auth.uid);
+      allow write: if isAdmin();
     }
 
-    // 公開メタ：閲覧のみ
+    // Public pages are read-only for everyone, and not writable by clients
     match /publicPages/{pageId} {
       allow read: if true;
-      allow write: if false;
+      allow write: if false; // Should be written by Functions only
     }
-
-    // ブロック直編集は不可（Functions経由）
+    
     match /publicPages/{pageId}/blocks/{blockId} {
-      allow read: if false;
-      allow write: if false;
+      allow read: if true; // Public blocks are readable
+      allow write: if false; // Should be written by Functions only
     }
   }
 }
