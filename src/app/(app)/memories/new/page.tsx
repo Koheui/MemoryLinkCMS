@@ -1,3 +1,4 @@
+
 // src/app/(app)/memories/new/page.tsx
 'use client';
 
@@ -96,10 +97,12 @@ export default function NewMemoryPage() {
             await uploadBytes(fileRef, file, { contentType: file.type });
 
             await addDoc(collection(db, 'memories', memoryId, 'assets'), {
+                ownerUid: user.uid, // Add ownerUid for collectionGroup queries
                 type: file.type.startsWith('image/') ? 'image' : 
                       file.type.startsWith('video/') ? 'video' : 'audio',
                 name: file.name,
                 rawPath: filePath,
+                size: file.size, // Add file size
                 createdAt: serverTimestamp(),
             });
         });
@@ -169,7 +172,7 @@ export default function NewMemoryPage() {
                 <CardDescription>
                     この想い出に関連する写真、動画、音声をアップロードします。後から追加することも可能です。
                 </CardDescription>
-            </CardHeader>
+            </Header>
             <CardContent className="space-y-4">
                 <FormField
                   control={form.control}

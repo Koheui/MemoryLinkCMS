@@ -1,3 +1,4 @@
+
 // src/app/(app)/layout.tsx
 "use client";
 
@@ -14,7 +15,7 @@ import {
 } from '@/components/ui/sidebar';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Heart, LayoutDashboard, LogOut, Settings, ShieldCheck, Loader2 } from 'lucide-react';
+import { Heart, LayoutDashboard, LogOut, Library, ShieldCheck, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useRouter } from 'next/navigation';
@@ -35,13 +36,12 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
     );
   }
 
+  // This check should now be safely handled by the middleware,
+  // but as a fallback, it's good to have client-side protection.
   if (!user) {
-    // This case should ideally be handled by middleware redirecting to /login.
-    // However, as a fallback, especially during initial client-side load,
-    // we can explicitly redirect.
-    if (typeof window !== 'undefined') {
-      router.push('/login');
-    }
+    // Let middleware handle redirects. If it fails, this is a fallback.
+    // To prevent infinite loops on the client if middleware is misconfigured,
+    // we can show a loading/redirecting state.
     return (
         <div className="flex h-screen items-center justify-center">
             <div className="flex items-center gap-2">
@@ -51,6 +51,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
         </div>
     );
   }
+
 
   return (
     <SidebarProvider>
@@ -70,8 +71,8 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
-             <SidebarMenuButton asChild isActive={pathname.startsWith('/memories')}>
-                <Link href="/dashboard"><Settings /> 想い出の管理</Link>
+             <SidebarMenuButton asChild isActive={pathname.startsWith('/media-library')}>
+                <Link href="/media-library"><Library /> メディアライブラリ</Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
           {isAdmin && (

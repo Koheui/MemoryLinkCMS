@@ -1,3 +1,4 @@
+
 import type { Timestamp } from 'firebase/firestore';
 
 export interface UserProfile {
@@ -35,12 +36,14 @@ export interface Memory {
 
 export interface Asset {
   id: string;
+  ownerUid: string; // Add ownerUid to enable collectionGroup queries
   name: string;
   type: 'image' | 'video' | 'audio';
   rawPath: string;
   procPath?: string;
   thumbPath?: string;
   url?: string;
+  size?: number; // Add size to calculate total usage
   createdAt: Timestamp | string;
 }
 
