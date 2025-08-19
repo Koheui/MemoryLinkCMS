@@ -12,7 +12,7 @@ export function middleware(request: NextRequest) {
   
   // If user is authenticated
   if (isAuthenticated) {
-    // If they are on an auth page (login, signup) or the root, redirect them.
+    // If they are on an auth page (login, signup) or the root, redirect them to a safe page.
     if (isAuthPage || pathname === '/') {
       return NextResponse.redirect(new URL('/account', request.url));
     }

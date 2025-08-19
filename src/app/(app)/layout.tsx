@@ -97,7 +97,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
         <SidebarMenu className="flex-1">
           <SidebarMenuItem>
             <SidebarMenuButton asChild isActive={pathname.startsWith('/memories')} disabled={!memoryId}>
-              <Link href={editPageHref}><Edit/> ページ編集</Link>
+              <Link href={editPageHref}><Edit/> 編集ページ</Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
