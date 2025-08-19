@@ -8,6 +8,7 @@ import * as z from 'zod';
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
+  type User,
 } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase/client';
 import { doc, setDoc, serverTimestamp, collection, addDoc, getDocs, query, where, limit } from 'firebase/firestore';
@@ -26,7 +27,6 @@ import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { Loader2 } from 'lucide-react';
 import type { UserProfile } from '@/lib/types';
-import { useRouter } from 'next/navigation';
 
 const formSchema = z.object({
   email: z.string().email({ message: '有効なメールアドレスを入力してください。' }),
@@ -41,10 +41,21 @@ interface AuthFormProps {
   type: 'login' | 'signup';
 }
 
+// Helper function to get the first memory ID for a user
+async function getFirstMemoryId(uid: string): Promise<string | null> {
+    const memoriesCollectionRef = collection(db, 'memories');
+    const q = query(memoriesCollectionRef, where('ownerUid', '==', uid), limit(1));
+    const querySnapshot = await getDocs(q);
+
+    if (!querySnapshot.empty) {
+        return querySnapshot.docs[0].id;
+    }
+    return null;
+}
+
 export function AuthForm({ type }: AuthFormProps) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
 
   const form = useForm<AuthFormValues>({
     resolver: zodResolver(formSchema),
@@ -58,15 +69,16 @@ export function AuthForm({ type }: AuthFormProps) {
     setLoading(true);
 
     try {
-      let userCredential;
+      let user: User;
+      let memoryId: string | null;
 
       if (type === 'signup') {
-        userCredential = await createUserWithEmailAndPassword(
+        const userCredential = await createUserWithEmailAndPassword(
           auth,
           data.email,
           data.password
         );
-        const user = userCredential.user;
+        user = userCredential.user;
 
         // Create user profile
         const userRef = doc(db, 'users', user.uid);
@@ -78,7 +90,7 @@ export function AuthForm({ type }: AuthFormProps) {
         await setDoc(userRef, userProfile);
         
         // Create the single memory page for the new user
-        await addDoc(collection(db, 'memories'), {
+        const newMemoryDoc = await addDoc(collection(db, 'memories'), {
             ownerUid: user.uid,
             title: '無題のページ',
             status: 'draft',
@@ -93,16 +105,23 @@ export function AuthForm({ type }: AuthFormProps) {
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
         });
+        memoryId = newMemoryDoc.id;
 
       } else {
-        userCredential = await signInWithEmailAndPassword(
+        const userCredential = await signInWithEmailAndPassword(
           auth,
           data.email,
           data.password
         );
+        user = userCredential.user;
+        memoryId = await getFirstMemoryId(user.uid);
       }
 
-      const idToken = await userCredential.user.getIdToken(true);
+      if (!memoryId) {
+          throw new Error('ユーザーに対応するページが見つかりませんでした。');
+      }
+
+      const idToken = await user.getIdToken(true);
 
       const res = await fetch('/api/auth/sessionLogin', {
         method: 'POST',
@@ -115,9 +134,11 @@ export function AuthForm({ type }: AuthFormProps) {
         throw new Error(errorData.details || `セッションの作成に失敗しました。ステータス: ${res.status}`);
       }
       
-      // Redirect to the dashboard page, which will then handle redirecting to the specific memory page.
-      // This two-step process is more robust against race conditions.
-      window.location.assign('/dashboard');
+      // ★★★【最重要】★★★
+      // 全ての処理が完了した後、クライアントサイドから保護されたページへ
+      // 直接画面遷移を命令する。これにより、新しいセッションCookieを持った状態で
+      // リクエストが送信され、Middlewareが正しく認証状態を判断できる。
+      window.location.assign(`/memories/${memoryId}`);
 
 
     } catch (error: any) {
