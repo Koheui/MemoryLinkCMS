@@ -23,6 +23,8 @@ import { MediaUploader } from './media-uploader';
 export function DesignModal({ isOpen, setIsOpen, memory, assets }: { isOpen: boolean, setIsOpen: (open: boolean) => void, memory: Memory, assets: Asset[] }) {
     const [coverAssetId, setCoverAssetId] = useState(memory.coverAssetId);
     const [profileAssetId, setProfileAssetId] = useState(memory.profileAssetId);
+    const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null);
+    const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);
     const [isSaving, setIsSaving] = useState(false);
     const { toast } = useToast();
 
@@ -32,17 +34,17 @@ export function DesignModal({ isOpen, setIsOpen, memory, assets }: { isOpen: boo
             setProfileAssetId(memory.profileAssetId);
         }
     }, [memory, isOpen]);
+
+    useEffect(() => {
+        setCoverImageUrl(assets.find(a => a.id === coverAssetId)?.url || null);
+    }, [coverAssetId, assets]);
     
+    useEffect(() => {
+        setProfileImageUrl(assets.find(a => a.id === profileAssetId)?.url || null);
+    }, [profileAssetId, assets]);
+
     const imageAssets = assets.filter(a => a.type === 'image');
     
-    const getImageUrl = (assetId: string | null) => {
-        if (!assetId) return null;
-        return assets.find(a => a.id === assetId)?.url;
-    }
-
-    const coverImageUrl = getImageUrl(coverAssetId);
-    const profileImageUrl = getImageUrl(profileAssetId);
-
     const handleSave = async () => {
         setIsSaving(true);
         try {
@@ -84,7 +86,7 @@ export function DesignModal({ isOpen, setIsOpen, memory, assets }: { isOpen: boo
                                 assetType="image"
                                 accept="image/*"
                                 memoryId={memory.id}
-                                onUploadStarted={setCoverAssetId}
+                                onUploadSuccess={asset => setCoverAssetId(asset.id)}
                             >
                                 <Button type="button" variant="outline" size="icon"><Upload className="h-4 w-4"/></Button>
                             </MediaUploader>
@@ -107,7 +109,7 @@ export function DesignModal({ isOpen, setIsOpen, memory, assets }: { isOpen: boo
                                 assetType="image"
                                 accept="image/*"
                                 memoryId={memory.id}
-                                onUploadStarted={setProfileAssetId}
+                                onUploadSuccess={asset => setProfileAssetId(asset.id)}
                             >
                                 <Button type="button" variant="outline" size="icon"><Upload className="h-4 w-4"/></Button>
                             </MediaUploader>
@@ -207,6 +209,16 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, blockCoun
     const [isSaving, setIsSaving] = useState(false);
     const { toast } = useToast();
     const isEditing = block !== null;
+    const [selectedAssetUrl, setSelectedAssetUrl] = useState<string | null | undefined>(null);
+
+    useEffect(() => {
+        if (!selectedAssetId) {
+            setSelectedAssetUrl(null);
+            return;
+        }
+        const asset = assets.find(a => a.id === selectedAssetId);
+        setSelectedAssetUrl(asset?.url);
+    }, [selectedAssetId, assets]);
 
     useEffect(() => {
         if (isOpen) {
@@ -281,9 +293,9 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, blockCoun
         }
     };
     
-    const handleUploadStarted = (assetId: string) => {
-        setSelectedAssetId(assetId);
-        toast({ title: "アップロード準備完了", description: `ファイルのアップロードを開始しました。保存を押してください。`});
+    const handleUploadSuccess = (asset: Asset) => {
+        setSelectedAssetId(asset.id);
+        toast({ title: "アップロード完了", description: `"${asset.name}"のアップロードが完了しました。`});
     }
 
     const renderAssetSelector = (
@@ -304,7 +316,7 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, blockCoun
                     assetType={type}
                     accept={`${type}/*`}
                     memoryId={memory.id}
-                    onUploadStarted={handleUploadStarted}
+                    onUploadSuccess={handleUploadSuccess}
                 >
                     <Button type="button" variant="outline" size="icon"><Upload className="h-4 w-4"/></Button>
                 </MediaUploader>
@@ -332,9 +344,9 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, blockCoun
             specificFields = (
                  <div className="space-y-4">
                     {renderAssetSelector('image', imageAssets, '写真を選択...')}
-                    {selectedAsset?.url && (
+                    {selectedAssetUrl && (
                          <div className="mt-2 rounded-md overflow-hidden aspect-video relative bg-muted flex items-center justify-center">
-                            <Image src={selectedAsset.url} alt="Preview" fill className="object-cover" />
+                            <Image src={selectedAssetUrl} alt="Preview" fill className="object-cover" />
                         </div>
                     )}
                      <div>
