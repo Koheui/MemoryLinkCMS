@@ -69,7 +69,7 @@ export default function MemoryEditorPage() {
     });
 
     // Listener for all user assets for this memory
-    const assetsQuery = query(collection(db, 'assets'), where('ownerUid', '==', user.uid), where('memoryId', '==', memoryId), orderBy('createdAt', 'desc'));
+    const assetsQuery = query(collection(db, 'memories', memoryId, 'assets'), orderBy('createdAt', 'desc'));
     const unsubscribeAssets = onSnapshot(assetsQuery, (snapshot) => {
         const fetchedAssets: Asset[] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Asset));
         setAssets(fetchedAssets);
@@ -279,7 +279,6 @@ function SortableBlockItem({ block, onEdit }: { block: PublicPageBlock; onEdit: 
 
     const handleDelete = async (e: React.MouseEvent) => {
         e.stopPropagation();
-        // A confirmation dialog would be a good UX improvement here
         if (!window.confirm("このブロックを本当に削除しますか？")) return;
         try {
             await deleteDoc(doc(db, 'memories', memoryId, 'blocks', block.id));

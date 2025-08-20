@@ -1,4 +1,3 @@
-
 // src/components/media-uploader.tsx
 'use client';
 import * as React from 'react';
@@ -6,7 +5,7 @@ import { useRef, useState, type ReactNode } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { storage, db } from '@/lib/firebase/client';
-import { ref, uploadBytesResumable, getDownloadURL, updateMetadata } from 'firebase/storage';
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { collection, addDoc, serverTimestamp, doc, updateDoc, getDoc } from 'firebase/firestore';
 import type { Asset } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
@@ -42,10 +41,12 @@ export function MediaUploader({ assetType, accept, children, onUploadSuccess, me
     setIsUploading(true);
     if (fileInputRef.current) fileInputRef.current.value = "";
     
+    // IMPORTANT: The path is now a subcollection of the specific memory
     const storagePath = `users/${user.uid}/memories/${memoryId}/${assetType}/${Date.now()}_${file.name}`;
     
     try {
-      // 1. Create a document in Firestore first to get an ID
+      // 1. Create a document in the subcollection first to get an ID
+      const assetCollectionRef = collection(db, 'memories', memoryId, 'assets');
       const assetData: Omit<Asset, 'id' | 'createdAt' | 'updatedAt' | 'url'> = {
         ownerUid: user.uid,
         memoryId: memoryId,
@@ -55,12 +56,21 @@ export function MediaUploader({ assetType, accept, children, onUploadSuccess, me
         storagePath: storagePath,
       };
 
-      const docRef = await addDoc(collection(db, 'assets'), {
+      const docRef = await addDoc(assetCollectionRef, {
         ...assetData,
         url: '', // URL is not available yet
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
+      
+      const newAssetStub = { 
+        id: docRef.id, 
+        ...assetData, 
+        url: '', // temporary
+        createdAt: new Date(), 
+        updatedAt: new Date() 
+      } as Asset;
+      onUploadSuccess?.(newAssetStub); // Notify parent immediately with a stub
 
       // 2. Start the upload to Firebase Storage
       const storageRef = ref(storage, storagePath);
@@ -80,15 +90,10 @@ export function MediaUploader({ assetType, accept, children, onUploadSuccess, me
           // 3. Once upload is complete, get the URL and update the Firestore document
           const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
           
-          await updateDoc(doc(db, 'assets', docRef.id), {
+          await updateDoc(doc(db, 'memories', memoryId, 'assets', docRef.id), {
             url: downloadURL,
             updatedAt: serverTimestamp(),
           });
-          
-          const finalDoc = await getDoc(doc(db, 'assets', docRef.id));
-          const finalAsset = { id: finalDoc.id, ...finalDoc.data() } as Asset;
-
-          onUploadSuccess?.(finalAsset);
           
           toast({ title: '成功', description: `${file.name} のアップロードが完了しました。` });
           setIsUploading(false);

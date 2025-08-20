@@ -1,4 +1,3 @@
-
 // src/app/(app)/media-library/page.tsx
 'use client';
 
@@ -18,7 +17,7 @@ import type { Asset } from '@/lib/types';
 import { useAuth } from '@/hooks/use-auth';
 import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase/client';
-import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, collectionGroup } from 'firebase/firestore';
 import { format } from 'date-fns';
 
 export default function MediaLibraryPage() {
@@ -38,10 +37,9 @@ export default function MediaLibraryPage() {
     }
     setLoading(true);
     
-    // This query now fetches all assets owned by the user.
-    // A more scalable solution for many memories would be to select a memory first.
+    // Use collectionGroup to query all 'assets' subcollections across all 'memories'
     const assetsQuery = query(
-      collection(db, 'assets'), 
+      collectionGroup(db, 'assets'), 
       where('ownerUid', '==', user.uid), 
       orderBy('createdAt', 'desc')
     );
@@ -54,7 +52,7 @@ export default function MediaLibraryPage() {
           return {
             id: docSnapshot.id,
             ...data,
-            createdAt: data.createdAt.toDate(),
+            createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(),
           } as Asset;
         });
 
@@ -71,7 +69,7 @@ export default function MediaLibraryPage() {
   }, [user]);
 
   function formatBytes(bytes: number, decimals = 2) {
-      if (bytes === 0) return '0 Bytes';
+      if (!bytes || bytes === 0) return '0 Bytes';
       const k = 1024;
       const dm = decimals < 0 ? 0 : decimals;
       const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
@@ -79,10 +77,10 @@ export default function MediaLibraryPage() {
       return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
   }
   
-  const assetCategories: { type: Asset['type']; label: string; icon: React.ReactNode; accept: string }[] = [
-      { type: 'image', label: '写真', icon: <ImageIcon className="h-5 w-5" />, accept: 'image/*' },
-      { type: 'video', label: '動画', icon: <Video className="h-5 w-5" />, accept: 'video/*' },
-      { type: 'audio', label: '音声', icon: <Mic className="h-5 w-5" />, accept: 'audio/*' },
+  const assetCategories: { type: Asset['type']; label: string; icon: React.ReactNode; }[] = [
+      { type: 'image', label: '写真', icon: <ImageIcon className="h-5 w-5" /> },
+      { type: 'video', label: '動画', icon: <Video className="h-5 w-5" /> },
+      { type: 'audio', label: '音声', icon: <Mic className="h-5 w-5" /> },
   ];
 
   const renderAssetTable = (type: Asset['type']) => {
@@ -93,6 +91,7 @@ export default function MediaLibraryPage() {
             <TableHeader>
                 <TableRow>
                     <TableHead>ファイル名</TableHead>
+                    <TableHead>所属ページID</TableHead>
                     <TableHead>アップロード日</TableHead>
                     <TableHead>サイズ</TableHead>
                     <TableHead className="text-right">操作</TableHead>
@@ -101,7 +100,8 @@ export default function MediaLibraryPage() {
             <TableBody>
                 {filteredAssets.length > 0 ? filteredAssets.map((asset) => (
                     <TableRow key={asset.id}>
-                        <TableCell className="font-medium">{asset.name}</TableCell>
+                        <TableCell className="font-medium truncate max-w-xs">{asset.name}</TableCell>
+                        <TableCell className="font-mono text-xs">{asset.memoryId}</TableCell>
                         <TableCell>{format(asset.createdAt as Date, 'yyyy/MM/dd')}</TableCell>
                         <TableCell>{formatBytes(asset.size || 0)}</TableCell>
                         <TableCell className="text-right">
@@ -112,7 +112,7 @@ export default function MediaLibraryPage() {
                     </TableRow>
                 )) : (
                      <TableRow>
-                        <TableCell colSpan={4} className="text-center h-24">
+                        <TableCell colSpan={5} className="text-center h-24">
                            このカテゴリのメディアはまだありません。
                         </TableCell>
                     </TableRow>
