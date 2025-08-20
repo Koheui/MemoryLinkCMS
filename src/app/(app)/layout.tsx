@@ -20,7 +20,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { db } from '@/lib/firebase/client';
-import { collection, query, where, getDocs, limit } from 'firebase/firestore';
+import { collection, query, where, getDocs, limit, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 
 
 function AppLayoutContent({ children }: { children: React.ReactNode }) {
@@ -51,8 +51,21 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
                 );
                 const querySnapshot = await getDocs(memoriesQuery);
                 if (!querySnapshot.empty) {
-                    const fetchedMemoryId = querySnapshot.docs[0].id;
+                    const memoryDoc = querySnapshot.docs[0];
+                    const fetchedMemoryId = memoryDoc.id;
+                    const memoryData = memoryDoc.data();
+                    
                     setMemoryId(fetchedMemoryId);
+
+                    // For existing users, if publicPageId is missing, create it.
+                    if (!memoryData.publicPageId) {
+                        const memoryDocRef = doc(db, 'memories', fetchedMemoryId);
+                        await updateDoc(memoryDocRef, {
+                            publicPageId: fetchedMemoryId,
+                            updatedAt: serverTimestamp()
+                        });
+                    }
+
                      // If user is on a generic authenticated page, redirect to their specific memory page.
                     if(pathname === '/account' || pathname === '/dashboard') {
                         router.replace(`/memories/${fetchedMemoryId}`);
@@ -65,7 +78,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
                     }
                 }
             } catch (error) {
-                console.error("Error fetching memoryId for sidebar:", error);
+                console.error("Error fetching/updating memoryId for sidebar:", error);
             } finally {
                 setIsFetchingMemoryId(false);
             }
