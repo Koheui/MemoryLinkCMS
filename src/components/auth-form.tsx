@@ -94,8 +94,8 @@ export function AuthForm({ type }: AuthFormProps) {
 
         await setDoc(memoryDocRef, newMemoryData);
         
-        // After signup, redirect to the newly created memory page
-        router.push(`/memories/${memoryDocRef.id}`);
+        // After signup, redirect to a generic authenticated page to let the layout handle the final redirect.
+        router.push(`/account`);
 
       } else { // Login
         userCredential = await signInWithEmailAndPassword(auth, data.email, data.password);

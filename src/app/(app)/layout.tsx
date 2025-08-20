@@ -40,7 +40,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
   }, [user, loading, router, pathname]);
 
   useEffect(() => {
-    const fetchMemoryId = async () => {
+    const fetchMemoryIdAndRedirect = async () => {
         if (user) {
             setIsFetchingMemoryId(true);
             try {
@@ -65,20 +65,20 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
                             updatedAt: serverTimestamp()
                         });
                     }
-
-                     // If user is on a generic authenticated page, redirect to their specific memory page.
-                    if(pathname === '/account' || pathname === '/dashboard') {
+                    
+                    // If user is on a generic authenticated page that is not the target memory page, redirect.
+                    if (pathname !== `/memories/${fetchedMemoryId}`) {
                         router.replace(`/memories/${fetchedMemoryId}`);
                     }
                 } else {
                     console.warn("No memory found for user:", user.uid);
-                    // If no memory, maybe they should be on the account page, or a "create one" page.
+                    // If no memory, they should be on the account page.
                     if (pathname !== '/account') {
                         router.replace('/account');
                     }
                 }
             } catch (error) {
-                console.error("Error fetching/updating memoryId for sidebar:", error);
+                console.error("Error fetching/updating memoryId:", error);
             } finally {
                 setIsFetchingMemoryId(false);
             }
@@ -87,12 +87,12 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
         }
     };
     if (!loading && user) {
-      fetchMemoryId();
+      fetchMemoryIdAndRedirect();
     }
   }, [user, loading, pathname, router]);
 
 
-  if (loading) {
+  if (loading || isFetchingMemoryId) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="flex items-center gap-2">
@@ -123,7 +123,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
         </SidebarHeader>
         <SidebarMenu className="flex-1">
           <SidebarMenuItem>
-            <SidebarMenuButton asChild isActive={pathname.startsWith('/memories')} disabled={isFetchingMemoryId}>
+            <SidebarMenuButton asChild isActive={pathname.startsWith('/memories')} disabled={!memoryId}>
               <Link href={editPageHref}><Edit/> ページ編集</Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
