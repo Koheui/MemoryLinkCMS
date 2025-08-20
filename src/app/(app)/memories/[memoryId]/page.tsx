@@ -1,20 +1,21 @@
-
 // src/app/(app)/memories/[memoryId]/page.tsx
 'use client';
 
 import { Button } from '@/components/ui/button';
-import type { Memory, Asset } from '@/lib/types';
+import type { Memory, PublicPageBlock, Asset } from '@/lib/types';
 import { db } from '@/lib/firebase/client';
-import { doc, getDoc, collection, query, orderBy, where, collectionGroup, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, collection, query, orderBy, onSnapshot, where, collectionGroup } from 'firebase/firestore';
 import { notFound, useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { Eye, Loader2, Wand2, Image as ImageIcon, FileText, Blocks } from 'lucide-react';
+import { Eye, Loader2, PlusCircle, Edit, Image as ImageIcon, FileText, Blocks, GripVertical, Trash2 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
-import { BlockEditor } from '@/components/block-editor';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { AboutEditor } from '@/components/about-editor';
-import { DesignEditor } from '@/components/design-editor';
-import { ThemeSuggester } from '@/components/theme-suggester';
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { writeBatch } from 'firebase/firestore';
+import { useToast } from '@/hooks/use-toast';
+import Image from 'next/image';
+import { AboutModal, DesignModal, BlockModal } from '@/components/edit-modals';
 
 
 // This is the new Visual Editor Page
@@ -24,33 +25,50 @@ export default function MemoryEditorPage() {
   const { user, loading: authLoading } = useAuth();
   
   const [memory, setMemory] = useState<Memory | null>(null);
+  const [blocks, setBlocks] = useState<PublicPageBlock[]>([]);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+
+  // --- Modal States ---
+  const [isDesignModalOpen, setIsDesignModalOpen] = useState(false);
+  const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
+  const [isBlockModalOpen, setIsBlockModalOpen] = useState(false);
+  const [editingBlock, setEditingBlock] = useState<PublicPageBlock | null>(null);
+
+
+  // DND sensors
+   const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   // Fetch all required data
   useEffect(() => {
     if (authLoading || !user || !memoryId) return;
 
-    const fetchMemory = async () => {
-        setLoading(true);
-        try {
-            const memoryDocRef = doc(db, 'memories', memoryId);
-            const memoryDoc = await getDoc(memoryDocRef);
-            if (!memoryDoc.exists() || memoryDoc.data()?.ownerUid !== user.uid) {
-                return notFound();
-            }
-            const memoryData = memoryDoc.data() as Omit<Memory, 'id'>;
-            setMemory({ id: memoryDoc.id, ...memoryData } as Memory);
-        } catch (error) {
-            console.error("Error fetching memory data:", error);
-            return notFound();
-        } finally {
-            setLoading(false);
+    // Listener for memory document
+    const memoryDocRef = doc(db, 'memories', memoryId);
+    const unsubscribeMemory = onSnapshot(memoryDocRef, (doc) => {
+        if (doc.exists() && doc.data()?.ownerUid === user.uid) {
+             setMemory({ id: doc.id, ...doc.data() } as Memory);
+        } else {
+            console.error("Memory not found or access denied.");
+            setMemory(null);
         }
-    };
-    
-    fetchMemory();
+        setLoading(false);
+    });
 
+    // Listener for blocks subcollection
+    const blocksQuery = query(collection(db, 'memories', memoryId, 'blocks'), orderBy('order', 'asc'));
+    const unsubscribeBlocks = onSnapshot(blocksQuery, (snapshot) => {
+        const fetchedBlocks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PublicPageBlock));
+        setBlocks(fetchedBlocks);
+    });
+
+    // Listener for all user assets
     const assetsQuery = query(collectionGroup(db, 'assets'), where('ownerUid', '==', user.uid), orderBy('createdAt', 'desc'));
     const unsubscribeAssets = onSnapshot(assetsQuery, (snapshot) => {
         const fetchedAssets: Asset[] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Asset));
@@ -60,30 +78,91 @@ export default function MemoryEditorPage() {
     });
 
     return () => {
+      unsubscribeMemory();
+      unsubscribeBlocks();
       unsubscribeAssets();
     }
 
   }, [memoryId, user, authLoading]);
+  
+  async function handleDragEnd(event: DragEndEvent) {
+    const {active, over} = event;
+    if (over && active.id !== over.id) {
+      setBlocks((items) => {
+        const oldIndex = items.findIndex((item) => item.id === active.id);
+        const newIndex = items.findIndex((item) => item.id === over.id);
+        const newItems = arrayMove(items, oldIndex, newIndex);
+
+        const batch = writeBatch(db);
+        newItems.forEach((item, index) => {
+            const blockRef = doc(db, 'memories', memoryId, 'blocks', item.id);
+            batch.update(blockRef, { order: index });
+        });
+        
+        batch.commit().catch(error => {
+            console.error("Failed to reorder blocks:", error);
+            toast({ variant: 'destructive', title: 'エラー', description: 'ブロックの並び替えに失敗しました。' });
+        });
+
+        return newItems;
+      });
+    }
+  }
+
+  const handleAddNewBlock = () => {
+    setEditingBlock(null);
+    setIsBlockModalOpen(true);
+  }
+
+  const handleEditBlock = (block: PublicPageBlock) => {
+    setEditingBlock(block);
+    setIsBlockModalOpen(true);
+  };
 
 
-  if (loading || authLoading || !memory) {
+  if (loading || authLoading) {
      return (
         <div className="flex h-screen items-center justify-center bg-background">
             <Loader2 className="h-10 w-10 animate-spin text-primary" />
         </div>
      )
   }
+
+  if (!memory) {
+     return notFound();
+  }
   
   const publicUrl = `${window.location.origin.replace('app.', 'mem.')}/p/${memory.publicPageId || memory.id}`;
-
+  const coverImageUrl = memory.coverAssetId ? assets.find(a => a.id === memory.coverAssetId)?.url : null;
+  const profileImageUrl = memory.profileAssetId ? assets.find(a => a.id === memory.profileAssetId)?.url : null;
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col bg-muted/30">
+        <DesignModal 
+            isOpen={isDesignModalOpen}
+            setIsOpen={setIsDesignModalOpen}
+            memory={memory}
+            assets={assets}
+        />
+        <AboutModal
+            isOpen={isAboutModalOpen}
+            setIsOpen={setIsAboutModalOpen}
+            memory={memory}
+        />
+        <BlockModal
+            isOpen={isBlockModalOpen}
+            setIsOpen={setIsBlockModalOpen}
+            memory={memory}
+            assets={assets}
+            block={editingBlock}
+            blockCount={blocks.length}
+        />
+
       {/* Header */}
       <header className="flex h-16 shrink-0 items-center justify-between border-b bg-background px-4 sm:px-6">
         <div>
            <h1 className="text-xl font-bold tracking-tight font-headline">{memory.title}</h1>
-           <p className="text-sm text-muted-foreground">編集モード</p>
+           <p className="text-sm text-muted-foreground">ビジュアルエディタ</p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" asChild>
@@ -99,56 +178,124 @@ export default function MemoryEditorPage() {
       </header>
 
       {/* Editor Canvas */}
-       <main className="flex-1 overflow-auto p-4 sm:p-6 lg:p-8 space-y-6">
-          <Card>
-            <CardHeader>
-                <CardTitle className="font-headline flex items-center gap-2">
-                    <ImageIcon className="text-primary"/>
-                    デザインとテーマ
-                </CardTitle>
-                <CardDescription>カバー画像、プロフィール画像、全体のテーマなどをカスタマイズします。</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <DesignEditor memory={memory} assets={assets} />
-            </CardContent>
-             <CardHeader className="pt-0">
-                <CardTitle className="font-headline flex items-center gap-2">
-                    <Wand2 className="text-primary" />
-                    AIテーマ提案
-                </CardTitle>
-                <CardDescription>AIがページの内容から最適なテーマを提案します。</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <ThemeSuggester memory={memory} />
-            </CardContent>
-          </Card>
+       <main className="flex-1 overflow-auto p-4 sm:p-6 lg:p-8">
+            <div className="mx-auto max-w-2xl bg-background shadow-md rounded-lg p-4 md:p-8">
+                 {/* Cover and Profile Section */}
+                 <div className="relative mb-[-72px]">
+                    <div 
+                        className="group relative aspect-[21/9] w-full overflow-hidden rounded-xl bg-muted shadow-inner hover:bg-muted/80 flex items-center justify-center cursor-pointer"
+                        onClick={() => setIsDesignModalOpen(true)}
+                    >
+                        {coverImageUrl ? (
+                            <Image src={coverImageUrl} alt="カバー画像" fill className="object-cover" />
+                        ) : (
+                             <ImageIcon className="h-12 w-12 text-muted-foreground" />
+                        )}
+                         <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <p className="text-white font-bold flex items-center gap-2"><Edit className="h-4 w-4" />カバー画像を編集</p>
+                        </div>
+                    </div>
+                     <div 
+                        className="group absolute -bottom-16 left-1/2 -translate-x-1/2 h-36 w-36 overflow-hidden rounded-full border-4 border-background bg-muted shadow-lg flex items-center justify-center cursor-pointer"
+                        onClick={() => setIsDesignModalOpen(true)}
+                     >
+                        {profileImageUrl ? (
+                             <Image src={profileImageUrl} alt="プロフィール画像" fill className="object-cover" />
+                        ) : (
+                            <ImageIcon className="h-10 w-10 text-muted-foreground" />
+                        )}
+                         <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                             <p className="text-white font-bold text-center text-sm"><Edit className="h-4 w-4 mx-auto mb-1" />編集</p>
+                        </div>
+                    </div>
+                </div>
+                
+                {/* About Section */}
+                <div className="mt-24 text-center">
+                     <div className="group relative inline-block">
+                        <h1 className="text-3xl font-bold sm:text-4xl">{memory.title}</h1>
+                        <p className="mt-2 text-base text-muted-foreground max-w-prose">{memory.description}</p>
+                         <Button variant="outline" size="sm" className="absolute -top-2 -right-12 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setIsAboutModalOpen(true)}>
+                            <Edit className="h-4 w-4"/>
+                        </Button>
+                    </div>
+                </div>
 
-           <Card>
-              <CardHeader>
-                  <CardTitle className="font-headline flex items-center gap-2">
-                      <FileText className="text-primary" />
-                      概要
-                  </CardTitle>
-                  <CardDescription>ページ上部に表示されるタイトルと紹介文を編集します。</CardDescription>
-              </CardHeader>
-              <CardContent>
-                  <AboutEditor memory={memory} />
-              </CardContent>
-          </Card>
-          
-           <Card>
-              <CardHeader>
-                  <CardTitle className="font-headline flex items-center gap-2">
-                      <Blocks className="text-primary" />
-                      コンテンツブロック
-                  </CardTitle>
-                  <CardDescription>ページの本体となるコンテンツブロックを追加・編集・並び替えします。</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                  <BlockEditor memory={memory} assets={assets} />
-              </CardContent>
-          </Card>
+                {/* Blocks Section */}
+                <div className="mt-12 space-y-4">
+                     <DndContext 
+                        sensors={sensors}
+                        collisionDetection={closestCenter}
+                        onDragEnd={handleDragEnd}
+                    >
+                        <SortableContext 
+                            items={blocks}
+                            strategy={verticalListSortingStrategy}
+                        >
+                             {blocks.map(block => (
+                                <SortableBlockItem 
+                                    key={block.id} 
+                                    block={block}
+                                    onEdit={() => handleEditBlock(block)}
+                                />
+                            ))}
+                        </SortableContext>
+                    </DndContext>
+                    <div className="flex justify-center">
+                        <Button variant="outline" className="w-full border-dashed" onClick={handleAddNewBlock}>
+                            <PlusCircle className="mr-2 h-4 w-4"/>
+                            コンテンツブロックを追加
+                        </Button>
+                    </div>
+                </div>
+            </div>
        </main>
     </div>
   );
 }
+
+
+function SortableBlockItem({ block, onEdit }: { block: PublicPageBlock; onEdit: () => void }) {
+    const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: block.id });
+    const { toast } = useToast();
+    const params = useParams();
+    const memoryId = params.memoryId as string;
+
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+    };
+
+    const handleDelete = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        try {
+            await deleteDoc(doc(db, 'memories', memoryId, 'blocks', block.id));
+            toast({ title: "ブロックを削除しました" });
+        } catch (error) {
+            console.error("Failed to delete block:", error);
+            toast({ variant: 'destructive', title: "エラー", description: "ブロックの削除に失敗しました。" });
+        }
+    };
+
+    return (
+        <div ref={setNodeRef} style={style} className="group relative p-4 rounded-lg border bg-card shadow-sm flex items-center gap-4">
+             <button {...attributes} {...listeners} className="cursor-grab p-2">
+                <GripVertical className="h-5 w-5 text-muted-foreground" />
+            </button>
+            <div className="flex-grow">
+                <p className="font-semibold">{block.title}</p>
+                <p className="text-sm text-muted-foreground capitalize">{block.type}</p>
+            </div>
+            <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={onEdit}>
+                    <Edit className="mr-2 h-4 w-4" />
+                    編集
+                </Button>
+                <Button variant="destructive" size="icon" onClick={handleDelete}>
+                    <Trash2 className="h-4 w-4" />
+                </Button>
+            </div>
+        </div>
+    );
+}
+
