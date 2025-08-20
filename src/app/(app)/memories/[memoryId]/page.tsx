@@ -4,10 +4,10 @@
 import { Button } from '@/components/ui/button';
 import type { Memory, PublicPageBlock, Asset } from '@/lib/types';
 import { db } from '@/lib/firebase/client';
-import { doc, getDoc, collection, query, orderBy, onSnapshot, where, collectionGroup, writeBatch, deleteDoc } from 'firebase/firestore';
+import { doc, onSnapshot, collection, query, orderBy, writeBatch, deleteDoc } from 'firebase/firestore';
 import { notFound, useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { Eye, Loader2, PlusCircle, Edit, Image as ImageIcon, FileText, Blocks, GripVertical, Trash2 } from 'lucide-react';
+import { Eye, Loader2, PlusCircle, Edit, Image as ImageIcon, Trash2 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
@@ -15,6 +15,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { AboutModal, DesignModal, BlockModal } from '@/components/edit-modals';
+import { GripVertical } from 'lucide-react';
 
 
 // This is the new Visual Editor Page
@@ -49,6 +50,7 @@ export default function MemoryEditorPage() {
     if (authLoading || !user || !memoryId) return;
 
     setLoading(true);
+    
     // Listener for memory document
     const memoryDocRef = doc(db, 'memories', memoryId);
     const unsubscribeMemory = onSnapshot(memoryDocRef, (doc) => {
@@ -57,8 +59,12 @@ export default function MemoryEditorPage() {
         } else {
             console.error("Memory not found or access denied.");
             setMemory(null);
-            setLoading(false);
         }
+        // Combined loading state will be handled with assets
+    }, (error) => {
+      console.error("Error fetching memory:", error);
+      setMemory(null);
+      setLoading(false);
     });
 
     // Listener for blocks subcollection
@@ -73,9 +79,10 @@ export default function MemoryEditorPage() {
     const unsubscribeAssets = onSnapshot(assetsQuery, (snapshot) => {
         const fetchedAssets: Asset[] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Asset));
         setAssets(fetchedAssets);
-        setLoading(false);
+        setLoading(false); // Set loading to false after assets (the last query) are fetched
     }, (error) => {
         console.error("Error fetching assets:", error);
+        setAssets([]);
         setLoading(false);
     });
 
