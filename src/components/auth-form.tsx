@@ -74,12 +74,13 @@ export function AuthForm({ type }: AuthFormProps) {
         };
         await setDoc(userRef, userProfile);
         
-        // Create the single memory page for the new user
-        const newMemory = await addDoc(collection(db, 'memories'), {
+        // Create the single memory page for the new user with a pre-generated ID
+        const memoryDocRef = doc(collection(db, 'memories'));
+        const newMemoryData = {
             ownerUid: user.uid,
             title: '無題のページ',
             status: 'draft',
-            publicPageId: null,
+            publicPageId: memoryDocRef.id, // Assign the generated ID as the publicPageId
             coverAssetId: null,
             profileAssetId: null,
             description: '',
@@ -89,9 +90,12 @@ export function AuthForm({ type }: AuthFormProps) {
             },
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
-        });
+        };
+
+        await setDoc(memoryDocRef, newMemoryData);
+        
         // After signup, redirect to the newly created memory page
-        router.push(`/memories/${newMemory.id}`);
+        router.push(`/memories/${memoryDocRef.id}`);
 
       } else { // Login
         userCredential = await signInWithEmailAndPassword(auth, data.email, data.password);
