@@ -10,7 +10,14 @@ import { collection, doc, getDoc, getDocs, orderBy, query } from 'firebase/fires
 import { format } from 'date-fns';
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
-import { Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Loader2, PlusCircle, Save } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { apiClient } from "@/lib/api-client";
 
 const statusVariantMap: Record<Order['status'], 'default' | 'secondary' | 'destructive' | 'outline'> = {
     draft: 'secondary',
@@ -36,74 +43,154 @@ const productTypeTextMap: Record<string, string> = {
 };
 
 
+function CreateOrderModal({ onOrderCreated }: { onOrderCreated: () => void }) {
+    const [open, setOpen] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+    const [email, setEmail] = useState('');
+    const [productType, setProductType] = useState('memory_link_card');
+    const { toast } = useToast();
+
+    const handleSave = async () => {
+        if (!email) {
+            toast({ variant: 'destructive', title: "エラー", description: "メールアドレスを入力してください。" });
+            return;
+        }
+        setIsSaving(true);
+        try {
+            const res = await apiClient.fetch('/api/orders/create', {
+                method: 'POST',
+                body: JSON.stringify({ email, productType }),
+            });
+
+            if (!res.ok) {
+                const errorData = await res.json();
+                throw new Error(errorData.error || `注文の作成に失敗しました。`);
+            }
+            
+            toast({ title: "成功", description: "新しい注文を作成しました。" });
+            onOrderCreated(); // Refresh the list
+            setOpen(false); // Close modal on success
+            setEmail('');
+            setProductType('memory_link_card');
+        } catch (error: any) {
+            console.error("Failed to create order", error);
+            toast({ variant: 'destructive', title: "エラー", description: error.message });
+        } finally {
+            setIsSaving(false);
+        }
+    }
+
+    return (
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                <Button>
+                    <PlusCircle className="mr-2" />
+                    新規注文を作成
+                </Button>
+            </DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>新規注文 (招待) を作成</DialogTitle>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="email" className="text-right">顧客メール</Label>
+                        <Input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} className="col-span-3" placeholder="customer@example.com" />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="productType" className="text-right">製品タイプ</Label>
+                        <Select onValueChange={setProductType} defaultValue={productType}>
+                            <SelectTrigger className="col-span-3">
+                                <SelectValue placeholder="タイプを選択" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="memory_link_card">カード</SelectItem>
+                                <SelectItem value="memory_link_keychain">キーホルダー</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </div>
+                <DialogFooter>
+                    <DialogClose asChild><Button variant="outline">キャンセル</Button></DialogClose>
+                    <Button onClick={handleSave} disabled={isSaving}>
+                        {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                        保存
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+
 export default function AdminDashboardPage() {
   const { user, isAdmin, loading: authLoading } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const fetchOrders = async () => {
+    setLoading(true);
+    try {
+      const ordersQuery = query(collection(db, 'orders'), orderBy('createdAt', 'desc'));
+      const ordersSnapshot = await getDocs(ordersQuery);
+      
+      if (ordersSnapshot.empty) {
+          setOrders([]);
+          setLoading(false);
+          return;
+      }
+
+      const ordersData = await Promise.all(ordersSnapshot.docs.map(async (orderDoc) => {
+          const data = orderDoc.data();
+          let userEmail = data.email || 'N/A'; // Use stored email first
+          let memoryTitle = 'N/A';
+          
+          if (!data.email && data.userUid) { // Fallback for older data
+              try {
+                  const userDoc = await getDoc(doc(db, 'users', data.userUid));
+                  if(userDoc.exists()) userEmail = userDoc.data()?.email;
+              } catch (e) {
+                  console.error(`Failed to fetch user ${data.userUid}`, e);
+              }
+          }
+          if (data.memoryId) {
+              try {
+                  const memoryDoc = await getDoc(doc(db, 'memories', data.memoryId));
+                  if(memoryDoc.exists()) memoryTitle = memoryDoc.data()?.title;
+              } catch (e) {
+                  console.error(`Failed to fetch memory ${data.memoryId}`, e);
+              }
+          }
+          
+          const createdAtDate = data.createdAt?.toDate ? data.createdAt.toDate() : new Date();
+          const updatedAtDate = data.updatedAt?.toDate ? data.updatedAt.toDate() : new Date();
+
+          return {
+              id: orderDoc.id,
+              userUid: data.userUid,
+              memoryId: data.memoryId,
+              productType: data.productType || 'memory_link_card', // Default value
+              status: data.status,
+              createdAt: format(createdAtDate, 'yyyy/MM/dd HH:mm'),
+              updatedAt: format(updatedAtDate, 'yyyy/MM/dd HH:mm'),
+              email: userEmail, // Changed from userEmail to email to match type
+              memoryTitle,
+          } as Order;
+      }));
+      
+      setOrders(ordersData);
+    } catch (error) {
+      console.error("Error fetching orders:", error);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
     if (authLoading) return;
     if (!isAdmin) {
       setLoading(false);
       return;
-    }
-
-    const fetchOrders = async () => {
-      setLoading(true);
-      try {
-        const ordersQuery = query(collection(db, 'orders'), orderBy('createdAt', 'desc'));
-        const ordersSnapshot = await getDocs(ordersQuery);
-        
-        if (ordersSnapshot.empty) {
-            setOrders([]);
-            setLoading(false);
-            return;
-        }
-
-        const ordersData = await Promise.all(ordersSnapshot.docs.map(async (orderDoc) => {
-            const data = orderDoc.data();
-            let userEmail = 'N/A';
-            let memoryTitle = 'N/A';
-
-            if (data.userUid) {
-                try {
-                    const userDoc = await getDoc(doc(db, 'users', data.userUid));
-                    if(userDoc.exists()) userEmail = userDoc.data()?.email;
-                } catch (e) {
-                    console.error(`Failed to fetch user ${data.userUid}`, e);
-                }
-            }
-            if (data.memoryId) {
-                try {
-                    const memoryDoc = await getDoc(doc(db, 'memories', data.memoryId));
-                    if(memoryDoc.exists()) memoryTitle = memoryDoc.data()?.title;
-                } catch (e) {
-                    console.error(`Failed to fetch memory ${data.memoryId}`, e);
-                }
-            }
-            
-            const createdAtDate = data.createdAt?.toDate ? data.createdAt.toDate() : new Date();
-            const updatedAtDate = data.updatedAt?.toDate ? data.updatedAt.toDate() : new Date();
-
-            return {
-                id: orderDoc.id,
-                userUid: data.userUid,
-                memoryId: data.memoryId,
-                productType: data.productType || 'memory_link_card', // Default value
-                status: data.status,
-                createdAt: format(createdAtDate, 'yyyy/MM/dd HH:mm'),
-                updatedAt: format(updatedAtDate, 'yyyy/MM/dd HH:mm'),
-                userEmail,
-                memoryTitle,
-            } as Order;
-        }));
-        
-        setOrders(ordersData);
-      } catch (error) {
-        console.error("Error fetching orders:", error);
-      } finally {
-        setLoading(false);
-      }
     }
     
     fetchOrders();
@@ -129,9 +216,12 @@ export default function AdminDashboardPage() {
 
   return (
     <div className="space-y-6 p-4 sm:p-6 lg:p-8">
-       <div>
-            <h1 className="text-2xl font-bold tracking-tight font-headline">管理者ダッシュボード</h1>
-            <p className="text-muted-foreground">ようこそ、管理者。注文と進捗を管理します。</p>
+       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div>
+                <h1 className="text-2xl font-bold tracking-tight font-headline">管理者ダッシュボード</h1>
+                <p className="text-muted-foreground">ようこそ、管理者。注文と進捗を管理します。</p>
+            </div>
+            <CreateOrderModal onOrderCreated={fetchOrders} />
         </div>
         
         <Card>
@@ -146,7 +236,7 @@ export default function AdminDashboardPage() {
                     <TableHeader>
                         <TableRow>
                             <TableHead>注文日時</TableHead>
-                            <TableHead>ユーザー</TableHead>
+                            <TableHead>顧客メール</TableHead>
                             <TableHead>ページタイトル</TableHead>
                             <TableHead>製品タイプ</TableHead>
                             <TableHead>ステータス</TableHead>
@@ -157,7 +247,7 @@ export default function AdminDashboardPage() {
                         {orders.map((order) => (
                             <TableRow key={order.id}>
                                 <TableCell>{order.createdAt.toString()}</TableCell>
-                                <TableCell>{order.userEmail}</TableCell>
+                                <TableCell>{order.email}</TableCell>
                                 <TableCell>{order.memoryTitle}</TableCell>
                                  <TableCell>
                                     <Badge variant="outline">

@@ -5,6 +5,7 @@ import { createContext, useContext, useEffect, useState, ReactNode, useCallback 
 import { User, onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase/client';
 import { useRouter } from 'next/navigation';
+import { apiClient } from '@/lib/api-client';
 
 interface AuthContextType {
   user: (User & { uid: string }) | null;
@@ -33,9 +34,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const claims = tokenResult.claims;
         setIsAdmin(claims.role === 'admin');
         setUser(authUser as AuthContextType['user']);
+        apiClient.setToken(tokenResult.token);
       } else {
         setUser(null);
         setIsAdmin(false);
+        apiClient.setToken(null);
       }
       setLoading(false);
     });

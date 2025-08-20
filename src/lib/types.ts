@@ -106,8 +106,9 @@ export interface PublicPage {
 
 export interface Order {
     id: string;
-    userUid: string;
-    memoryId: string;
+    userUid: string | null; // Can be null until claimed
+    memoryId: string | null; // Can be null until memory is created
+    email: string; // The invited user's email
     productType: 'memory_link_card' | string;
     status: 'draft' | 'assets_uploaded' | 'model_ready' | 'selected' | 'paid' | 'delivered';
     note?: string;
@@ -118,6 +119,5 @@ export interface Order {
     createdAt: Timestamp | string;
     updatedAt: Timestamp | string;
     // For UI display
-    userEmail?: string;
     memoryTitle?: string;
 }
