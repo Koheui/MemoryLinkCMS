@@ -11,7 +11,7 @@ import {
   UserCredential
 } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase/client';
-import { doc, setDoc, serverTimestamp, collection, addDoc } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp, collection, addDoc, getDocs, query, where, limit } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -27,6 +27,7 @@ import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { Loader2 } from 'lucide-react';
 import type { UserProfile } from '@/lib/types';
+import { useRouter } from 'next/navigation';
 
 const formSchema = z.object({
   email: z.string().email({ message: '有効なメールアドレスを入力してください。' }),
@@ -44,6 +45,7 @@ interface AuthFormProps {
 export function AuthForm({ type }: AuthFormProps) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
   const form = useForm<AuthFormValues>({
     resolver: zodResolver(formSchema),
@@ -73,7 +75,7 @@ export function AuthForm({ type }: AuthFormProps) {
         await setDoc(userRef, userProfile);
         
         // Create the single memory page for the new user
-        await addDoc(collection(db, 'memories'), {
+        const newMemory = await addDoc(collection(db, 'memories'), {
             ownerUid: user.uid,
             title: '無題のページ',
             status: 'draft',
@@ -88,27 +90,16 @@ export function AuthForm({ type }: AuthFormProps) {
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
         });
+        // After signup, redirect to the newly created memory page
+        router.push(`/memories/${newMemory.id}`);
+
       } else { // Login
         userCredential = await signInWithEmailAndPassword(auth, data.email, data.password);
+        // After login, the onAuthStateChanged in AuthProvider will handle the user state.
+        // The layout will then redirect to the correct page.
+        // We just push to a generic authenticated route to trigger the process.
+        router.push('/account');
       }
-      
-      const idToken = await userCredential.user.getIdToken(true);
-      
-      // IMPORTANT: Wait for the session cookie to be set before redirecting.
-      const res = await fetch('/api/auth/sessionLogin', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ idToken }),
-      });
-      
-      if (!res.ok) {
-          const errorData = await res.json();
-          throw new Error(errorData.details || `セッションの作成に失敗しました。ステータス: ${res.status}`);
-      }
-      
-      // Redirect to a dedicated redirector page which will handle server-side redirection.
-      // This is more robust than client-side redirects.
-      window.location.assign('/memories/redirect');
 
     } catch (error: any) {
         let description = '予期せぬエラーが発生しました。';
@@ -130,7 +121,7 @@ export function AuthForm({ type }: AuthFormProps) {
                 default:
                     description = `Firebaseエラー: ${error.message} (コード: ${error.code})`;
             }
-        } else { // Custom errors (like from our sessionLogin API)
+        } else { // Custom errors
             description = `エラー: ${error.message}`;
         }
         

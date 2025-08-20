@@ -53,8 +53,16 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
                 if (!querySnapshot.empty) {
                     const fetchedMemoryId = querySnapshot.docs[0].id;
                     setMemoryId(fetchedMemoryId);
+                     // If user is on a generic authenticated page, redirect to their specific memory page.
+                    if(pathname === '/account' || pathname === '/dashboard') {
+                        router.replace(`/memories/${fetchedMemoryId}`);
+                    }
                 } else {
                     console.warn("No memory found for user:", user.uid);
+                    // If no memory, maybe they should be on the account page, or a "create one" page.
+                    if (pathname !== '/account') {
+                        router.replace('/account');
+                    }
                 }
             } catch (error) {
                 console.error("Error fetching memoryId for sidebar:", error);
@@ -68,7 +76,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
     if (!loading && user) {
       fetchMemoryId();
     }
-  }, [user, loading]);
+  }, [user, loading, pathname, router]);
 
 
   if (loading) {
@@ -87,7 +95,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
     return <>{children}</>;
   }
   
-  const editPageHref = memoryId ? `/memories/${memoryId}` : '/memories/redirect';
+  const editPageHref = memoryId ? `/memories/${memoryId}` : '/account';
 
   return (
     <SidebarProvider>
