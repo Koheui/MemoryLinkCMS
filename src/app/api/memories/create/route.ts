@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getUidFromRequest } from '../../_lib/auth';
 import { getAdminApp } from '@/lib/firebase/firebaseAdmin';
-import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { getFirestore } from 'firebase-admin/firestore';
 import type { Memory } from '@/lib/types';
 
 function err(status: number, msg: string) {
@@ -36,16 +36,15 @@ export async function POST(req: NextRequest) {
       description: '', // Ensure description has a default value
       design: { theme: 'light', fontScale: 1.0 }, // Ensure design has a default value
     };
-
+    
+    // The serverTimestamp will be evaluated by Firestore.
+    // We cannot use it directly in the object returned to the client.
     await newMemoryRef.set({
       ...newMemoryData,
-      createdAt: FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp(),
+      createdAt: getFirestore().FieldValue.serverTimestamp(),
+      updatedAt: getFirestore().FieldValue.serverTimestamp(),
     });
 
-    // We need to return the server-generated timestamps as well, so we fetch the doc again.
-    // However, for performance, we'll construct the object client-side for now.
-    // The client will get the timestamps via its own snapshot listener.
     const newMemory: Memory = {
         id: newMemoryRef.id,
         ...newMemoryData,
