@@ -7,7 +7,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { storage, db } from '@/lib/firebase/client';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, query, where, getDocs, limit } from 'firebase/firestore';
 import type { Asset } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
 import { useParams } from 'next/navigation';
@@ -25,13 +25,34 @@ export function MediaUploader({ assetType, accept, children, onUploadSuccess }: 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
   const params = useParams();
-  const memoryId = params.memoryId as string;
+  
+  // A helper function to get memoryId regardless of the current page
+  const getMemoryIdForUser = async (uid: string): Promise<string | null> => {
+      let memoryId = params.memoryId as string;
+      if (memoryId) return memoryId;
+
+      // If not on a memory page, query for it.
+      const memoriesQuery = query(
+          collection(db, 'memories'),
+          where('ownerUid', '==', uid),
+          limit(1)
+      );
+      const querySnapshot = await getDocs(memoriesQuery);
+      if (!querySnapshot.empty) {
+          return querySnapshot.docs[0].id;
+      }
+      return null;
+  }
+
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (!user) {
       toast({ variant: 'destructive', title: 'エラー', description: 'ログインしていません。' });
       return;
     }
+    
+    const memoryId = await getMemoryIdForUser(user.uid);
+
     if (!memoryId) {
       toast({ variant: 'destructive', title: 'エラー', description: '有効なページではありません。' });
       return;
