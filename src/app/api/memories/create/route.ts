@@ -1,0 +1,55 @@
+
+// src/app/api/memories/create/route.ts
+import { NextRequest, NextResponse } from 'next/server';
+import { getUidFromRequest } from '../../_lib/auth';
+import { getAdminApp } from '@/lib/firebase/firebaseAdmin';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+
+function err(status: number, msg: string) {
+  return NextResponse.json({ error: msg }, { status });
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const uid = await getUidFromRequest(req);
+    if (!uid) {
+      return err(401, 'UNAUTHENTICATED: Invalid or missing token.');
+    }
+
+    const db = getFirestore(getAdminApp());
+    const newMemoryRef = db.collection('memories').doc();
+    
+    // In the future, secret key validation would happen here.
+    // For now, we just create a new memory for the authenticated user.
+
+    const newMemoryData = {
+      ownerUid: uid,
+      title: '新しい想い出ページ',
+      status: 'draft',
+      publicPageId: newMemoryRef.id,
+      coverAssetId: null,
+      profileAssetId: null,
+      description: '',
+      design: { theme: 'light', fontScale: 1.0 },
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    };
+
+    await newMemoryRef.set(newMemoryData);
+
+    const newMemory = {
+        id: newMemoryRef.id,
+        ...newMemoryData
+    }
+
+    return NextResponse.json({ ok: true, data: newMemory }, { status: 200 });
+
+  } catch (e: any) {
+    const msg = String(e?.message || e);
+    console.error("API Error in /api/memories/create:", e);
+    if (msg.includes('UNAUTHENTICATED') || msg.includes('verifyIdToken')) {
+      return err(401, 'verifyIdToken failed');
+    }
+    return err(500, msg);
+  }
+}

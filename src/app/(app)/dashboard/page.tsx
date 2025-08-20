@@ -1,3 +1,4 @@
+
 // src/app/(app)/dashboard/page.tsx
 'use client';
 
@@ -10,7 +11,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { db } from "@/lib/firebase/client";
-import { collection, query, where, onSnapshot, addDoc, serverTimestamp, doc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
 
@@ -23,7 +24,10 @@ export default function DashboardPage() {
     const { toast } = useToast();
 
     useEffect(() => {
-        if (!user) return;
+        if (!user) {
+            if(!authLoading) setLoading(false);
+            return;
+        }
 
         setLoading(true);
         const q = query(collection(db, 'memories'), where('ownerUid', '==', user.uid));
@@ -39,37 +43,33 @@ export default function DashboardPage() {
 
         return () => unsubscribe();
 
-    }, [user, toast]);
+    }, [user, authLoading, toast]);
     
     const handleCreateNewMemory = async () => {
         if (!user) return;
         setIsCreating(true);
         try {
-            // In the future, this would check for a valid secret key
-            const newMemoryRef = await addDoc(collection(db, 'memories'), {
-                ownerUid: user.uid,
-                title: '新しい想い出ページ',
-                status: 'draft',
-                publicPageId: null, // This can be set on first publish
-                coverAssetId: null,
-                profileAssetId: null,
-                description: '',
-                design: { theme: 'light', fontScale: 1.0 },
-                createdAt: serverTimestamp(),
-                updatedAt: serverTimestamp(),
+            const idToken = await user.getIdToken();
+            const res = await fetch('/api/memories/create', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${idToken}`,
+                },
             });
 
-            // Now, set the publicPageId to be the same as the document ID
-            await addDoc(doc(db, 'memories', newMemoryRef.id), {
-                publicPageId: newMemoryRef.id
-            });
+            if (!res.ok) {
+                const errorData = await res.json();
+                throw new Error(errorData.error || 'API request failed');
+            }
+
+            const { data: newMemory } = await res.json();
             
             toast({ title: '成功', description: '新しい想い出ページが作成されました。'});
-            router.push(`/memories/${newMemoryRef.id}`);
+            router.push(`/memories/${newMemory.id}`);
 
-        } catch (error) {
+        } catch (error: any) {
              console.error("Error creating new memory:", error);
-             toast({ variant: 'destructive', title: 'エラー', description: 'ページの作成に失敗しました。'});
+             toast({ variant: 'destructive', title: 'エラー', description: `ページの作成に失敗しました: ${error.message}`});
         } finally {
             setIsCreating(false);
         }
@@ -127,9 +127,10 @@ export default function DashboardPage() {
                     ))}
                 </div>
             ) : (
-                <div className="text-center py-20 bg-muted/50 rounded-lg">
+                <div className="text-center py-20 bg-muted/50 rounded-lg border border-dashed">
                     <h2 className="text-xl font-semibold">まだ想い出ページがありません</h2>
-                    <p className="text-muted-foreground mt-2">最初の想い出ページを作成しましょう。</p>
+                    <p className="text-muted-foreground mt-2">下のボタンから最初の想い出ページを作成しましょう。</p>
+                    <p className="text-xs text-muted-foreground mt-2">（将来的には、ここで秘密鍵の入力が求められます）</p>
                     <Button onClick={handleCreateNewMemory} disabled={isCreating} className="mt-6">
                         {isCreating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
                         最初のページを作成する
