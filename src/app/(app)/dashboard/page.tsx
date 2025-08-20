@@ -56,7 +56,9 @@ export default function DashboardPage() {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${idToken}`,
+                    'Content-Type': 'application/json',
                 },
+                body: JSON.stringify({ type: 'other' }) // Create a generic page by default
             });
 
             if (!res.ok) {
@@ -104,6 +106,7 @@ export default function DashboardPage() {
                         <Card key={memory.id}>
                             <CardHeader>
                                 <CardTitle className="truncate">{memory.title}</CardTitle>
+
                                 <CardDescription>ID: {memory.id}</CardDescription>
                             </CardHeader>
                              <CardContent className="space-y-4">

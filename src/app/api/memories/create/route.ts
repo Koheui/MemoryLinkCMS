@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getUidFromRequest } from '../../_lib/auth';
 import { getAdminApp } from '@/lib/firebase/firebaseAdmin';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import type { Memory } from '@/lib/types';
 
 function err(status: number, msg: string) {
   return NextResponse.json({ error: msg }, { status });
@@ -14,6 +15,9 @@ export async function POST(req: NextRequest) {
     if (!uid) {
       return err(401, 'UNAUTHENTICATED: Invalid or missing token.');
     }
+    
+    const body = await req.json();
+    const memoryType: Memory['type'] = body.type || 'other';
 
     const db = getFirestore(getAdminApp());
     const newMemoryRef = db.collection('memories').doc();
@@ -21,20 +25,23 @@ export async function POST(req: NextRequest) {
     // In the future, secret key validation would happen here.
     // For now, we just create a new memory for the authenticated user.
 
-    const newMemoryData = {
+    const newMemoryData: Omit<Memory, 'id' | 'createdAt' | 'updatedAt'> = {
       ownerUid: uid,
       title: '新しい想い出ページ',
+      type: memoryType,
       status: 'draft',
       publicPageId: newMemoryRef.id,
       coverAssetId: null,
       profileAssetId: null,
       description: '',
       design: { theme: 'light', fontScale: 1.0 },
-      createdAt: FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp(),
     };
 
-    await newMemoryRef.set(newMemoryData);
+    await newMemoryRef.set({
+      ...newMemoryData,
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
 
     // We need to return the server-generated timestamps as well, so we fetch the doc again.
     // However, for performance, we'll construct the object client-side for now.
