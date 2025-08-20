@@ -36,17 +36,17 @@ async function fetchPublicPageManifest(pageId: string): Promise<PublicPage | nul
         },
         ordering: "custom",
         blocks: [
-          { id: '1', type: 'text', title: 'ウェブサイト', icon: 'globe', visibility: 'show', order: 0 },
-          { id: '2', type: 'text', title: 'YouTubeチャンネル', icon: 'youtube', visibility: 'show', order: 1 },
-          { id: '7', type: 'album', title: '新婚旅行アルバム', order: 2, visibility: 'show', album: { layout: 'carousel', assetIds: ['a1','a2','a3'], items: [
+          { id: '1', type: 'text', title: 'ウェブサイト', icon: 'globe', visibility: 'show', order: 0, createdAt: '', updatedAt: '' },
+          { id: '2', type: 'text', title: 'YouTubeチャンネル', icon: 'youtube', visibility: 'show', order: 1, createdAt: '', updatedAt: '' },
+          { id: '7', type: 'album', title: '新婚旅行アルバム', order: 2, visibility: 'show', createdAt: '', updatedAt: '', album: { layout: 'carousel', assetIds: ['a1','a2','a3'], items: [
             { src: 'https://placehold.co/600x400.png' }, { src: 'https://placehold.co/600x400.png' }, { src: 'https://placehold.co/600x400.png' }
           ]}},
-          { id: '8', type: 'photo', title: 'お気に入りの一枚', order: 3, visibility: 'show', photo: { assetId: 'p1', src: 'https://placehold.co/600x400.png', caption: '夕焼けのビーチで' }},
-          { id: '9', type: 'video', title: '子供の発表会', order: 4, visibility: 'show', video: { assetId: 'v1', src: 'https://placehold.co/600x400.png' } },
-          { id: '10', type: 'audio', title: '祖母の思い出話', order: 5, visibility: 'show', audio: { assetId: 'au1', src: '' } },
-          { id: '5', type: 'text', title: 'X (旧Twitter)', icon: 'x', visibility: 'show', order: 6 },
-          { id: '6', type: 'text', title: 'Instagram', icon: 'instagram', visibility: 'show', order: 7 },
-        ] as any,
+          { id: '8', type: 'photo', title: 'お気に入りの一枚', order: 3, visibility: 'show', createdAt: '', updatedAt: '', photo: { assetId: 'p1', src: 'https://placehold.co/600x400.png', caption: '夕焼けのビーチで' }},
+          { id: '9', type: 'video', title: '子供の発表会', order: 4, visibility: 'show', createdAt: '', updatedAt: '', video: { assetId: 'v1', src: 'https://placehold.co/600x400.png' } },
+          { id: '10', type: 'audio', title: '祖母の思い出話', order: 5, visibility: 'show', createdAt: '', updatedAt: '', audio: { assetId: 'au1', src: '' } },
+          { id: '5', type: 'text', title: 'X (旧Twitter)', icon: 'x', visibility: 'show', order: 6, createdAt: '', updatedAt: '' },
+          { id: '6', type: 'text', title: 'Instagram', icon: 'instagram', visibility: 'show', order: 7, createdAt: '', updatedAt: '' },
+        ],
         publish: {
             status: "published",
             publishedAt: new Date().toISOString(),
@@ -55,7 +55,9 @@ async function fetchPublicPageManifest(pageId: string): Promise<PublicPage | nul
   }
 
   try {
-    const res = await fetch(`https://storage.googleapis.com/${process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET}/deliver/publicPages/${pageId}/manifest.json`, { next: { revalidate: 300 }}); // Revalidate every 5 minutes
+    // This part is for production, where a `manifest.json` is generated.
+    // The revalidate option ensures fresh data without a full rebuild.
+    const res = await fetch(`https://storage.googleapis.com/${process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET}/deliver/publicPages/${pageId}/manifest.json`, { next: { revalidate: 300 }});
     if (!res.ok) {
         console.error(`Failed to fetch manifest for ${pageId}: ${res.statusText}`);
         return null;

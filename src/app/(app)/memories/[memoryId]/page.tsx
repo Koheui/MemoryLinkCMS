@@ -67,17 +67,15 @@ export default function MemoryEditorPage() {
         setBlocks(fetchedBlocks);
     });
 
-    // Listener for all user assets
-    // This is not ideal for performance if the user has many assets.
-    // In a real-world app, you'd paginate this or fetch them more selectively.
-    // For now, we fetch all assets belonging to the user.
-    const assetsQuery = query(collection(db, 'assets'), where('ownerUid', '==', user.uid), orderBy('createdAt', 'desc'));
+    // Listener for all user assets for this memory
+    const assetsQuery = query(collection(db, 'assets'), where('ownerUid', '==', user.uid), where('memoryId', '==', memoryId), orderBy('createdAt', 'desc'));
     const unsubscribeAssets = onSnapshot(assetsQuery, (snapshot) => {
         const fetchedAssets: Asset[] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Asset));
         setAssets(fetchedAssets);
     }, (error) => {
         console.error("Error fetching assets:", error);
     });
+
 
     return () => {
       unsubscribeMemory();
@@ -136,7 +134,7 @@ export default function MemoryEditorPage() {
      return notFound();
   }
   
-  const publicUrl = typeof window !== 'undefined' ? `${window.location.origin.replace('app.', 'mem.')}/p/${memory.publicPageId || memory.id}` : '';
+  const publicUrl = `/p/preview`;
   const coverImageUrl = memory.coverAssetId ? assets.find(a => a.id === memory.coverAssetId)?.url : null;
   const profileImageUrl = memory.profileAssetId ? assets.find(a => a.id === memory.profileAssetId)?.url : null;
 
@@ -273,6 +271,7 @@ function SortableBlockItem({ block, onEdit }: { block: PublicPageBlock; onEdit: 
     const handleDelete = async (e: React.MouseEvent) => {
         e.stopPropagation();
         // A confirmation dialog would be a good UX improvement here
+        if (!window.confirm("このブロックを本当に削除しますか？")) return;
         try {
             await deleteDoc(doc(db, 'memories', memoryId, 'blocks', block.id));
             toast({ title: "ブロックを削除しました" });
@@ -287,7 +286,7 @@ function SortableBlockItem({ block, onEdit }: { block: PublicPageBlock; onEdit: 
              <button {...attributes} {...listeners} className="cursor-grab p-2 touch-none">
                 <GripVertical className="h-5 w-5 text-muted-foreground" />
             </button>
-            <div className="flex-grow">
+            <div className="flex-grow" onClick={onEdit}>
                 <p className="font-semibold">{block.title || "無題のブロック"}</p>
                 <p className="text-sm text-muted-foreground capitalize">{block.type}</p>
             </div>
