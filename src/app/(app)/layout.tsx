@@ -40,6 +40,8 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const fetchMemoryId = async () => {
         if (user) {
+            // This now primarily serves to get the memoryId for the sidebar link.
+            // Redirection logic is handled by the redirect page or direct navigation.
             setIsFetchingMemoryId(true);
             try {
                 const memoriesQuery = query(
@@ -51,16 +53,12 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
                 if (!querySnapshot.empty) {
                     const fetchedMemoryId = querySnapshot.docs[0].id;
                     setMemoryId(fetchedMemoryId);
-                    // If user lands on a generic authenticated page that IS NOT the editor itself, redirect them.
-                    if (!pathname.startsWith(`/memories/${fetchedMemoryId}`)) {
-                        router.replace(`/memories/${fetchedMemoryId}`);
-                    }
                 } else {
                     console.warn("No memory found for user:", user.uid);
-                    // TODO: Handle case where user has no memories (e.g., redirect to a 'create-first-memory' page)
+                    // This can happen for a new user, they will be directed to create one.
                 }
             } catch (error) {
-                console.error("Error fetching memoryId:", error);
+                console.error("Error fetching memoryId for sidebar:", error);
             } finally {
                 setIsFetchingMemoryId(false);
             }
@@ -71,7 +69,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
     if (!loading) {
       fetchMemoryId();
     }
-  }, [user, loading, pathname, router]);
+  }, [user, loading]);
 
 
   if (loading || (!user && !pathname.startsWith('/login') && !pathname.startsWith('/signup') )) {
@@ -90,7 +88,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
     return <>{children}</>;
   }
   
-  const editPageHref = memoryId ? `/memories/${memoryId}` : '#';
+  const editPageHref = memoryId ? `/memories/${memoryId}` : '/memories/redirect';
 
   return (
     <SidebarProvider>

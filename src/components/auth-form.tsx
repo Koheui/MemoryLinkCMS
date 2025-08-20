@@ -104,8 +104,8 @@ export function AuthForm({ type }: AuthFormProps) {
           throw new Error(errorData.details || `セッションの作成に失敗しました。ステータス: ${res.status}`);
       }
       
-      // Redirect to the account page, the layout will handle getting the user to their memory page
-      window.location.assign(`/account`);
+      // Redirect to a dedicated redirector page which will handle server-side redirection to the correct memory page.
+      window.location.assign(`/memories/redirect`);
 
     } catch (error: any) {
         let description = '予期せぬエラーが発生しました。';
