@@ -30,11 +30,11 @@ export async function POST(req: NextRequest) {
       title: '新しい想い出ページ',
       type: memoryType,
       status: 'draft',
-      publicPageId: newMemoryRef.id,
+      publicPageId: newMemoryRef.id, // Using its own ID for the public page for simplicity
       coverAssetId: null,
       profileAssetId: null,
-      description: '',
-      design: { theme: 'light', fontScale: 1.0 },
+      description: '', // Ensure description has a default value
+      design: { theme: 'light', fontScale: 1.0 }, // Ensure design has a default value
     };
 
     await newMemoryRef.set({
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
     // We need to return the server-generated timestamps as well, so we fetch the doc again.
     // However, for performance, we'll construct the object client-side for now.
     // The client will get the timestamps via its own snapshot listener.
-    const newMemory = {
+    const newMemory: Memory = {
         id: newMemoryRef.id,
         ...newMemoryData,
         // Faking timestamps for the immediate response to the client
