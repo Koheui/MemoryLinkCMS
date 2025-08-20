@@ -9,32 +9,32 @@ import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import type { Asset } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
-import { useParams } from 'next/navigation';
 
 interface MediaUploaderProps {
   assetType: 'image' | 'video' | 'audio';
   accept: string;
   children: ReactNode;
   onUploadSuccess?: (asset: Asset) => void;
+  // Make memoryId optional. If not provided, upload is disabled.
+  // This is safer for contexts like the main media library page.
+  memoryId?: string;
 }
 
-export function MediaUploader({ assetType, accept, children, onUploadSuccess }: MediaUploaderProps) {
+export function MediaUploader({ assetType, accept, children, onUploadSuccess, memoryId }: MediaUploaderProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const params = useParams();
-  
+
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (!user) {
       toast({ variant: 'destructive', title: 'エラー', description: 'ログインしていません。' });
       return;
     }
     
-    const memoryId = params.memoryId as string;
+    // If no memoryId is provided, we cannot proceed.
     if (!memoryId) {
-        // This case should ideally not happen if the uploader is only on the memory page
-        toast({ variant: 'destructive', title: 'エラー', description: '有効なページではありません。' });
+        toast({ variant: 'destructive', title: 'エラー', description: '有効なページが選択されていません。' });
         return;
     }
 
@@ -96,14 +96,23 @@ export function MediaUploader({ assetType, accept, children, onUploadSuccess }: 
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    // Disable click if there's no memoryId
+    if (!memoryId) {
+      toast({
+        variant: 'destructive',
+        title: 'アップロード不可',
+        description: 'まず想い出ページを選択または作成してください。',
+      });
+      return;
+    }
     fileInputRef.current?.click();
   };
   
   const child = React.Children.only(children) as React.ReactElement;
   
-  // Clone the child element to inject props and handle loading state
+  // Clone the child element to inject props and handle loading/disabled state
   const uploaderTrigger = React.cloneElement(child, {
-    disabled: isUploading,
+    disabled: isUploading || !memoryId,
     onClick: handleClick,
     children: isUploading ? (
         <>
@@ -121,7 +130,7 @@ export function MediaUploader({ assetType, accept, children, onUploadSuccess }: 
         onChange={handleFileChange}
         accept={accept}
         style={{ display: 'none' }}
-        disabled={isUploading}
+        disabled={isUploading || !memoryId}
       />
       {uploaderTrigger}
     </>

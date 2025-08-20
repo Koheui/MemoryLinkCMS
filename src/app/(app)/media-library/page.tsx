@@ -171,6 +171,8 @@ export default function MediaLibraryPage() {
                                 assetType={type}
                                 accept={accept}
                                 onUploadSuccess={() => { /* can be used to refresh list if needed */ }}
+                                // memoryId is not provided here, so upload is disabled.
+                                // This is intentional for the library page. A page must be selected first.
                               >
                                  <Button size="sm">
                                     <PlusCircle className="mr-2 h-4 w-4"/>

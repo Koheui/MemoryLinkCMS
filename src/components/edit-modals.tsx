@@ -280,6 +280,7 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, blockCoun
                     assetType={type}
                     accept={`${type}/*`}
                     onUploadSuccess={handleUploadSuccess}
+                    memoryId={memory.id}
                 >
                     <Button type="button" variant="outline"><Upload className="h-4 w-4"/></Button>
                 </MediaUploader>
