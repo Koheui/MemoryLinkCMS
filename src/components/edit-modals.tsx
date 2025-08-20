@@ -15,7 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, Save, Image as ImageIcon, Video, Mic, Type, Link, Square, Album, Upload } from 'lucide-react';
+import { Loader2, Save, Image as ImageIcon, Video, Mic, Type, Link, Square, Album, Upload, Clapperboard, Music } from 'lucide-react';
 import Image from 'next/image';
 import { MediaUploader } from './media-uploader';
 
@@ -120,7 +120,7 @@ export function AboutModal({ isOpen, setIsOpen, memory }: { isOpen: boolean, set
     useEffect(() => {
        if (isOpen) {
             setTitle(memory.title);
-            setDescription(memory.description);
+            setDescription(memory.description || '');
        }
     }, [memory, isOpen]);
 
@@ -190,7 +190,7 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, blockCoun
 
     useEffect(() => {
         if (isOpen) {
-            if (isEditing) {
+            if (isEditing && block) {
                 setBlockType(block.type);
                 setTitle(block.title || '');
                 if (block.type === 'text') setTextContent(block.text?.content || '');
@@ -224,13 +224,15 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, blockCoun
 
         setIsSaving(true);
         try {
+            const getAssetUrl = (id?: string) => assets.find(a => a.id === id)?.url || null;
+
             if (isEditing && block) {
                 const blockRef = doc(db, 'memories', memory.id, 'blocks', block.id);
                 const updateData: any = { title, updatedAt: serverTimestamp(), type: blockType };
                 if (blockType === 'text') updateData.text = { content: textContent };
-                if (blockType === 'photo') updateData.photo = { assetId: selectedAssetId, caption: photoCaption, src: assets.find(a => a.id === selectedAssetId)?.url || null };
-                if (blockType === 'video') updateData.video = { assetId: selectedAssetId, src: assets.find(a => a.id === selectedAssetId)?.url || null };
-                if (blockType === 'audio') updateData.audio = { assetId: selectedAssetId, src: assets.find(a => a.id === selectedAssetId)?.url || null };
+                if (blockType === 'photo') updateData.photo = { assetId: selectedAssetId, caption: photoCaption, src: getAssetUrl(selectedAssetId) };
+                if (blockType === 'video') updateData.video = { assetId: selectedAssetId, src: getAssetUrl(selectedAssetId) };
+                if (blockType === 'audio') updateData.audio = { assetId: selectedAssetId, src: getAssetUrl(selectedAssetId) };
                 await updateDoc(blockRef, updateData);
                 toast({ title: '成功', description: 'ブロックを更新しました。' });
             } else {
@@ -243,9 +245,9 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, blockCoun
                     updatedAt: serverTimestamp(),
                 };
                 if (blockType === 'text') newBlockData.text = { content: textContent };
-                if (blockType === 'photo') newBlockData.photo = { assetId: selectedAssetId, caption: photoCaption, src: assets.find(a => a.id === selectedAssetId)?.url || null };
-                if (blockType === 'video') newBlockData.video = { assetId: selectedAssetId, src: assets.find(a => a.id === selectedAssetId)?.url || null };
-                if (blockType === 'audio') newBlockData.audio = { assetId: selectedAssetId, src: assets.find(a => a.id === selectedAssetId)?.url || null };
+                if (blockType === 'photo') newBlockData.photo = { assetId: selectedAssetId, caption: photoCaption, src: getAssetUrl(selectedAssetId) };
+                if (blockType === 'video') newBlockData.video = { assetId: selectedAssetId, src: getAssetUrl(selectedAssetId) };
+                if (blockType === 'audio') newBlockData.audio = { assetId: selectedAssetId, src: getAssetUrl(selectedAssetId) };
                 
                 await addDoc(collection(db, 'memories', memory.id, 'blocks'), newBlockData);
                 toast({ title: '成功', description: '新しいブロックを追加しました。' });
@@ -302,12 +304,19 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, blockCoun
                 </div>
             );
         }
+        
+        const selectedAsset = assets.find(a => a.id === selectedAssetId);
 
         let specificFields = null;
         if (blockType === 'photo') {
             specificFields = (
                  <div className="space-y-4">
                     {renderAssetSelector('image', imageAssets, '写真を選択...')}
+                    {selectedAsset && (
+                         <div className="mt-2 rounded-md overflow-hidden aspect-video relative bg-muted flex items-center justify-center">
+                            <Image src={selectedAsset.url} alt="Preview" fill className="object-cover" />
+                        </div>
+                    )}
                      <div>
                         <Label htmlFor="caption">キャプション (任意)</Label>
                         <Input id="caption" value={photoCaption} onChange={(e) => setPhotoCaption(e.target.value)} />
@@ -315,9 +324,29 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, blockCoun
                 </div>
             )
         } else if (blockType === 'video') {
-            specificFields = renderAssetSelector('video', videoAssets, '動画を選択...');
+            specificFields = (
+                 <div className="space-y-4">
+                    {renderAssetSelector('video', videoAssets, '動画を選択...')}
+                    {selectedAsset && (
+                         <div className="mt-2 rounded-md overflow-hidden aspect-video relative bg-muted flex items-center justify-center text-muted-foreground">
+                            <Clapperboard className="w-12 h-12" />
+                            <p className="absolute bottom-2 left-2 text-xs bg-black/50 text-white px-1 py-0.5 rounded">{selectedAsset.name}</p>
+                        </div>
+                    )}
+                 </div>
+            )
         } else if (blockType === 'audio') {
-            specificFields = renderAssetSelector('audio', audioAssets, '音声を選択...');
+             specificFields = (
+                 <div className="space-y-4">
+                    {renderAssetSelector('audio', audioAssets, '音声を選択...')}
+                    {selectedAsset && (
+                        <div className="mt-2 rounded-md p-4 bg-muted flex items-center gap-3 text-muted-foreground">
+                            <Music className="w-6 h-6" />
+                            <p className="text-sm font-medium">{selectedAsset.name}</p>
+                        </div>
+                    )}
+                 </div>
+            )
         } else if (blockType === 'text') {
              specificFields = (
                  <div>
