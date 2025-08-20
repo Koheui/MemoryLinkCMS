@@ -1,40 +1,52 @@
-
 rules_version = '2';
+
+function isSignedIn() { return request.auth != null; }
+function isAdmin() { return isSignedIn() && request.auth.token.role == 'admin'; }
+function isOwner(uid) { return isSignedIn() && request.auth.uid == uid; }
+
+// Function to check ownership of the parent memory document
+function isMemoryOwner(memoryId) {
+  return get(/databases/$(database)/documents/memories/$(memoryId)).data.ownerUid == request.auth.uid;
+}
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
+
     // User can only read/write their own user document
     match /users/{uid} {
-      allow read, write: if request.auth.uid == uid;
+      allow read, write: if isOwner(uid) || isAdmin();
     }
 
-    // Memories can be read/written by their owner.
+    // Memories can only be read/written by their owner or an admin
     match /memories/{memoryId} {
-      allow read, write: if request.auth.uid == resource.data.ownerUid;
-
-      // Anyone can read the blocks of a memory if the memory is published
-      // This might need refinement based on public page logic
+      allow read, write: if isMemoryOwner(memoryId) || isAdmin();
+      
+      // Blocks can be read/written by the owner of the parent memory, or an admin.
       match /blocks/{blockId} {
-         allow read, write: if request.auth.uid == get(/databases/$(database)/documents/memories/$(memoryId)).data.ownerUid;
+        allow read, write: if isMemoryOwner(memoryId) || isAdmin();
       }
     }
-
-    // Assets can be read/written by their owner.
-    // This uses a collection group query.
-    match /{path=**}/assets/{assetId} {
-      allow read, write: if request.auth.uid == resource.data.ownerUid;
+    
+    // NEW RULE: Assets can be read by their owner, and created/updated/deleted by their owner.
+    match /assets/{assetId} {
+      allow read, delete, update: if isOwner(resource.data.ownerUid);
+      allow create: if isOwner(request.resource.data.ownerUid);
     }
 
     // Orders are admin-only for now
     match /orders/{orderId} {
-      allow read, write: if request.auth.token.role == 'admin';
+      allow read, write: if isAdmin();
     }
 
     // Public pages are read-only for everyone, and cannot be written by clients.
     match /publicPages/{pageId} {
       allow read: if true;
-      allow write: if false; // Should be written by functions only
+      allow write: if false; // Should only be written by Cloud Functions
+      
+      match /blocks/{blockId} {
+         allow read: if false; // Should not be read directly
+         allow write: if false;
+      }
     }
   }
 }
