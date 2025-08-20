@@ -93,6 +93,8 @@ export function AuthForm({ type }: AuthFormProps) {
       }
       
       const idToken = await userCredential.user.getIdToken(true);
+      
+      // IMPORTANT: Wait for the session cookie to be set before redirecting.
       const res = await fetch('/api/auth/sessionLogin', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -104,8 +106,9 @@ export function AuthForm({ type }: AuthFormProps) {
           throw new Error(errorData.details || `セッションの作成に失敗しました。ステータス: ${res.status}`);
       }
       
-      // Redirect to a dedicated redirector page which will handle server-side redirection to the correct memory page.
-      window.location.assign(`/memories/redirect`);
+      // Redirect to a dedicated redirector page which will handle server-side redirection.
+      // This is more robust than client-side redirects.
+      window.location.assign('/memories/redirect');
 
     } catch (error: any) {
         let description = '予期せぬエラーが発生しました。';

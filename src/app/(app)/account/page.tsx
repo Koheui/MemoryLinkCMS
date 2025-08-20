@@ -8,9 +8,20 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Loader2 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 
 export default function AccountPage() {
   const { user, loading, handleLogout } = useAuth();
+  const router = useRouter();
+
+  // This is a fallback. Ideally, users are redirected to their memory page directly.
+  useEffect(() => {
+    if (!loading && !user) {
+      router.replace('/login');
+    }
+  }, [user, loading, router]);
+
 
   if (loading || !user) {
     return (

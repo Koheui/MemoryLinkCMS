@@ -32,15 +32,16 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!loading && !user) {
-      router.push('/login');
+      // Allow access to login/signup pages without redirecting in a loop
+      if (!pathname.startsWith('/login') && !pathname.startsWith('/signup')) {
+         router.push('/login');
+      }
     }
-  }, [user, loading, router]);
+  }, [user, loading, router, pathname]);
 
   useEffect(() => {
     const fetchMemoryId = async () => {
         if (user) {
-            // This now primarily serves to get the memoryId for the sidebar link.
-            // Redirection logic is handled by the redirect page or direct navigation.
             setIsFetchingMemoryId(true);
             try {
                 const memoriesQuery = query(
@@ -52,14 +53,8 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
                 if (!querySnapshot.empty) {
                     const fetchedMemoryId = querySnapshot.docs[0].id;
                     setMemoryId(fetchedMemoryId);
-                     // If user lands on /account, redirect them to their memory page
-                    if (pathname === '/account' && fetchedMemoryId) {
-                       router.replace(`/memories/${fetchedMemoryId}`);
-                       return;
-                    }
                 } else {
                     console.warn("No memory found for user:", user.uid);
-                    // This can happen for a new user, they will be directed to create one.
                 }
             } catch (error) {
                 console.error("Error fetching memoryId for sidebar:", error);
@@ -70,13 +65,13 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
             setIsFetchingMemoryId(false);
         }
     };
-    if (!loading) {
+    if (!loading && user) {
       fetchMemoryId();
     }
-  }, [user, loading, pathname, router]);
+  }, [user, loading]);
 
 
-  if (loading || (!user && !pathname.startsWith('/login') && !pathname.startsWith('/signup') )) {
+  if (loading) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="flex items-center gap-2">
@@ -107,7 +102,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
         </SidebarHeader>
         <SidebarMenu className="flex-1">
           <SidebarMenuItem>
-            <SidebarMenuButton asChild isActive={pathname.startsWith('/memories')} disabled={!memoryId || isFetchingMemoryId}>
+            <SidebarMenuButton asChild isActive={pathname.startsWith('/memories')} disabled={isFetchingMemoryId}>
               <Link href={editPageHref}><Edit/> ページ編集</Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
