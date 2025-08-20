@@ -6,8 +6,8 @@ import { useRef, useState, type ReactNode } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { storage, db } from '@/lib/firebase/client';
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { ref, uploadBytesResumable, getDownloadURL, updateMetadata } from 'firebase/storage';
+import { collection, addDoc, serverTimestamp, doc, updateDoc } from 'firebase/firestore';
 import type { Asset } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
 
@@ -15,11 +15,11 @@ interface MediaUploaderProps {
   assetType: 'image' | 'video' | 'audio';
   accept: string;
   children: ReactNode;
-  onUploadSuccess?: (asset: Asset) => void;
+  onUploadStarted?: (assetId: string) => void;
   memoryId: string;
 }
 
-export function MediaUploader({ assetType, accept, children, onUploadSuccess, memoryId }: MediaUploaderProps) {
+export function MediaUploader({ assetType, accept, children, onUploadStarted, memoryId }: MediaUploaderProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -43,41 +43,52 @@ export function MediaUploader({ assetType, accept, children, onUploadSuccess, me
     if (fileInputRef.current) fileInputRef.current.value = "";
     
     const storagePath = `users/${user.uid}/memories/${memoryId}/${assetType}/${Date.now()}_${file.name}`;
-    const storageRef = ref(storage, storagePath);
-
+    
     try {
+      // 1. Create a document in Firestore first to get an ID
+      const assetData: Omit<Asset, 'id' | 'createdAt' | 'updatedAt' | 'url' | 'storagePath'> = {
+        ownerUid: user.uid,
+        memoryId: memoryId,
+        name: file.name,
+        type: assetType,
+        size: file.size,
+      };
+
+      const docRef = await addDoc(collection(db, 'assets'), {
+        ...assetData,
+        storagePath: storagePath, // Store path early
+        url: '', // URL is not available yet
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+
+      // Notify parent component that an asset has been created and upload is starting
+      onUploadStarted?.(docRef.id);
+
+      // 2. Start the upload to Firebase Storage
+      const storageRef = ref(storage, storagePath);
       const uploadTask = uploadBytesResumable(storageRef, file, { contentType: file.type });
 
       uploadTask.on('state_changed',
-        (snapshot) => {},
+        (snapshot) => {
+          // Can be used to show progress
+        },
         (error) => {
           console.error("Upload failed:", error);
           toast({ variant: 'destructive', title: 'アップロード失敗', description: error.message });
+          // Optionally, delete the Firestore document if upload fails
           setIsUploading(false);
         },
         async () => {
+          // 3. Once upload is complete, get the URL and update the Firestore document
           const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
           
-          const assetData: Omit<Asset, 'id' | 'createdAt' | 'updatedAt'> = {
-            ownerUid: user.uid,
-            memoryId: memoryId,
-            name: file.name,
-            type: assetType,
-            storagePath: storagePath,
+          await updateDoc(doc(db, 'assets', docRef.id), {
             url: downloadURL,
-            size: file.size,
-          };
-          
-          const docRef = await addDoc(collection(db, 'assets'), {
-             ...assetData,
-             createdAt: serverTimestamp(),
-             updatedAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
           });
           
-          const newAsset = { id: docRef.id, ...assetData, createdAt: new Date(), updatedAt: new Date() } as Asset;
-          onUploadSuccess?.(newAsset);
-          
-          toast({ title: '成功', description: `${file.name} をアップロードしました。` });
+          toast({ title: '成功', description: `${file.name} のアップロードが完了しました。` });
           setIsUploading(false);
         }
       );
@@ -129,3 +140,5 @@ export function MediaUploader({ assetType, accept, children, onUploadSuccess, me
     </>
   );
 }
+
+    

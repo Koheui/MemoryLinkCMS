@@ -261,9 +261,11 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, blockCoun
         }
     };
     
-    const handleUploadSuccess = (newAsset: Asset) => {
-        setSelectedAssetId(newAsset.id);
-        toast({ title: "アップロード成功", description: `${newAsset.name}が選択されました。`});
+    const handleUploadStarted = (assetId: string) => {
+        setSelectedAssetId(assetId);
+        toast({ title: "アップロード開始", description: `ファイルのアップロードを開始しました。`});
+        // We can now immediately save.
+        handleSave();
     }
 
     const renderAssetSelector = (
@@ -283,8 +285,8 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, blockCoun
                 <MediaUploader
                     assetType={type}
                     accept={`${type}/*`}
-                    onUploadSuccess={handleUploadSuccess}
                     memoryId={memory.id}
+                    onUploadStarted={handleUploadStarted}
                 >
                     <Button type="button" variant="outline"><Upload className="h-4 w-4"/></Button>
                 </MediaUploader>
@@ -312,7 +314,7 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, blockCoun
             specificFields = (
                  <div className="space-y-4">
                     {renderAssetSelector('image', imageAssets, '写真を選択...')}
-                    {selectedAsset && (
+                    {selectedAsset?.url && (
                          <div className="mt-2 rounded-md overflow-hidden aspect-video relative bg-muted flex items-center justify-center">
                             <Image src={selectedAsset.url} alt="Preview" fill className="object-cover" />
                         </div>
@@ -391,3 +393,5 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, blockCoun
         </Dialog>
     );
 }
+
+    
