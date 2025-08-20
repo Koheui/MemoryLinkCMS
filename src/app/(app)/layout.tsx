@@ -1,4 +1,3 @@
-
 // src/app/(app)/layout.tsx
 "use client";
 
@@ -10,8 +9,6 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarHeader,
-  SidebarTrigger,
-  SidebarInset,
 } from '@/components/ui/sidebar';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -20,7 +17,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { db } from '@/lib/firebase/client';
-import { collection, query, where, getDocs, limit, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, limit } from 'firebase/firestore';
 
 
 function AppLayoutContent({ children }: { children: React.ReactNode }) {
@@ -30,17 +27,14 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
   const [memoryId, setMemoryId] = useState<string | null>(null);
   const [isFetchingMemoryId, setIsFetchingMemoryId] = useState(true);
   
-  // This effect handles the initial check for a user. If not logged in, it redirects to the login page.
   useEffect(() => {
     if (!loading && !user) {
-      // Only redirect if we are not already on a public-facing auth page.
       if (!pathname.startsWith('/login') && !pathname.startsWith('/signup')) {
          router.push('/login');
       }
     }
   }, [user, loading, router, pathname]);
 
-  // This effect fetches the memoryId for the sidebar link once the user is authenticated.
   useEffect(() => {
     const fetchMemoryId = async () => {
         if (user) {
@@ -54,14 +48,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
                 const querySnapshot = await getDocs(memoriesQuery);
                 if (!querySnapshot.empty) {
                     const doc = querySnapshot.docs[0];
-                    const fetchedMemoryId = doc.id;
-                    setMemoryId(fetchedMemoryId);
-
-                    // Backwards compatibility: if publicPageId is missing, set it.
-                    if (!doc.data().publicPageId) {
-                      const memoryRef = doc.ref;
-                      await updateDoc(memoryRef, { publicPageId: fetchedMemoryId });
-                    }
+                    setMemoryId(doc.id);
                 }
             } catch (error) {
                 console.error("Error fetching memoryId for sidebar:", error);
@@ -77,16 +64,14 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
     }
   }, [user, loading]);
 
-  // This effect redirects the user to their memory editing page once the memoryId is fetched.
   useEffect(() => {
-    // We are on a page that is not the edit page, and we have the ID, so redirect.
-    if (user && !isFetchingMemoryId && memoryId && !pathname.startsWith('/memories')) {
+    if (user && !isFetchingMemoryId && memoryId && (pathname === '/account' || pathname === '/')) {
         router.replace(`/memories/${memoryId}`);
     }
   }, [user, isFetchingMemoryId, memoryId, pathname, router]);
 
 
-  if (loading || (user && isFetchingMemoryId)) {
+  if (loading || (user && isFetchingMemoryId && pathname !== '/login' && pathname !== '/signup')) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="flex items-center gap-2">
@@ -96,14 +81,12 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
       </div>
     );
   }
-
-  // This will be null if user is not logged in, preventing render of protected layout.
-  // The children (the login page) will be rendered instead.
+  
   if (!user) {
     return <>{children}</>;
   }
   
-  const editPageHref = memoryId ? `/memories/${memoryId}` : '#';
+  const editPageHref = memoryId ? `/memories/${memoryId}` : '/account';
 
   return (
     <SidebarProvider>
@@ -155,9 +138,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
             </div>
         </div>
       </Sidebar>
-      <SidebarInset>
-        <main className="flex-1 bg-muted/30">{children}</main>
-      </SidebarInset>
+      <main className="flex-1 bg-muted/30 peer-[[data-variant=inset]]:ml-[var(--sidebar-width)] peer-[[data-state=collapsed]]:peer-[[data-variant=inset]]:ml-[var(--sidebar-width-icon)]">{children}</main>
     </SidebarProvider>
   );
 }
