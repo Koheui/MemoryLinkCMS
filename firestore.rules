@@ -3,22 +3,58 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
     function isOwner(uid) {
-      return request.auth != null && request.auth.uid == uid;
+      return isSignedIn() && request.auth.uid == uid;
+    }
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.role == 'admin';
     }
 
+    // User can only read/write their own user document
     match /users/{uid} {
-      allow read, write: if isOwner(uid);
+      allow read, write: if isOwner(uid) || isAdmin();
     }
 
+    // Memories:
+    // - read: owner or admin
+    // - create, update, delete: owner or admin
     match /memories/{memoryId} {
-      allow read, write: if isOwner(resource.data.ownerUid);
+      allow read: if isOwner(resource.data.ownerUid) || isAdmin();
+      allow write: if isOwner(request.resource.data.ownerUid) || isAdmin();
+
+      // Blocks subcollection
+      match /blocks/{blockId} {
+         allow read, write: if isOwner(get(/databases/$(database)/documents/memories/$(memoryId)).data.ownerUid) || isAdmin();
+      }
+    }
+    
+    // Assets:
+    // This rule allows a user to query the 'assets' collection group
+    // for all assets they own, which is needed for the media library.
+    match /{path=**}/assets/{assetId} {
+      allow read: if isOwner(resource.data.ownerUid) || isAdmin();
+      allow write: if isOwner(request.resource.data.ownerUid) || isAdmin();
     }
 
-    // This rule allows a user to query for their own assets.
-    // It is secure because it checks the ownerUid against the user's token.
-    match /assets/{assetId} {
-       allow read, write: if isOwner(request.resource.data.ownerUid) || isOwner(resource.data.ownerUid);
+    // Orders are admin-only for now
+    match /orders/{orderId} {
+      allow read, write: if isAdmin();
+    }
+
+    // Activation Keys are admin-only for now.
+    // In the future, a function will handle claiming them.
+    match /activationKeys/{keyId} {
+        allow read, write: if isAdmin();
+    }
+
+    // Public pages are read-only for everyone, and cannot be written by clients.
+    match /publicPages/{pageId} {
+      allow read: if true;
+      allow write: if false; // Should be written by Functions only
     }
   }
 }

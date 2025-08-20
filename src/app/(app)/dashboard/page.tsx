@@ -23,8 +23,11 @@ export default function DashboardPage() {
     const { toast } = useToast();
 
     useEffect(() => {
+        if (authLoading) {
+            return;
+        }
         if (!user) {
-            if(!authLoading) setLoading(false);
+            setLoading(false);
             return;
         }
 
