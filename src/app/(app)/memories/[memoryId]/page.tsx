@@ -2,9 +2,9 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import type { Memory, Asset, PublicPageBlock } from '@/lib/types';
+import type { Memory, Asset } from '@/lib/types';
 import { db, storage } from '@/lib/firebase/client';
-import { doc, getDoc, collection, getDocs, query, orderBy, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, collection, getDocs, query, orderBy, where } from 'firebase/firestore';
 import { getDownloadURL, ref } from 'firebase/storage';
 import { notFound, useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
