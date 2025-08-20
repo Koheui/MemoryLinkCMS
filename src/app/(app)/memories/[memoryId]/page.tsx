@@ -42,9 +42,7 @@ export default function MemoryEditorPage() {
             const memoryData = memoryDoc.data() as Omit<Memory, 'id'>;
             setMemory({ id: memoryDoc.id, ...memoryData } as Memory);
 
-            // Fetch Assets. These are now in a top-level collection per the media library update.
-            // We will fetch assets belonging to this user. A more advanced implementation
-            // might filter by memoryId if assets were linked, but a central library is simpler.
+            // Fetch Assets.
             const assetsQuery = query(collection(db, 'assets'), where('ownerUid', '==', user.uid), orderBy('createdAt', 'desc'));
             
             const assetsSnapshot = await getDocs(assetsQuery);
@@ -112,7 +110,7 @@ export default function MemoryEditorPage() {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-background/80 px-4 backdrop-blur-sm md:px-6">
+      <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-background/80 px-4 backdrop-blur-sm sm:px-6">
         <div>
            <h1 className="text-xl font-bold tracking-tight font-headline">{memory.title}</h1>
            <p className="text-sm text-muted-foreground">編集モード</p>
@@ -129,10 +127,10 @@ export default function MemoryEditorPage() {
       </header>
 
       {/* Editor Canvas */}
-      <div className="mx-auto max-w-3xl p-4 md:p-8">
+      <div className="mx-auto max-w-3xl p-4 sm:p-8">
         <main className="rounded-lg border bg-card shadow-sm">
           {/* Cover Image */}
-          <div className="group relative h-48 w-full cursor-pointer overflow-hidden rounded-t-lg bg-muted/50">
+          <div className="group relative h-48 w-full cursor-pointer overflow-hidden rounded-t-lg bg-muted/50 sm:h-64">
             {coverImageUrl ? (
                 <Image src={coverImageUrl} alt={memory.title} fill className="object-cover" />
             ) : (
@@ -147,8 +145,8 @@ export default function MemoryEditorPage() {
           </div>
 
            {/* Profile & Title Section */}
-           <div className="relative mb-8 flex flex-col items-center px-6">
-             <div className="group relative -mt-16 h-32 w-32 cursor-pointer overflow-hidden rounded-full border-4 border-card shadow-lg">
+           <div className="relative mb-8 flex flex-col items-center p-6">
+             <div className="group relative -mt-20 h-32 w-32 cursor-pointer overflow-hidden rounded-full border-4 border-card shadow-lg sm:-mt-24 sm:h-36 sm:w-36">
                 {profileImageUrl ? (
                      <Image src={profileImageUrl} alt="Profile" fill className="object-cover" />
                 ) : (
@@ -162,8 +160,8 @@ export default function MemoryEditorPage() {
              </div>
              
              <div className="group relative mt-4 w-full text-center">
-                 <h1 className="text-3xl font-bold font-headline peer">{memory.title}</h1>
-                 <p className="text-muted-foreground peer">{memory.description || '概要をここに追加します'}</p>
+                 <h1 className="text-3xl font-bold font-headline peer sm:text-4xl">{memory.title}</h1>
+                 <p className="text-muted-foreground peer mt-1">{memory.description || '概要をここに追加します'}</p>
                  <Button size="sm" variant="ghost" className="absolute -right-2 -top-2 opacity-0 transition-opacity peer-hover:opacity-100 group-hover:opacity-100">
                     <Edit className="h-4 w-4"/>
                  </Button>
@@ -171,7 +169,7 @@ export default function MemoryEditorPage() {
            </div>
 
           {/* Blocks Section */}
-           <div className="space-y-4 p-4 md:p-6">
+           <div className="space-y-4 p-4 pt-0 sm:p-6 sm:pt-0">
              <BlockEditor memory={memory} assets={assets} />
            </div>
         </main>
