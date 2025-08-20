@@ -150,11 +150,6 @@ function isSignedIn() { return request.auth != null; }
 function isAdmin() { return isSignedIn() && request.auth.token.role == 'admin'; }
 function isOwner(uid) { return isSignedIn() && request.auth.uid == uid; }
 
-// Function to check ownership of the parent memory document
-function isMemoryOwner(memoryId) {
-  return get(/databases/$(database)/documents/memories/$(memoryId)).data.ownerUid == request.auth.uid;
-}
-
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -165,13 +160,19 @@ service cloud.firestore {
 
     // Memories can only be read/written by their owner or an admin
     match /memories/{memoryId} {
-      allow read, write: if isMemoryOwner(memoryId) || isAdmin();
+      allow read: if isOwner(resource.data.ownerUid) || isAdmin();
+      allow write: if isOwner(request.resource.data.ownerUid) || isAdmin();
     }
 
     // Assets can be read/written by the owner of the parent memory, or an admin.
-    // This uses a collection group query, so the rule must be robust.
+    match /assets/{assetId} {
+       allow create: if isOwner(request.resource.data.ownerUid) || isAdmin();
+       allow read, update, delete: if isOwner(resource.data.ownerUid) || isAdmin();
+    }
+    
+    // Subcollection assets (legacy, can be removed later if unused)
     match /memories/{memoryId}/assets/{assetId} {
-      allow read, write: if isMemoryOwner(memoryId) || isAdmin();
+       allow read, write: if isOwner(get(/databases/$(database)/documents/memories/$(memoryId)).data.ownerUid) || isAdmin();
     }
 
     // Orders are admin-only for now
@@ -526,3 +527,5 @@ Cloudflareは必須ではない。流量増時に前段WAF/キャッシュで追
 個人情報は公開ページに載せない運用。
 
 変更時はdeliver/のファイル名をハッシュ化してキャッシュ破棄を自然に。
+
+    
