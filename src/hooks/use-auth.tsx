@@ -31,7 +31,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const unsubscribe = onAuthStateChanged(auth, async (authUser) => {
       if (authUser) {
         try {
-          const tokenResult = await authUser.getIdTokenResult(true); // Force refresh
+          const tokenResult = await authUser.getIdTokenResult(); // Does not need to be forced on every change
           const claims = tokenResult.claims;
           setIsAdmin(claims.role === 'admin');
           setUser(authUser as AuthContextType['user']);

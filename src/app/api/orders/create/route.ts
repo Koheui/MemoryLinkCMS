@@ -17,12 +17,14 @@ async function verifyAdmin(uid: string): Promise<boolean> {
 }
 
 export async function POST(req: NextRequest) {
+  let adminUid;
   try {
-    const adminUid = await getUidFromRequest(req);
-    if (!adminUid) {
-      return err(401, 'Authentication failed');
-    }
-
+    adminUid = await getUidFromRequest(req);
+  } catch (e: any) {
+     return err(401, 'Authentication failed: ' + e.message);
+  }
+  
+  try {
     const isAdmin = await verifyAdmin(adminUid);
     if (!isAdmin) {
       return err(403, 'Forbidden: Administrator access required.');
@@ -38,14 +40,14 @@ export async function POST(req: NextRequest) {
     const db = getFirestore(getAdminApp());
     const newOrderRef = db.collection('orders').doc();
     
-    const newOrderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt' | 'userUid' | 'memoryId'> = {
-      email: email,
+    const newOrderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt' | 'userUid' | 'memoryId' | 'email'> = {
       productType: productType,
       status: 'draft',
     };
 
     await newOrderRef.set({
       ...newOrderData,
+      email: email, // Store email for invitation
       userUid: null,
       memoryId: null,
       createdAt: FieldValue.serverTimestamp(),
@@ -56,6 +58,7 @@ export async function POST(req: NextRequest) {
     const finalOrder = {
         id: newOrderRef.id,
         ...newOrderData,
+        email: email,
         userUid: null,
         memoryId: null,
         createdAt: new Date().toISOString(),
@@ -67,10 +70,7 @@ export async function POST(req: NextRequest) {
   } catch (e: any) {
     const msg = String(e?.message || e);
     console.error("API Error in /api/orders/create:", e);
-    if (msg.includes('UNAUTHENTICATED') || msg.includes('verifyIdToken')) {
-      return err(401, 'Authentication failed');
-    }
-     if (msg.includes('Forbidden')) {
+    if (msg.includes('Forbidden')) {
       return err(403, 'Forbidden: Administrator access required.');
     }
     return err(500, 'Internal Server Error: ' + msg);
