@@ -1,4 +1,3 @@
-
 // src/components/block-editor.tsx
 'use client';
 
@@ -421,25 +420,25 @@ export function BlockEditor({ memory, assets }: BlockEditorProps) {
                         />
                     ))
                 ) : (
-                    <div className="text-center py-10 border-2 border-dashed rounded-lg">
-                      <h3 className="text-sm font-semibold text-muted-foreground">
-                        コンテンツがありません
-                      </h3>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        下のボタンから最初のブロックを追加してください。
-                      </p>
+                     <div className="flex w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-muted-foreground/50 py-10 text-center text-muted-foreground">
+                        <h3 className="text-sm font-semibold">
+                            コンテンツがありません
+                        </h3>
+                        <p className="mt-1 text-sm">
+                            下のボタンから最初のブロックを追加してください。
+                        </p>
                     </div>
                 )}
             </div>
         </SortableContext>
       </DndContext>
       
-      <div className="mt-6">
+      <div className="mt-6 flex items-center justify-center">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline">
+            <Button variant="outline" className="w-full max-w-xs">
               <PlusCircle className="mr-2 h-4 w-4" />
-              ブロックを追加
+              コンテンツブロックを追加
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent>

@@ -1,4 +1,3 @@
-
 // src/app/(app)/memories/[memoryId]/page.tsx
 'use client';
 
@@ -13,6 +12,7 @@ import { Edit, Eye, Globe, Image as ImageIcon, Link as LinkIcon, Loader2, Mail, 
 import { useAuth } from '@/hooks/use-auth';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
+import { BlockEditor } from '@/components/block-editor';
 
 
 // This is the new Visual Editor Page
@@ -22,7 +22,6 @@ export default function MemoryEditorPage() {
   const { user, loading: authLoading } = useAuth();
   
   const [memory, setMemory] = useState<Memory | null>(null);
-  const [blocks, setBlocks] = useState<PublicPageBlock[]>([]);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [assetUrls, setAssetUrls] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
@@ -43,21 +42,15 @@ export default function MemoryEditorPage() {
             const memoryData = memoryDoc.data() as Omit<Memory, 'id'>;
             setMemory({ id: memoryDoc.id, ...memoryData } as Memory);
 
-            // Fetch Assets in parallel
-            const assetsQuery = query(collection(db, 'memories', memoryId, 'assets'), orderBy('createdAt', 'desc'));
+            // Fetch Assets. These are now in a top-level collection per the media library update.
+            // We will fetch assets belonging to this user. A more advanced implementation
+            // might filter by memoryId if assets were linked, but a central library is simpler.
+            const assetsQuery = query(collection(db, 'assets'), where('ownerUid', '==', user.uid), orderBy('createdAt', 'desc'));
+            
             const assetsSnapshot = await getDocs(assetsQuery);
             const fetchedAssets: Asset[] = assetsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Asset));
             setAssets(fetchedAssets);
-
-            // Set up real-time listener for blocks
-            const blocksQuery = query(collection(db, 'memories', memoryId, 'blocks'), orderBy('order', 'asc'));
-            const unsubscribe = onSnapshot(blocksQuery, (snapshot) => {
-                const fetchedBlocks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PublicPageBlock));
-                setBlocks(fetchedBlocks);
-            });
             
-            return () => unsubscribe();
-
         } catch (error) {
             console.error("Error fetching memory data:", error);
             return notFound();
@@ -79,9 +72,13 @@ export default function MemoryEditorPage() {
         memory?.profileAssetId,
       ].filter(Boolean) as string[];
 
-      for (const assetId of assetsToFetch) {
-        const asset = assets.find(a => a.id === assetId);
-        if (asset?.storagePath) {
+       const imageAssetsToFetch = assets
+        .filter(asset => assetsToFetch.includes(asset.id))
+        .filter(asset => !assetUrls[asset.id]);
+
+
+      for (const asset of imageAssetsToFetch) {
+        if (asset.storagePath) {
             try {
                 const url = await getDownloadURL(ref(storage, asset.storagePath));
                 urls[asset.id] = url;
@@ -90,13 +87,15 @@ export default function MemoryEditorPage() {
             }
         }
       }
-      setAssetUrls(prev => ({ ...prev, ...urls }));
+      if(Object.keys(urls).length > 0) {
+        setAssetUrls(prev => ({ ...prev, ...urls }));
+      }
     };
 
     if (assets.length > 0 && memory) {
       fetchAssetUrls();
     }
-  }, [assets, memory]);
+  }, [assets, memory, assetUrls]);
 
 
   if (loading || authLoading || !memory) {
@@ -109,15 +108,6 @@ export default function MemoryEditorPage() {
 
   const coverImageUrl = memory.coverAssetId ? assetUrls[memory.coverAssetId] : null;
   const profileImageUrl = memory.profileAssetId ? assetUrls[memory.profileAssetId] : null;
-
-  const blockIcons: { [key: string]: React.ReactNode } = {
-    album: <Milestone className="h-5 w-5" />,
-    video: <Video className="h-5 w-5" />,
-    audio: <Mic className="h-5 w-5" />,
-    text: <Type className="h-5 w-5" />,
-    default: <LinkIcon className="h-5 w-5" />,
-  };
-
 
   return (
     <div className="min-h-screen bg-background">
@@ -182,27 +172,7 @@ export default function MemoryEditorPage() {
 
           {/* Blocks Section */}
            <div className="space-y-4 p-4 md:p-6">
-              {blocks.map(block => (
-                <div key={block.id} className="group relative w-full cursor-pointer rounded-lg border bg-background p-4 transition-colors hover:border-primary">
-                  <div className="flex items-center gap-4">
-                    <div className="flex-shrink-0 text-muted-foreground">
-                        {blockIcons[block.type] || blockIcons.default}
-                    </div>
-                    <div className="flex-grow text-lg font-semibold">
-                        {block.title}
-                    </div>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100">
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
-
-               {/* Add New Block */}
-               <button className="flex w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-muted-foreground/50 py-10 text-center text-muted-foreground transition-colors hover:border-primary hover:bg-primary/5 hover:text-primary">
-                  <Plus className="h-8 w-8"/>
-                  <span className="font-semibold">コンテンツブロックを追加</span>
-               </button>
+             <BlockEditor memory={memory} assets={assets} />
            </div>
         </main>
       </div>
