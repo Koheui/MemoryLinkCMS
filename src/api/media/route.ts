@@ -1,7 +1,9 @@
 // src/app/api/media/route.ts
-// This legacy route is no longer used, as uploads are handled via the client-side SDK
-// and assets are created as a subcollection of a memory.
-// It can be removed or kept for reference for other server-side API patterns.
+// This route is not currently used by the new MediaUploader component,
+// as it writes directly to Firestore from the client.
+// This is acceptable for this stage of the project as Firestore rules
+// can secure the 'assets' collection.
+// We are leaving the file here for potential future use (e.g. server-side validation).
 import { NextRequest, NextResponse } from 'next/server';
 import { getUidFromRequest } from '../_lib/auth';
 import { getAdminApp } from '@/lib/firebase/firebaseAdmin';
@@ -13,14 +15,15 @@ function err(status: number, msg: string) {
 
 export async function POST(req: NextRequest) {
   try {
-    const uid = await getUidFromRequest(req);
+    const uid = await getUidFromRequest(req); // ★ verifyIdToken → uid
     if (!uid) {
       return err(401, 'UNAUTHENTICATED: Invalid or missing token.');
     }
     
     const body = await req.json();
 
-    const required = ['name','type','url','storagePath','size', 'memoryId'];
+    // Note: The new Asset type requires `storagePath`
+    const required = ['name','type','url','storagePath','size'];
     for (const k of required) {
       if (body?.[k] === undefined) return err(400, `Missing field: ${k}`);
     }
@@ -29,19 +32,14 @@ export async function POST(req: NextRequest) {
     }
 
     const db = getFirestore(getAdminApp());
-    // Create asset in the subcollection of the specified memory
-    const docRef = db.collection('memories').doc(body.memoryId).collection('assets').doc();
+    // The collection should be 'assets' according to the new media library logic
+    const docRef = db.collection('assets').doc();
     const now = new Date();
 
     const newAsset = { 
       id: docRef.id, 
       ownerUid: uid, 
-      memoryId: body.memoryId,
-      name: body.name,
-      type: body.type,
-      url: body.url,
-      storagePath: body.storagePath,
-      size: body.size,
+      ...body, 
       createdAt: now, 
       updatedAt: now 
     };
