@@ -65,7 +65,7 @@ export function AuthForm({ type }: AuthFormProps) {
         userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
         const user = userCredential.user;
 
-        // Create user profile
+        // Create user profile in 'users' collection
         const userRef = doc(db, 'users', user.uid);
         const userProfile: Omit<UserProfile, 'id'> = {
           email: user.email!,
@@ -74,38 +74,20 @@ export function AuthForm({ type }: AuthFormProps) {
         };
         await setDoc(userRef, userProfile);
         
-        // Use the user's UID as the memoryId
-        const memoryDocRef = doc(db, 'memories', user.uid);
-        const newMemoryData = {
-            ownerUid: user.uid,
-            title: '無題のページ',
-            status: 'draft',
-            publicPageId: user.uid, // Use UID for public page ID as well
-            coverAssetId: null,
-            profileAssetId: null,
-            description: '',
-            design: {
-                theme: 'light',
-                fontScale: 1.0,
-            },
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-        };
-
-        await setDoc(memoryDocRef, newMemoryData);
-        
-        // On success, go to the account page. The AppLayout will handle redirecting to the editor.
-        window.location.assign('/account');
+        // On new user signup, redirect to dashboard where they can create their first page.
+        // The idea of creating a page automatically is removed to support multiple pages per user.
+        toast({ title: "ようこそ！", description: "アカウントが作成されました。ダッシュボードに移動します。"});
+        router.push('/dashboard');
 
       } else { // Login
         userCredential = await signInWithEmailAndPassword(auth, data.email, data.password);
-        // On success, go to the account page. The AppLayout will handle redirecting to the editor if needed.
-        window.location.assign('/account');
+        // On success, go to the dashboard.
+        router.push('/dashboard');
       }
 
     } catch (error: any) {
         let description = '予期せぬエラーが発生しました。';
-        if (error.code) { // Firebase errors have a 'code' property
+        if (error.code) {
             switch (error.code) {
                 case 'auth/email-already-in-use':
                     description = 'このメールアドレスは既に使用されています。';
@@ -123,7 +105,7 @@ export function AuthForm({ type }: AuthFormProps) {
                 default:
                     description = `Firebaseエラー: ${error.message} (コード: ${error.code})`;
             }
-        } else { // Custom errors
+        } else {
             description = `エラー: ${error.message}`;
         }
         

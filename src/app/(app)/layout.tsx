@@ -1,4 +1,3 @@
-
 // src/app/(app)/layout.tsx
 "use client";
 
@@ -13,19 +12,18 @@ import {
 } from '@/components/ui/sidebar';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Heart, LogOut, Library, ShieldCheck, Loader2, UserCircle, Edit } from 'lucide-react';
+import { Heart, LogOut, Library, ShieldCheck, Loader2, UserCircle, LayoutDashboard } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 
 
-function AppLayoutContent({ children }: { children: React.ReactNode }) {
+function AppLayoutContent({ children }: { children: React.Node }) {
   const { user, loading, isAdmin, handleLogout } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
   
   useEffect(() => {
-    // If auth is done loading and there's no user, redirect to login
     if (!loading && !user) {
       if (!pathname.startsWith('/login') && !pathname.startsWith('/signup')) {
          router.push('/login');
@@ -33,15 +31,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
     }
   }, [user, loading, router, pathname]);
 
-  useEffect(() => {
-    // Once we have a user, their memoryId is their uid. Redirect them to their page.
-    if (user && !loading && pathname === '/account') {
-        router.replace(`/memories/${user.uid}`);
-    }
-  }, [user, loading, pathname, router]);
-
-
-  if (loading || !user) {
+  if (loading) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="flex items-center gap-2">
@@ -52,16 +42,20 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
     );
   }
   
-  // The user exists, so their memoryId is their uid.
-  const memoryId = user.uid;
-  const editPageHref = `/memories/${memoryId}`;
+  if (!user) {
+    // If there is no user, we are likely on the login/signup page.
+    // The main content will be rendered without the sidebar.
+    return <>{children}</>;
+  }
+
+  const dashboardHref = '/dashboard';
 
   return (
     <SidebarProvider>
       <Sidebar>
         <SidebarHeader>
           <div className="flex items-center gap-2">
-             <Link href={editPageHref} className="flex items-center gap-2 font-headline" prefetch={false}>
+             <Link href={dashboardHref} className="flex items-center gap-2 font-headline" prefetch={false}>
                 <Heart className="h-6 w-6 text-primary" />
                 <span className="text-lg font-bold">想い出リンク</span>
              </Link>
@@ -69,8 +63,8 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
         </SidebarHeader>
         <SidebarMenu className="flex-1">
           <SidebarMenuItem>
-            <SidebarMenuButton asChild isActive={pathname.startsWith('/memories')}>
-              <Link href={editPageHref}><Edit/> ページ編集</Link>
+            <SidebarMenuButton asChild isActive={pathname.startsWith('/dashboard')}>
+              <Link href={dashboardHref}><LayoutDashboard/> ダッシュボード</Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
@@ -111,7 +105,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default function AppLayout({ children }: { children: React.ReactNode }) {
+export default function AppLayout({ children }: { children: React.Node }) {
   return (
     <AuthProvider>
       <AppLayoutContent>{children}</AppLayoutContent>

@@ -1,14 +1,141 @@
-
 // src/app/(app)/dashboard/page.tsx
 'use client';
-// This page is no longer used for redirection. It can be a simple placeholder
-// or be built out into an actual dashboard.
+
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useAuth } from "@/hooks/use-auth";
+import type { Memory } from "@/lib/types";
+import { PlusCircle, Edit, ExternalLink, Loader2 } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { db } from "@/lib/firebase/client";
+import { collection, query, where, onSnapshot, addDoc, serverTimestamp, doc } from 'firebase/firestore';
+import { useToast } from "@/hooks/use-toast";
+import Image from "next/image";
 
 export default function DashboardPage() {
+    const { user, loading: authLoading } = useAuth();
+    const [memories, setMemories] = useState<Memory[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [isCreating, setIsCreating] = useState(false);
+    const router = useRouter();
+    const { toast } = useToast();
+
+    useEffect(() => {
+        if (!user) return;
+
+        setLoading(true);
+        const q = query(collection(db, 'memories'), where('ownerUid', '==', user.uid));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const userMemories = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Memory));
+            setMemories(userMemories);
+            setLoading(false);
+        }, (error) => {
+            console.error("Error fetching memories:", error);
+            toast({ variant: 'destructive', title: 'エラー', description: 'ページの読み込みに失敗しました。'});
+            setLoading(false);
+        });
+
+        return () => unsubscribe();
+
+    }, [user, toast]);
+    
+    const handleCreateNewMemory = async () => {
+        if (!user) return;
+        setIsCreating(true);
+        try {
+            // In the future, this would check for a valid secret key
+            const newMemoryRef = await addDoc(collection(db, 'memories'), {
+                ownerUid: user.uid,
+                title: '新しい想い出ページ',
+                status: 'draft',
+                publicPageId: null, // This can be set on first publish
+                coverAssetId: null,
+                profileAssetId: null,
+                description: '',
+                design: { theme: 'light', fontScale: 1.0 },
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+            });
+
+            // Now, set the publicPageId to be the same as the document ID
+            await addDoc(doc(db, 'memories', newMemoryRef.id), {
+                publicPageId: newMemoryRef.id
+            });
+            
+            toast({ title: '成功', description: '新しい想い出ページが作成されました。'});
+            router.push(`/memories/${newMemoryRef.id}`);
+
+        } catch (error) {
+             console.error("Error creating new memory:", error);
+             toast({ variant: 'destructive', title: 'エラー', description: 'ページの作成に失敗しました。'});
+        } finally {
+            setIsCreating(false);
+        }
+    }
+
+    if (loading || authLoading) {
+        return (
+            <div className="flex h-[calc(100vh-4rem)] items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        );
+    }
+
     return (
-        <div>
-            <h1 className="text-2xl font-bold tracking-tight font-headline">ダッシュボード</h1>
-            <p className="text-muted-foreground">このページは現在プレースホルダです。</p>
+        <div className="space-y-6 p-4 sm:p-6 lg:p-8">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div>
+                    <h1 className="text-2xl font-bold tracking-tight font-headline">ダッシュボード</h1>
+                    <p className="text-muted-foreground">あなたの想い出ページを管理します。</p>
+                </div>
+                <Button onClick={handleCreateNewMemory} disabled={isCreating}>
+                    {isCreating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
+                    新しいページを作成
+                </Button>
+            </div>
+            
+            {memories.length > 0 ? (
+                 <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                    {memories.map(memory => (
+                        <Card key={memory.id}>
+                            <CardHeader>
+                                <CardTitle className="truncate">{memory.title}</CardTitle>
+                                <CardDescription>ID: {memory.id}</CardDescription>
+                            </CardHeader>
+                             <CardContent className="space-y-4">
+                                <div className="aspect-video bg-muted rounded-md flex items-center justify-center">
+                                    <Image src="https://placehold.co/600x400.png" alt="placeholder" width={600} height={400} className="rounded-md object-cover" data-ai-hint="memorial" />
+                                </div>
+                                <div className="flex gap-2">
+                                    <Button asChild className="flex-1">
+                                        <Link href={`/memories/${memory.id}`}>
+                                            <Edit className="mr-2 h-4 w-4" /> 編集
+                                        </Link>
+                                    </Button>
+                                    {memory.publicPageId && (
+                                        <Button asChild variant="outline" className="flex-1">
+                                            <a href={`/p/${memory.publicPageId}`} target="_blank" rel="noopener noreferrer">
+                                                <ExternalLink className="mr-2 h-4 w-4" /> 公開ページ
+                                            </a>
+                                        </Button>
+                                    )}
+                                </div>
+                            </CardContent>
+                        </Card>
+                    ))}
+                </div>
+            ) : (
+                <div className="text-center py-20 bg-muted/50 rounded-lg">
+                    <h2 className="text-xl font-semibold">まだ想い出ページがありません</h2>
+                    <p className="text-muted-foreground mt-2">最初の想い出ページを作成しましょう。</p>
+                    <Button onClick={handleCreateNewMemory} disabled={isCreating} className="mt-6">
+                        {isCreating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
+                        最初のページを作成する
+                    </Button>
+                </div>
+            )}
         </div>
     );
 }

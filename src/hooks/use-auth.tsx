@@ -1,4 +1,3 @@
-
 // src/hooks/use-auth.tsx
 "use client";
 
@@ -30,13 +29,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (authUser) => {
       if (authUser) {
-        // User is signed in.
         const tokenResult = await authUser.getIdTokenResult();
         const claims = tokenResult.claims;
         setIsAdmin(claims.role === 'admin');
         setUser(authUser as AuthContextType['user']);
       } else {
-        // User is signed out.
         setUser(null);
         setIsAdmin(false);
       }
@@ -49,13 +46,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const handleLogout = useCallback(async () => {
     try {
       await auth.signOut();
-      // onAuthStateChanged will handle user state change
-      // and AppLayout will redirect to login page.
-      window.location.assign('/login');
+      router.push('/login');
     } catch (error) {
       console.error("Logout failed:", error);
     }
-  }, []);
+  }, [router]);
 
   return (
     <AuthContext.Provider value={{ user, loading, isAdmin, handleLogout }}>

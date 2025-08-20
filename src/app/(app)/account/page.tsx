@@ -1,31 +1,17 @@
-
 // src/app/(app)/account/page.tsx
 'use client';
 
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
-import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Copy } from 'lucide-react';
 
-
 export default function AccountPage() {
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
-  const router = useRouter();
-
-  useEffect(() => {
-    // This effect redirects the user to their memory page once the user object is available.
-    // The main redirect logic is in the AppLayout.
-    if (!authLoading && user) {
-      router.replace(`/memories/${user.uid}`);
-    }
-  }, [user, authLoading, router]);
-
 
   if (authLoading || !user) {
     return (
@@ -37,48 +23,53 @@ export default function AccountPage() {
       </div>
     );
   }
-  
-  // This content will be briefly visible if the redirect takes a moment.
-  // Or it can serve as a fallback if the redirect in the layout fails.
-  const publicUrl = `${window.location.origin.replace('app.', 'mem.')}/p/${user.uid}`;
+
+  // This is a sample URL. In a multi-page setup, this URL might not be relevant
+  // or would need to be selected from a list of pages.
+  const samplePublicUrl = `${window.location.origin.replace('app.', 'mem.')}/p/SAMPLE_ID`;
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(publicUrl);
-    toast({ title: '成功', description: '公開ページのURLをコピーしました。'});
-  }
+    navigator.clipboard.writeText(samplePublicUrl);
+    toast({ title: '成功', description: 'サンプルURLをコピーしました。' });
+  };
 
   return (
     <div className="space-y-6 p-4 sm:p-6 lg:p-8">
-        <div>
-            <h1 className="text-2xl font-bold tracking-tight font-headline">アカウント情報</h1>
-            <p className="text-muted-foreground">あなたの登録情報と公開ページURLです。</p>
-        </div>
-        <Card>
-            <CardHeader>
-                <CardTitle>登録メールアドレス</CardTitle>
-            </CardHeader>
-            <CardContent>
-                <p>{user.email}</p>
-            </CardContent>
-        </Card>
-         <Card>
-            <CardHeader>
-                <CardTitle>公開ページURL</CardTitle>
-                <CardDescription>このURLをNFCタグに書き込んだり、共有したりできます。</CardDescription>
-            </CardHeader>
-            <CardContent>
-                {publicUrl ? (
-                    <div className="flex w-full max-w-md items-center space-x-2">
-                        <Input value={publicUrl} readOnly />
-                        <Button type="button" size="icon" onClick={handleCopy}>
-                            <Copy className="h-4 w-4" />
-                        </Button>
-                    </div>
-                ): (
-                    <p className="text-muted-foreground">公開ページのURLを生成できませんでした。</p>
-                )}
-            </CardContent>
-        </Card>
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight font-headline">アカウント情報</h1>
+        <p className="text-muted-foreground">あなたの登録情報です。</p>
+      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>登録メールアドレス</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p>{user.email}</p>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>アカウントID (UID)</CardTitle>
+          <CardDescription>
+            これはあなたのアカウントに固有のIDです。
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex w-full max-w-md items-center space-x-2">
+            <Input value={user.uid} readOnly />
+            <Button
+              type="button"
+              size="icon"
+              onClick={() => {
+                navigator.clipboard.writeText(user.uid);
+                toast({ title: 'UIDをコピーしました。'});
+              }}
+            >
+              <Copy className="h-4 w-4" />
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
