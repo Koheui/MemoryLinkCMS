@@ -21,30 +21,29 @@ export interface Memory {
   id: string;
   ownerUid: string;
   title: string;
-  type: "pet" | "birth" | "memorial" | "other"; // ★ Add type field
+  type: "pet" | "birth" | "memorial" | "other";
   status: 'draft' | 'active' | 'archived';
   publicPageId: string | null;
   coverAssetId: string | null;
   profileAssetId: string | null;
-  description: string; // This is the "About" text
+  description: string;
   design: Design;
-  createdAt: Timestamp | string; // Allow string for serialized data
-  updatedAt: Timestamp | string; // Allow string for serialized data
-  publicUrl?: string; // For client-side use
+  createdAt: Timestamp | string;
+  updatedAt: Timestamp | string;
+  publicUrl?: string;
 }
 
-// This now represents a document in the 'assets' subcollection of a 'memory'
 export interface Asset {
   id: string;
   ownerUid: string;
   memoryId: string; 
   name: string;
   type: 'image' | 'video' | 'audio';
-  storagePath: string; // Path in Firebase Storage
-  url: string; // Public URL
+  storagePath: string;
+  url: string;
   size: number;
-  createdAt: Timestamp | any; // Allow any for serverTimestamp
-  updatedAt: Timestamp | any; // Allow any for serverTimestamp
+  createdAt: Timestamp | any;
+  updatedAt: Timestamp | any;
 }
 
 export interface PublicPageBlock {
@@ -109,7 +108,7 @@ export interface Order {
     id: string;
     userUid: string;
     memoryId: string;
-    productType: 'memory_link_card' | string; // Add productType field for future expansion
+    productType: 'memory_link_card' | string;
     status: 'draft' | 'assets_uploaded' | 'model_ready' | 'selected' | 'paid' | 'delivered';
     note?: string;
     candidateModelIds?: string[];

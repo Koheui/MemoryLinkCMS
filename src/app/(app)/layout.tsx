@@ -18,7 +18,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 
 
-function AppLayoutContent({ children }: { children: React.Node }) {
+function AppLayoutContent({ children }: { children: React.ReactNode }) {
   const { user, loading, isAdmin, handleLogout } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
@@ -105,7 +105,7 @@ function AppLayoutContent({ children }: { children: React.Node }) {
   );
 }
 
-export default function AppLayout({ children }: { children: React.Node }) {
+export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <AuthProvider>
       <AppLayoutContent>{children}</AppLayoutContent>

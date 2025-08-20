@@ -12,13 +12,13 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { Loader2 } from "lucide-react";
 
-const statusVariantMap: Record<Order['status'], 'default' | 'secondary' | 'destructive'> = {
+const statusVariantMap: Record<Order['status'], 'default' | 'secondary' | 'destructive' | 'outline'> = {
     draft: 'secondary',
-    assets_uploaded: 'secondary',
+    assets_uploaded: 'outline',
     model_ready: 'default',
     selected: 'default',
     paid: 'default',
-    delivered: 'default', // Consider a 'success' variant if you add one
+    delivered: 'default',
 };
 
 const statusTextMap: Record<Order['status'], string> = {
@@ -82,14 +82,17 @@ export default function AdminDashboardPage() {
                 }
             }
             
+            const createdAtDate = data.createdAt?.toDate ? data.createdAt.toDate() : new Date();
+            const updatedAtDate = data.updatedAt?.toDate ? data.updatedAt.toDate() : new Date();
+
             return {
                 id: orderDoc.id,
                 userUid: data.userUid,
                 memoryId: data.memoryId,
                 productType: data.productType || 'memory_link_card', // Default value
                 status: data.status,
-                createdAt: format(data.createdAt.toDate(), 'yyyy/MM/dd HH:mm'),
-                updatedAt: format(data.updatedAt.toDate(), 'yyyy/MM/dd HH:mm'),
+                createdAt: format(createdAtDate, 'yyyy/MM/dd HH:mm'),
+                updatedAt: format(updatedAtDate, 'yyyy/MM/dd HH:mm'),
                 userEmail,
                 memoryTitle,
             } as Order;
