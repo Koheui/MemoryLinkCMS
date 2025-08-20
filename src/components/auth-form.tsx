@@ -94,13 +94,13 @@ export function AuthForm({ type }: AuthFormProps) {
 
         await setDoc(memoryDocRef, newMemoryData);
         
-        // Redirect to a dedicated redirect page to handle server-side redirection.
-        router.push(`/memories/redirect`);
+        // On success, go to the account page. The AppLayout will handle redirecting to the editor.
+        window.location.assign('/account');
 
       } else { // Login
         userCredential = await signInWithEmailAndPassword(auth, data.email, data.password);
-        // Redirect to a dedicated redirect page to handle server-side redirection.
-        router.push('/memories/redirect');
+        // On success, go to the account page. The AppLayout will handle redirecting to the editor if needed.
+        window.location.assign('/account');
       }
 
     } catch (error: any) {

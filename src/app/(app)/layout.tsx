@@ -32,14 +32,14 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
   // This effect handles the initial check for a user. If not logged in, it redirects to the login page.
   useEffect(() => {
     if (!loading && !user) {
+      // Only redirect if we are not already on a public-facing auth page.
       if (!pathname.startsWith('/login') && !pathname.startsWith('/signup')) {
          router.push('/login');
       }
     }
   }, [user, loading, router, pathname]);
 
-  // This effect sets the sidebar link once the user is authenticated.
-  // The primary redirection logic is now handled by the server-side /memories/redirect page.
+  // This effect fetches the memoryId for the sidebar link once the user is authenticated.
   useEffect(() => {
     const fetchMemoryId = async () => {
         if (user) {
@@ -51,18 +51,25 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
                 );
                 const querySnapshot = await getDocs(memoriesQuery);
                 if (!querySnapshot.empty) {
-                    const fetchedMemoryId = querySnapshot.docs[0].id;
+                    const doc = querySnapshot.docs[0];
+                    const fetchedMemoryId = doc.id;
                     setMemoryId(fetchedMemoryId);
+
+                    // Backwards compatibility: if publicPageId is missing, set it.
+                    if (!doc.data().publicPageId) {
+                      const memoryRef = doc.ref;
+                      await updateDoc(memoryRef, { publicPageId: fetchedMemoryId });
+                    }
                 }
             } catch (error) {
                 console.error("Error fetching memoryId for sidebar:", error);
             }
         }
     };
-    if (user) {
+    if (user && !loading) {
         fetchMemoryId();
     }
-  }, [user]);
+  }, [user, loading]);
 
 
   if (loading) {
@@ -76,7 +83,8 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // This will be null if user is not logged in, preventing render of protected layout
+  // This will be null if user is not logged in, preventing render of protected layout.
+  // The children (the login page) will be rendered instead.
   if (!user) {
     return <>{children}</>;
   }
