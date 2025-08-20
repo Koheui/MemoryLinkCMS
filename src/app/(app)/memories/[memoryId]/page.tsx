@@ -4,7 +4,7 @@
 import { Button } from '@/components/ui/button';
 import type { Memory, PublicPageBlock, Asset } from '@/lib/types';
 import { db } from '@/lib/firebase/client';
-import { doc, getDoc, collection, query, orderBy, onSnapshot, where, collectionGroup } from 'firebase/firestore';
+import { doc, getDoc, collection, query, orderBy, onSnapshot, where, collectionGroup, writeBatch, deleteDoc } from 'firebase/firestore';
 import { notFound, useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Eye, Loader2, PlusCircle, Edit, Image as ImageIcon, FileText, Blocks, GripVertical, Trash2 } from 'lucide-react';
@@ -12,7 +12,6 @@ import { useAuth } from '@/hooks/use-auth';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { writeBatch } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { AboutModal, DesignModal, BlockModal } from '@/components/edit-modals';
@@ -69,7 +68,10 @@ export default function MemoryEditorPage() {
     });
 
     // Listener for all user assets
-    const assetsQuery = query(collectionGroup(db, 'assets'), where('ownerUid', '==', user.uid), orderBy('createdAt', 'desc'));
+    // This is not ideal for performance if the user has many assets.
+    // In a real-world app, you'd paginate this or fetch them more selectively.
+    // For now, we fetch all assets belonging to the user.
+    const assetsQuery = query(collection(db, 'assets'), where('ownerUid', '==', user.uid), orderBy('createdAt', 'desc'));
     const unsubscribeAssets = onSnapshot(assetsQuery, (snapshot) => {
         const fetchedAssets: Asset[] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Asset));
         setAssets(fetchedAssets);
@@ -102,6 +104,8 @@ export default function MemoryEditorPage() {
         batch.commit().catch(error => {
             console.error("Failed to reorder blocks:", error);
             toast({ variant: 'destructive', title: 'エラー', description: 'ブロックの並び替えに失敗しました。' });
+            // Revert state on failure
+            setBlocks(items);
         });
 
         return newItems;
@@ -132,7 +136,7 @@ export default function MemoryEditorPage() {
      return notFound();
   }
   
-  const publicUrl = `${window.location.origin.replace('app.', 'mem.')}/p/${memory.publicPageId || memory.id}`;
+  const publicUrl = typeof window !== 'undefined' ? `${window.location.origin.replace('app.', 'mem.')}/p/${memory.publicPageId || memory.id}` : '';
   const coverImageUrl = memory.coverAssetId ? assets.find(a => a.id === memory.coverAssetId)?.url : null;
   const profileImageUrl = memory.profileAssetId ? assets.find(a => a.id === memory.profileAssetId)?.url : null;
 
@@ -161,7 +165,7 @@ export default function MemoryEditorPage() {
       {/* Header */}
       <header className="flex h-16 shrink-0 items-center justify-between border-b bg-background px-4 sm:px-6">
         <div>
-           <h1 className="text-xl font-bold tracking-tight font-headline">{memory.title}</h1>
+           <h1 className="text-xl font-bold tracking-tight font-headline truncate max-w-[200px] sm:max-w-none">{memory.title}</h1>
            <p className="text-sm text-muted-foreground">ビジュアルエディタ</p>
         </div>
         <div className="flex items-center gap-2">
@@ -179,11 +183,11 @@ export default function MemoryEditorPage() {
 
       {/* Editor Canvas */}
        <main className="flex-1 overflow-auto p-4 sm:p-6 lg:p-8">
-            <div className="mx-auto max-w-2xl bg-background shadow-md rounded-lg p-4 md:p-8">
+            <div className="mx-auto max-w-2xl bg-background shadow-lg rounded-xl overflow-hidden">
                  {/* Cover and Profile Section */}
-                 <div className="relative mb-[-72px]">
+                 <div className="relative mb-[-72px] sm:mb-[-80px]">
                     <div 
-                        className="group relative aspect-[21/9] w-full overflow-hidden rounded-xl bg-muted shadow-inner hover:bg-muted/80 flex items-center justify-center cursor-pointer"
+                        className="group relative aspect-[21/9] w-full overflow-hidden bg-muted flex items-center justify-center cursor-pointer transition-all duration-300 hover:shadow-inner"
                         onClick={() => setIsDesignModalOpen(true)}
                     >
                         {coverImageUrl ? (
@@ -191,12 +195,12 @@ export default function MemoryEditorPage() {
                         ) : (
                              <ImageIcon className="h-12 w-12 text-muted-foreground" />
                         )}
-                         <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                             <p className="text-white font-bold flex items-center gap-2"><Edit className="h-4 w-4" />カバー画像を編集</p>
                         </div>
                     </div>
                      <div 
-                        className="group absolute -bottom-16 left-1/2 -translate-x-1/2 h-36 w-36 overflow-hidden rounded-full border-4 border-background bg-muted shadow-lg flex items-center justify-center cursor-pointer"
+                        className="group absolute -bottom-16 sm:-bottom-20 left-1/2 -translate-x-1/2 h-32 w-32 sm:h-40 sm:w-40 overflow-hidden rounded-full border-4 border-background bg-muted flex items-center justify-center cursor-pointer shadow-lg hover:shadow-xl transition-shadow"
                         onClick={() => setIsDesignModalOpen(true)}
                      >
                         {profileImageUrl ? (
@@ -204,17 +208,17 @@ export default function MemoryEditorPage() {
                         ) : (
                             <ImageIcon className="h-10 w-10 text-muted-foreground" />
                         )}
-                         <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                              <p className="text-white font-bold text-center text-sm"><Edit className="h-4 w-4 mx-auto mb-1" />編集</p>
                         </div>
                     </div>
                 </div>
                 
                 {/* About Section */}
-                <div className="mt-24 text-center">
+                <div className="mt-24 sm:mt-28 text-center px-4">
                      <div className="group relative inline-block">
                         <h1 className="text-3xl font-bold sm:text-4xl">{memory.title}</h1>
-                        <p className="mt-2 text-base text-muted-foreground max-w-prose">{memory.description}</p>
+                        <p className="mt-2 text-base text-muted-foreground max-w-prose">{memory.description || "紹介文を編集..."}</p>
                          <Button variant="outline" size="sm" className="absolute -top-2 -right-12 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setIsAboutModalOpen(true)}>
                             <Edit className="h-4 w-4"/>
                         </Button>
@@ -222,7 +226,7 @@ export default function MemoryEditorPage() {
                 </div>
 
                 {/* Blocks Section */}
-                <div className="mt-12 space-y-4">
+                <div className="mt-12 space-y-4 px-4 sm:px-6 pb-8">
                      <DndContext 
                         sensors={sensors}
                         collisionDetection={closestCenter}
@@ -241,9 +245,9 @@ export default function MemoryEditorPage() {
                             ))}
                         </SortableContext>
                     </DndContext>
-                    <div className="flex justify-center">
-                        <Button variant="outline" className="w-full border-dashed" onClick={handleAddNewBlock}>
-                            <PlusCircle className="mr-2 h-4 w-4"/>
+                    <div className="flex justify-center pt-4">
+                        <Button variant="outline" className="w-full border-dashed py-6 text-base" onClick={handleAddNewBlock}>
+                            <PlusCircle className="mr-2 h-5 w-5"/>
                             コンテンツブロックを追加
                         </Button>
                     </div>
@@ -268,6 +272,7 @@ function SortableBlockItem({ block, onEdit }: { block: PublicPageBlock; onEdit: 
 
     const handleDelete = async (e: React.MouseEvent) => {
         e.stopPropagation();
+        // A confirmation dialog would be a good UX improvement here
         try {
             await deleteDoc(doc(db, 'memories', memoryId, 'blocks', block.id));
             toast({ title: "ブロックを削除しました" });
@@ -278,24 +283,24 @@ function SortableBlockItem({ block, onEdit }: { block: PublicPageBlock; onEdit: 
     };
 
     return (
-        <div ref={setNodeRef} style={style} className="group relative p-4 rounded-lg border bg-card shadow-sm flex items-center gap-4">
-             <button {...attributes} {...listeners} className="cursor-grab p-2">
+        <div ref={setNodeRef} style={style} className="group relative p-4 rounded-lg border bg-card shadow-sm flex items-center gap-4 transition-shadow hover:shadow-md">
+             <button {...attributes} {...listeners} className="cursor-grab p-2 touch-none">
                 <GripVertical className="h-5 w-5 text-muted-foreground" />
             </button>
             <div className="flex-grow">
-                <p className="font-semibold">{block.title}</p>
+                <p className="font-semibold">{block.title || "無題のブロック"}</p>
                 <p className="text-sm text-muted-foreground capitalize">{block.type}</p>
             </div>
             <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={onEdit}>
-                    <Edit className="mr-2 h-4 w-4" />
-                    編集
+                <Button variant="outline" size="icon" onClick={onEdit}>
+                    <Edit className="h-4 w-4" />
+                    <span className="sr-only">編集</span>
                 </Button>
                 <Button variant="destructive" size="icon" onClick={handleDelete}>
                     <Trash2 className="h-4 w-4" />
+                     <span className="sr-only">削除</span>
                 </Button>
             </div>
         </div>
     );
 }
-

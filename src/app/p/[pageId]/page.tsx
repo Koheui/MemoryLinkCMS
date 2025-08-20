@@ -2,10 +2,10 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Image from 'next/image';
-import { PublicPage, PublicPageBlock, Asset } from '@/lib/types';
-import { Globe, Phone, Mail, Link as LinkIcon, Music, Clapperboard, Milestone } from 'lucide-react';
+import type { PublicPage, PublicPageBlock } from '@/lib/types';
+import { Globe, Phone, Mail, Link as LinkIcon, Music, Clapperboard, Milestone, Camera } from 'lucide-react';
 import { FaXTwitter, FaInstagram, FaYoutube } from 'react-icons/fa6';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import { Badge } from '@/components/ui/badge';
 
@@ -82,33 +82,33 @@ const BlockRenderer = ({ block }: { block: PublicPageBlock }) => {
     switch (block.type) {
         case 'album':
             return (
-                <Card className="overflow-hidden bg-white/5 border-white/10">
+                <Card className="overflow-hidden bg-white/5 border-white/10 shadow-lg">
                     <CardHeader>
                         <div className="flex items-center gap-3">
                            <Milestone className="h-5 w-5 text-gray-300" />
                            <h3 className="font-semibold text-white">{block.title}</h3>
                         </div>
                     </CardHeader>
-                    <CardContent className="px-2">
+                    <CardContent className="px-2 sm:px-4">
                         <Carousel opts={{ loop: true, align: "start" }} className="w-full">
                             <CarouselContent className="-ml-2">
                                 {block.album?.items?.map((item, index) => (
                                     <CarouselItem key={index} className="pl-2 md:basis-1/2">
-                                        <div className="aspect-video relative rounded-md overflow-hidden">
+                                        <div className="aspect-video relative rounded-lg overflow-hidden">
                                            <Image src={item.src} alt={block.title || `Album image ${index+1}`} fill className="object-cover" />
                                         </div>
                                     </CarouselItem>
                                 ))}
                             </CarouselContent>
-                            <CarouselPrevious className="ml-14" />
-                            <CarouselNext className="mr-14" />
+                            <CarouselPrevious className="ml-14 hidden sm:flex" />
+                            <CarouselNext className="mr-14 hidden sm:flex" />
                         </Carousel>
                     </CardContent>
                 </Card>
             );
         case 'photo':
              return (
-                 <Card className="overflow-hidden bg-white/5 border-white/10">
+                 <Card className="overflow-hidden bg-white/5 border-white/10 shadow-lg">
                     {block.photo?.src && (
                          <div className="aspect-video relative w-full">
                              <Image src={block.photo.src} alt={block.title || "Single photo"} fill className="object-cover" />
@@ -122,11 +122,11 @@ const BlockRenderer = ({ block }: { block: PublicPageBlock }) => {
             );
         case 'video':
             return (
-                 <Card className="overflow-hidden bg-white/5 border-white/10 group">
+                 <Card className="overflow-hidden bg-white/5 border-white/10 shadow-lg group">
                     <div className="aspect-video relative w-full bg-black">
-                        {block.video?.src && (
+                        {block.video?.src ? (
                              <Image src={block.video.src} alt={block.title || "Video thumbnail"} fill className="object-cover opacity-80 group-hover:opacity-60 transition-opacity" />
-                        )}
+                        ) : <div className="w-full h-full bg-black" />}
                         <div className="absolute inset-0 flex items-center justify-center">
                             <Clapperboard className="h-16 w-16 text-white/70" />
                         </div>
@@ -138,7 +138,7 @@ const BlockRenderer = ({ block }: { block: PublicPageBlock }) => {
             );
         case 'audio':
               return (
-                 <Card className="flex items-center gap-4 p-4 bg-white/5 border-white/10">
+                 <Card className="flex items-center gap-4 p-4 bg-white/5 border-white/10 shadow-lg">
                     <div className="flex-shrink-0">
                         <Music className="h-8 w-8 text-gray-300" />
                     </div>

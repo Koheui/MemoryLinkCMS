@@ -4,7 +4,7 @@
 import * as React from 'react';
 import { useState, useEffect } from 'react';
 import type { Memory, Asset, PublicPageBlock } from '@/lib/types';
-import { db, storage } from '@/lib/firebase/client';
+import { db } from '@/lib/firebase/client';
 import { doc, updateDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -13,10 +13,9 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Save, Image as ImageIcon, Video, Mic, Type, Square } from 'lucide-react';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Loader2, Save, Image as ImageIcon, Video, Mic, Type, Link, Square, Album } from 'lucide-react';
 import Image from 'next/image';
-import { getDownloadURL, ref } from 'firebase/storage';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from './ui/dropdown-menu';
 
 // Design Modal (Cover & Profile Image)
 export function DesignModal({ isOpen, setIsOpen, memory, assets }: { isOpen: boolean, setIsOpen: (open: boolean) => void, memory: Memory, assets: Asset[] }) {
@@ -26,8 +25,10 @@ export function DesignModal({ isOpen, setIsOpen, memory, assets }: { isOpen: boo
     const { toast } = useToast();
 
     useEffect(() => {
-        setCoverAssetId(memory.coverAssetId);
-        setProfileAssetId(memory.profileAssetId);
+        if (isOpen) {
+            setCoverAssetId(memory.coverAssetId);
+            setProfileAssetId(memory.profileAssetId);
+        }
     }, [memory, isOpen]);
     
     const imageAssets = assets.filter(a => a.type === 'image');
@@ -66,26 +67,32 @@ export function DesignModal({ isOpen, setIsOpen, memory, assets }: { isOpen: boo
                     <DialogTitle>デザインを編集</DialogTitle>
                     <DialogDescription>カバー画像とプロフィール画像を変更します。</DialogDescription>
                 </DialogHeader>
-                <div className="space-y-4 py-4">
+                <div className="space-y-6 py-4">
                     <div>
                         <Label>カバー画像</Label>
-                        <Select onValueChange={setCoverAssetId} value={coverAssetId ?? ''}>
+                        <Select onValueChange={setCoverAssetId} value={coverAssetId ?? undefined}>
                             <SelectTrigger><SelectValue placeholder="カバー画像を選択..." /></SelectTrigger>
                             <SelectContent>
+                                <SelectItem value="null">なし</SelectItem>
                                 {imageAssets.map(asset => <SelectItem key={asset.id} value={asset.id}>{asset.name}</SelectItem>)}
                             </SelectContent>
                         </Select>
-                        {coverImageUrl && <div className="mt-2 rounded-md overflow-hidden aspect-video relative"><Image src={coverImageUrl} alt="Cover preview" fill className="object-cover" /></div>}
+                        <div className="mt-2 rounded-md overflow-hidden aspect-video relative bg-muted flex items-center justify-center">
+                            {coverImageUrl ? <Image src={coverImageUrl} alt="Cover preview" fill className="object-cover" /> : <ImageIcon className="text-muted-foreground" />}
+                        </div>
                     </div>
                      <div>
                         <Label>プロフィール画像</Label>
-                         <Select onValueChange={setProfileAssetId} value={profileAssetId ?? ''}>
+                         <Select onValueChange={setProfileAssetId} value={profileAssetId ?? undefined}>
                             <SelectTrigger><SelectValue placeholder="プロフィール画像を選択..." /></SelectTrigger>
                             <SelectContent>
+                               <SelectItem value="null">なし</SelectItem>
                                 {imageAssets.map(asset => <SelectItem key={asset.id} value={asset.id}>{asset.name}</SelectItem>)}
                             </SelectContent>
                         </Select>
-                        {profileImageUrl && <div className="mt-2 rounded-full overflow-hidden relative w-24 h-24"><Image src={profileImageUrl} alt="Profile preview" fill className="object-cover" /></div>}
+                         <div className="mt-2 rounded-full overflow-hidden relative w-24 h-24 bg-muted flex items-center justify-center">
+                            {profileImageUrl ? <Image src={profileImageUrl} alt="Profile preview" fill className="object-cover" /> : <ImageIcon className="text-muted-foreground" />}
+                         </div>
                     </div>
                 </div>
                 <DialogFooter>
@@ -109,11 +116,17 @@ export function AboutModal({ isOpen, setIsOpen, memory }: { isOpen: boolean, set
     const { toast } = useToast();
 
     useEffect(() => {
-        setTitle(memory.title);
-        setDescription(memory.description);
+       if (isOpen) {
+            setTitle(memory.title);
+            setDescription(memory.description);
+       }
     }, [memory, isOpen]);
 
     const handleSave = async () => {
+        if (!title.trim()) {
+            toast({ variant: 'destructive', title: 'エラー', description: 'タイトルは必須です。' });
+            return;
+        }
         setIsSaving(true);
         try {
             const memoryRef = doc(db, 'memories', memory.id);
@@ -163,10 +176,12 @@ export function AboutModal({ isOpen, setIsOpen, memory }: { isOpen: boolean, set
 
 // Block Modal (Create or Edit Block)
 export function BlockModal({ isOpen, setIsOpen, memory, assets, block, blockCount }: { isOpen: boolean, setIsOpen: (open: boolean) => void, memory: Memory, assets: Asset[], block: PublicPageBlock | null, blockCount: number }) {
-    const [blockType, setBlockType] = useState<PublicPageBlock['type'] | null>(block?.type ?? null);
+    const [blockType, setBlockType] = useState<PublicPageBlock['type'] | null>(null);
     const [title, setTitle] = useState('');
-    const [textContent, setTextContent] = useState('');
-    const [selectedAssetId, setSelectedAssetId] = useState('');
+    const [selectedAssetId, setSelectedAssetId] = useState<string | undefined>(undefined);
+    const [textContent, setTextContent] = useState(''); // For text block
+    const [photoCaption, setPhotoCaption] = useState(''); // For photo block
+    
     const [isSaving, setIsSaving] = useState(false);
     const { toast } = useToast();
     const isEditing = block !== null;
@@ -177,15 +192,19 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, blockCoun
                 setBlockType(block.type);
                 setTitle(block.title || '');
                 if (block.type === 'text') setTextContent(block.text?.content || '');
-                if (block.type === 'photo') setSelectedAssetId(block.photo?.assetId || '');
-                if (block.type === 'video') setSelectedAssetId(block.video?.assetId || '');
-                if (block.type === 'audio') setSelectedAssetId(block.audio?.assetId || '');
+                if (block.type === 'photo') {
+                    setSelectedAssetId(block.photo?.assetId);
+                    setPhotoCaption(block.photo?.caption || '');
+                }
+                if (block.type === 'video') setSelectedAssetId(block.video?.assetId);
+                if (block.type === 'audio') setSelectedAssetId(block.audio?.assetId);
             } else {
                 // Reset for new block
                 setBlockType(null);
                 setTitle('');
                 setTextContent('');
-                setSelectedAssetId('');
+                setPhotoCaption('');
+                setSelectedAssetId(undefined);
             }
         }
     }, [block, isOpen, isEditing]);
@@ -204,9 +223,9 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, blockCoun
         try {
             if (isEditing && block) {
                 const blockRef = doc(db, 'memories', memory.id, 'blocks', block.id);
-                const updateData: any = { title, updatedAt: serverTimestamp() };
+                const updateData: any = { title, updatedAt: serverTimestamp(), type: blockType };
                 if (blockType === 'text') updateData.text = { content: textContent };
-                if (blockType === 'photo') updateData.photo = { assetId: selectedAssetId };
+                if (blockType === 'photo') updateData.photo = { assetId: selectedAssetId, caption: photoCaption };
                 if (blockType === 'video') updateData.video = { assetId: selectedAssetId };
                 if (blockType === 'audio') updateData.audio = { assetId: selectedAssetId };
                 await updateDoc(blockRef, updateData);
@@ -221,7 +240,7 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, blockCoun
                     updatedAt: serverTimestamp(),
                 };
                 if (blockType === 'text') newBlockData.text = { content: textContent };
-                if (blockType === 'photo') newBlockData.photo = { assetId: selectedAssetId };
+                if (blockType === 'photo') newBlockData.photo = { assetId: selectedAssetId, caption: photoCaption };
                 if (blockType === 'video') newBlockData.video = { assetId: selectedAssetId };
                 if (blockType === 'audio') newBlockData.audio = { assetId: selectedAssetId };
                 
@@ -241,8 +260,9 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, blockCoun
         if (!blockType) {
             return (
                 <div className="grid grid-cols-2 gap-4">
-                    <Button variant="outline" className="h-24 flex-col gap-2" onClick={() => setBlockType('text')}><Type className="w-8 h-8"/>テキスト</Button>
+                    <Button variant="outline" className="h-24 flex-col gap-2" onClick={() => setBlockType('text')}><Type className="w-8 h-8"/>テキスト/リンク</Button>
                     <Button variant="outline" className="h-24 flex-col gap-2" onClick={() => setBlockType('photo')}><ImageIcon className="w-8 h-8"/>写真</Button>
+                    <Button variant="outline" className="h-24 flex-col gap-2" onClick={() => setBlockType('album')}><Album className="w-8 h-8"/>アルバム</Button>
                     <Button variant="outline" className="h-24 flex-col gap-2" onClick={() => setBlockType('video')}><Video className="w-8 h-8"/>動画</Button>
                     <Button variant="outline" className="h-24 flex-col gap-2" onClick={() => setBlockType('audio')}><Mic className="w-8 h-8"/>音声</Button>
                 </div>
@@ -251,11 +271,25 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, blockCoun
 
         let assetSelector = null;
         if (blockType === 'photo') {
-            assetSelector = <Select onValueChange={setSelectedAssetId} value={selectedAssetId}><SelectTrigger><SelectValue placeholder="写真を選択..." /></SelectTrigger><SelectContent>{imageAssets.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}</SelectContent></Select>;
+            assetSelector = (
+                <div className="space-y-4">
+                    <Label>メディア選択</Label>
+                    <Select onValueChange={setSelectedAssetId} value={selectedAssetId}>
+                        <SelectTrigger><SelectValue placeholder="写真を選択..." /></SelectTrigger>
+                        <SelectContent>
+                          {imageAssets.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                     <div>
+                        <Label htmlFor="caption">キャプション (任意)</Label>
+                        <Input id="caption" value={photoCaption} onChange={(e) => setPhotoCaption(e.target.value)} />
+                    </div>
+                </div>
+            );
         } else if (blockType === 'video') {
-            assetSelector = <Select onValueChange={setSelectedAssetId} value={selectedAssetId}><SelectTrigger><SelectValue placeholder="動画を選択..." /></SelectTrigger><SelectContent>{videoAssets.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}</SelectContent></Select>;
+            assetSelector = <><Label>メディア選択</Label><Select onValueChange={setSelectedAssetId} value={selectedAssetId}><SelectTrigger><SelectValue placeholder="動画を選択..." /></SelectTrigger><SelectContent>{videoAssets.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}</SelectContent></Select></>;
         } else if (blockType === 'audio') {
-            assetSelector = <Select onValueChange={setSelectedAssetId} value={selectedAssetId}><SelectTrigger><SelectValue placeholder="音声を選択..." /></SelectTrigger><SelectContent>{audioAssets.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}</SelectContent></Select>;
+            assetSelector = <><Label>メディア選択</Label><Select onValueChange={setSelectedAssetId} value={selectedAssetId}><SelectTrigger><SelectValue placeholder="音声を選択..." /></SelectTrigger><SelectContent>{audioAssets.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}</SelectContent></Select></>;
         }
 
         return (
@@ -266,23 +300,18 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, blockCoun
                 </div>
                 {blockType === 'text' && (
                     <div>
-                        <Label htmlFor="block-content">内容</Label>
+                        <Label htmlFor="block-content">内容 (リンク先のURLなど)</Label>
                         <Textarea id="block-content" value={textContent} onChange={(e) => setTextContent(e.target.value)} />
                     </div>
                 )}
-                {assetSelector && (
-                     <div>
-                        <Label>メディア選択</Label>
-                        {assetSelector}
-                    </div>
-                )}
+                {assetSelector}
             </div>
         );
     };
 
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <DialogContent>
+            <DialogContent className="sm:max-w-[480px]">
                 <DialogHeader>
                     <DialogTitle>{isEditing ? 'ブロックを編集' : '新しいブロックを追加'}</DialogTitle>
                 </DialogHeader>
