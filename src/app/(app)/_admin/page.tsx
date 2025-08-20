@@ -84,7 +84,7 @@ function CreateOrderModal({ onOrderCreated }: { onOrderCreated: () => void }) {
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
                 <Button>
-                    <PlusCircle className="mr-2" />
+                    <PlusCircle className="mr-2 h-4 w-4" />
                     新規注文を作成
                 </Button>
             </DialogTrigger>
@@ -173,7 +173,7 @@ export default function AdminDashboardPage() {
               status: data.status,
               createdAt: format(createdAtDate, 'yyyy/MM/dd HH:mm'),
               updatedAt: format(updatedAtDate, 'yyyy/MM/dd HH:mm'),
-              email: userEmail, // Changed from userEmail to email to match type
+              email: userEmail,
               memoryTitle,
           } as Order;
       }));

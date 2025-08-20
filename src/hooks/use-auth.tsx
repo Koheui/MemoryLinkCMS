@@ -30,11 +30,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (authUser) => {
       if (authUser) {
-        const tokenResult = await authUser.getIdTokenResult();
-        const claims = tokenResult.claims;
-        setIsAdmin(claims.role === 'admin');
-        setUser(authUser as AuthContextType['user']);
-        apiClient.setToken(tokenResult.token);
+        try {
+          const tokenResult = await authUser.getIdTokenResult(true); // Force refresh
+          const claims = tokenResult.claims;
+          setIsAdmin(claims.role === 'admin');
+          setUser(authUser as AuthContextType['user']);
+          apiClient.setToken(tokenResult.token);
+        } catch (error) {
+           console.error("Error getting user token:", error);
+           // Handle error, maybe sign out user
+           await auth.signOut();
+           setUser(null);
+           setIsAdmin(false);
+           apiClient.setToken(null);
+        }
       } else {
         setUser(null);
         setIsAdmin(false);
@@ -49,6 +58,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const handleLogout = useCallback(async () => {
     try {
       await auth.signOut();
+      apiClient.setToken(null);
       router.push('/login');
     } catch (error) {
       console.error("Logout failed:", error);

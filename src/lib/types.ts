@@ -106,10 +106,10 @@ export interface PublicPage {
 
 export interface Order {
     id: string;
-    userUid: string | null; // Can be null until claimed
-    memoryId: string | null; // Can be null until memory is created
-    email: string; // The invited user's email
-    productType: 'memory_link_card' | string;
+    userUid: string | null;
+    memoryId: string | null;
+    email: string;
+    productType: string;
     status: 'draft' | 'assets_uploaded' | 'model_ready' | 'selected' | 'paid' | 'delivered';
     note?: string;
     candidateModelIds?: string[];
