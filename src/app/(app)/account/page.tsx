@@ -5,9 +5,7 @@
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
-import { db } from '@/lib/firebase/client';
-import { collection, query, where, getDocs, limit } from 'firebase/firestore';
+import { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,56 +15,19 @@ import { Copy } from 'lucide-react';
 
 export default function AccountPage() {
   const { user, loading: authLoading } = useAuth();
-  const [memoryId, setMemoryId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   const router = useRouter();
 
   useEffect(() => {
-    if (authLoading) return;
-    if (!user) {
-      setLoading(false);
-      return;
+    // This effect redirects the user to their memory page once the user object is available.
+    // The main redirect logic is in the AppLayout.
+    if (!authLoading && user) {
+      router.replace(`/memories/${user.uid}`);
     }
-
-    const fetchMemoryId = async () => {
-        if (user) {
-            setLoading(true);
-            try {
-                const memoriesQuery = query(
-                    collection(db, 'memories'), 
-                    where('ownerUid', '==', user.uid), 
-                    limit(1)
-                );
-                const querySnapshot = await getDocs(memoriesQuery);
-                if (!querySnapshot.empty) {
-                    const doc = querySnapshot.docs[0];
-                    setMemoryId(doc.id);
-                } else {
-                    toast({
-                        variant: 'destructive',
-                        title: 'エラー',
-                        description: 'あなたのページ情報が見つかりませんでした。',
-                    })
-                }
-            } catch (error) {
-                console.error("Error fetching memoryId for account page:", error);
-                toast({
-                    variant: 'destructive',
-                    title: 'データ取得エラー',
-                    description: 'ページ情報の取得中にエラーが発生しました。',
-                })
-            } finally {
-              setLoading(false);
-            }
-        }
-    };
-    
-    fetchMemoryId();
-  }, [user, authLoading, toast]);
+  }, [user, authLoading, router]);
 
 
-  if (loading || authLoading) {
+  if (authLoading || !user) {
     return (
       <div className="flex h-full items-center justify-center p-8">
         <div className="flex items-center gap-2">
@@ -76,17 +37,10 @@ export default function AccountPage() {
       </div>
     );
   }
-
-  if (!user) {
-     return (
-      <div className="text-center p-8">
-        <h1 className="text-2xl font-bold">ログインしていません</h1>
-        <p className="text-muted-foreground">アカウント情報を見るにはログインしてください。</p>
-      </div>
-    )
-  }
   
-  const publicUrl = memoryId ? `${window.location.origin.replace('app.', 'mem.')}/p/${memoryId}` : '';
+  // This content will be briefly visible if the redirect takes a moment.
+  // Or it can serve as a fallback if the redirect in the layout fails.
+  const publicUrl = `${window.location.origin.replace('app.', 'mem.')}/p/${user.uid}`;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(publicUrl);

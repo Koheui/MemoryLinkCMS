@@ -1,3 +1,4 @@
+
 // src/app/(app)/layout.tsx
 "use client";
 
@@ -15,19 +16,16 @@ import { Button } from '@/components/ui/button';
 import { Heart, LogOut, Library, ShieldCheck, Loader2, UserCircle, Edit } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
-import { db } from '@/lib/firebase/client';
-import { collection, query, where, getDocs, limit } from 'firebase/firestore';
+import { useEffect } from 'react';
 
 
 function AppLayoutContent({ children }: { children: React.ReactNode }) {
   const { user, loading, isAdmin, handleLogout } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
-  const [memoryId, setMemoryId] = useState<string | null>(null);
-  const [isFetchingMemoryId, setIsFetchingMemoryId] = useState(true);
   
   useEffect(() => {
+    // If auth is done loading and there's no user, redirect to login
     if (!loading && !user) {
       if (!pathname.startsWith('/login') && !pathname.startsWith('/signup')) {
          router.push('/login');
@@ -36,42 +34,14 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
   }, [user, loading, router, pathname]);
 
   useEffect(() => {
-    const fetchMemoryId = async () => {
-        if (user) {
-            setIsFetchingMemoryId(true);
-            try {
-                const memoriesQuery = query(
-                    collection(db, 'memories'), 
-                    where('ownerUid', '==', user.uid), 
-                    limit(1)
-                );
-                const querySnapshot = await getDocs(memoriesQuery);
-                if (!querySnapshot.empty) {
-                    const doc = querySnapshot.docs[0];
-                    setMemoryId(doc.id);
-                }
-            } catch (error) {
-                console.error("Error fetching memoryId for sidebar:", error);
-            } finally {
-              setIsFetchingMemoryId(false);
-            }
-        } else {
-          setIsFetchingMemoryId(false);
-        }
-    };
-    if (user && !loading) {
-        fetchMemoryId();
+    // Once we have a user, their memoryId is their uid. Redirect them to their page.
+    if (user && !loading && pathname === '/account') {
+        router.replace(`/memories/${user.uid}`);
     }
-  }, [user, loading]);
-
-  useEffect(() => {
-    if (user && !isFetchingMemoryId && memoryId && (pathname === '/account' || pathname === '/')) {
-        router.replace(`/memories/${memoryId}`);
-    }
-  }, [user, isFetchingMemoryId, memoryId, pathname, router]);
+  }, [user, loading, pathname, router]);
 
 
-  if (loading || (user && isFetchingMemoryId && pathname !== '/login' && pathname !== '/signup')) {
+  if (loading || !user) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="flex items-center gap-2">
@@ -82,11 +52,9 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
     );
   }
   
-  if (!user) {
-    return <>{children}</>;
-  }
-  
-  const editPageHref = memoryId ? `/memories/${memoryId}` : '/account';
+  // The user exists, so their memoryId is their uid.
+  const memoryId = user.uid;
+  const editPageHref = `/memories/${memoryId}`;
 
   return (
     <SidebarProvider>
@@ -101,7 +69,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
         </SidebarHeader>
         <SidebarMenu className="flex-1">
           <SidebarMenuItem>
-            <SidebarMenuButton asChild isActive={pathname.startsWith('/memories')} disabled={!memoryId}>
+            <SidebarMenuButton asChild isActive={pathname.startsWith('/memories')}>
               <Link href={editPageHref}><Edit/> ページ編集</Link>
             </SidebarMenuButton>
           </SidebarMenuItem>

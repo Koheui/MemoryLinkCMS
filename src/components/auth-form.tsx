@@ -11,7 +11,7 @@ import {
   UserCredential
 } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase/client';
-import { doc, setDoc, serverTimestamp, collection, addDoc, getDocs, query, where, limit } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -74,13 +74,13 @@ export function AuthForm({ type }: AuthFormProps) {
         };
         await setDoc(userRef, userProfile);
         
-        // Create the single memory page for the new user with a pre-generated ID
-        const memoryDocRef = doc(collection(db, 'memories'));
+        // Use the user's UID as the memoryId
+        const memoryDocRef = doc(db, 'memories', user.uid);
         const newMemoryData = {
             ownerUid: user.uid,
             title: '無題のページ',
             status: 'draft',
-            publicPageId: memoryDocRef.id, // Assign the generated ID as the publicPageId
+            publicPageId: user.uid, // Use UID for public page ID as well
             coverAssetId: null,
             profileAssetId: null,
             description: '',
