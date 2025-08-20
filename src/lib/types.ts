@@ -108,6 +108,7 @@ export interface Order {
     id: string;
     userUid: string;
     memoryId: string;
+    productType: 'memory_link_card' | string; // Add productType field for future expansion
     status: 'draft' | 'assets_uploaded' | 'model_ready' | 'selected' | 'paid' | 'delivered';
     note?: string;
     candidateModelIds?: string[];

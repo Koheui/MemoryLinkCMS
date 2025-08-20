@@ -31,6 +31,12 @@ const statusTextMap: Record<Order['status'], string> = {
     delivered: '発送済',
 };
 
+const productTypeTextMap: Record<string, string> = {
+    'memory_link_card': 'カード',
+    'memory_link_keychain': 'キーホルダー',
+};
+
+
 export default function AdminDashboardPage() {
   const { user, isAdmin, loading: authLoading } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
@@ -81,6 +87,7 @@ export default function AdminDashboardPage() {
                 id: orderDoc.id,
                 userUid: data.userUid,
                 memoryId: data.memoryId,
+                productType: data.productType || 'memory_link_card', // Default value
                 status: data.status,
                 createdAt: format(data.createdAt.toDate(), 'yyyy/MM/dd HH:mm'),
                 updatedAt: format(data.updatedAt.toDate(), 'yyyy/MM/dd HH:mm'),
@@ -139,6 +146,7 @@ export default function AdminDashboardPage() {
                             <TableHead>注文日時</TableHead>
                             <TableHead>ユーザー</TableHead>
                             <TableHead>ページタイトル</TableHead>
+                            <TableHead>製品タイプ</TableHead>
                             <TableHead>ステータス</TableHead>
                             <TableHead>最終更新</TableHead>
                         </TableRow>
@@ -149,6 +157,11 @@ export default function AdminDashboardPage() {
                                 <TableCell>{order.createdAt.toString()}</TableCell>
                                 <TableCell>{order.userEmail}</TableCell>
                                 <TableCell>{order.memoryTitle}</TableCell>
+                                 <TableCell>
+                                    <Badge variant="outline">
+                                        {productTypeTextMap[order.productType] || order.productType}
+                                    </Badge>
+                                </TableCell>
                                 <TableCell>
                                     <Badge variant={statusVariantMap[order.status] || 'secondary'}>
                                         {statusTextMap[order.status] || order.status}
@@ -159,7 +172,7 @@ export default function AdminDashboardPage() {
                         ))}
                          {orders.length === 0 && (
                             <TableRow>
-                                <TableCell colSpan={5} className="text-center h-24">
+                                <TableCell colSpan={6} className="text-center h-24">
                                     まだ注文がありません。
                                 </TableCell>
                             </TableRow>
