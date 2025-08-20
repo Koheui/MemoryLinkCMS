@@ -228,9 +228,9 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, blockCoun
                 const blockRef = doc(db, 'memories', memory.id, 'blocks', block.id);
                 const updateData: any = { title, updatedAt: serverTimestamp(), type: blockType };
                 if (blockType === 'text') updateData.text = { content: textContent };
-                if (blockType === 'photo') updateData.photo = { assetId: selectedAssetId, caption: photoCaption };
-                if (blockType === 'video') updateData.video = { assetId: selectedAssetId };
-                if (blockType === 'audio') updateData.audio = { assetId: selectedAssetId };
+                if (blockType === 'photo') updateData.photo = { assetId: selectedAssetId, caption: photoCaption, src: assets.find(a => a.id === selectedAssetId)?.url || null };
+                if (blockType === 'video') updateData.video = { assetId: selectedAssetId, src: assets.find(a => a.id === selectedAssetId)?.url || null };
+                if (blockType === 'audio') updateData.audio = { assetId: selectedAssetId, src: assets.find(a => a.id === selectedAssetId)?.url || null };
                 await updateDoc(blockRef, updateData);
                 toast({ title: '成功', description: 'ブロックを更新しました。' });
             } else {
@@ -243,9 +243,9 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, blockCoun
                     updatedAt: serverTimestamp(),
                 };
                 if (blockType === 'text') newBlockData.text = { content: textContent };
-                if (blockType === 'photo') newBlockData.photo = { assetId: selectedAssetId, caption: photoCaption };
-                if (blockType === 'video') newBlockData.video = { assetId: selectedAssetId };
-                if (blockType === 'audio') newBlockData.audio = { assetId: selectedAssetId };
+                if (blockType === 'photo') newBlockData.photo = { assetId: selectedAssetId, caption: photoCaption, src: assets.find(a => a.id === selectedAssetId)?.url || null };
+                if (blockType === 'video') newBlockData.video = { assetId: selectedAssetId, src: assets.find(a => a.id === selectedAssetId)?.url || null };
+                if (blockType === 'audio') newBlockData.audio = { assetId: selectedAssetId, src: assets.find(a => a.id === selectedAssetId)?.url || null };
                 
                 await addDoc(collection(db, 'memories', memory.id, 'blocks'), newBlockData);
                 toast({ title: '成功', description: '新しいブロックを追加しました。' });

@@ -18,7 +18,7 @@ import type { Asset } from '@/lib/types';
 import { useAuth } from '@/hooks/use-auth';
 import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase/client';
-import { collectionGroup, query, where, orderBy, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
 import { format } from 'date-fns';
 
 export default function MediaLibraryPage() {
@@ -37,9 +37,11 @@ export default function MediaLibraryPage() {
         return;
     }
     setLoading(true);
-    // Use a collectionGroup query to fetch assets across all memories for the user.
+    
+    // This query now fetches all assets owned by the user.
+    // A more scalable solution for many memories would be to select a memory first.
     const assetsQuery = query(
-      collectionGroup(db, 'assets'), 
+      collection(db, 'assets'), 
       where('ownerUid', '==', user.uid), 
       orderBy('createdAt', 'desc')
     );
