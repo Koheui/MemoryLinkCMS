@@ -1,10 +1,11 @@
+
 // src/app/p/[pageId]/page.tsx
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import Image from 'next/image';
 import { PublicPage, PublicPageBlock } from '@/lib/types';
-import { Globe, Phone, Mail, Link as LinkIcon, Milestone, Youtube, GripVertical } from 'lucide-react';
+import { Globe, Phone, Mail, Link as LinkIcon, Milestone, Youtube, GripVertical, Square } from 'lucide-react';
 import { FaXTwitter, FaInstagram, FaYoutube } from 'react-icons/fa6';
 
 
@@ -46,6 +47,7 @@ async function fetchPublicPageManifest(pageId: string): Promise<PublicPage | nul
           { id: '5', type: 'text', title: 'X (旧Twitter)', order: 4, visibility: 'show', icon: 'x' },
           { id: '6', type: 'text', title: 'Instagram', order: 5, visibility: 'show', icon: 'instagram' },
           { id: '7', type: 'album', title: '新婚旅行アルバム', order: 6, visibility: 'show' },
+          { id: '8', type: 'photo', title: 'お気に入りの一枚', order: 7, visibility: 'show' },
         ] as any,
         publish: {
             status: "published",
@@ -65,6 +67,7 @@ const blockIcons: { [key: string]: React.ReactNode } = {
   x: <FaXTwitter className="h-5 w-5" />, 
   instagram: <FaInstagram className="h-6 w-6" />,
   album: <Milestone className="h-6 w-6" />,
+  photo: <Square className="h-6 w-6" />,
   video: <Phone className="h-6 w-6" />, // This seems to be a mistake in mock data
   default: <LinkIcon className="h-6 w-6" />,
 };
@@ -152,7 +155,7 @@ export default async function PublicPage({ params }: { params: { pageId: string 
                <a href="#" key={block.id} className="group block w-full rounded-xl bg-white/5 p-2 shadow-lg ring-1 ring-white/10 backdrop-blur-sm transition-all duration-300 ease-in-out hover:scale-[1.03] hover:bg-white/10 hover:shadow-2xl hover:ring-white/20">
                     <div className="flex items-center gap-4 rounded-lg bg-transparent p-3">
                         <div className="flex-shrink-0 text-white">
-                           {(blockIcons as any)[block.icon] || blockIcons.default}
+                           {(blockIcons as any)[block.type] || (blockIcons as any)[block.icon] || blockIcons.default}
                         </div>
                         <div className="flex-grow text-center text-lg font-semibold text-white">
                             {block.title}

@@ -1,3 +1,4 @@
+
 // src/components/block-editor.tsx
 'use client';
 
@@ -36,7 +37,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { db } from '@/lib/firebase/client';
 import { collection, addDoc, serverTimestamp, query, orderBy, onSnapshot, doc, deleteDoc, updateDoc, writeBatch } from 'firebase/firestore';
-import { PlusCircle, GripVertical, Image as ImageIcon, Video, Mic, Type, Trash2, Loader2, Save } from 'lucide-react';
+import { PlusCircle, GripVertical, Image as ImageIcon, Video, Mic, Type, Trash2, Loader2, Save, Square, ImagePlay } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -66,6 +67,7 @@ interface BlockEditorProps {
 
 const blockIcons: { [key in PublicPageBlock['type']]: React.ReactNode } = {
   album: <ImageIcon className="h-5 w-5 text-muted-foreground" />,
+  photo: <Square className="h-5 w-5 text-muted-foreground" />,
   video: <Video className="h-5 w-5 text-muted-foreground" />,
   audio: <Mic className="h-5 w-5 text-muted-foreground" />,
   text: <Type className="h-5 w-5 text-muted-foreground" />,
@@ -77,6 +79,7 @@ function EditBlockDialog({ open, onOpenChange, block, assets, memoryId }: { open
     const [selectedAssetIds, setSelectedAssetIds] = useState<string[]>(block.album?.assetIds || []);
     const [selectedVideoId, setSelectedVideoId] = useState(block.video?.assetId || '');
     const [selectedAudioId, setSelectedAudioId] = useState(block.audio?.assetId || '');
+    const [selectedPhotoId, setSelectedPhotoId] = useState(block.photo?.assetId || '');
     const [isSaving, setIsSaving] = useState(false);
     const { toast } = useToast();
 
@@ -87,6 +90,7 @@ function EditBlockDialog({ open, onOpenChange, block, assets, memoryId }: { open
         setSelectedAssetIds(block.album?.assetIds || []);
         setSelectedVideoId(block.video?.assetId || '');
         setSelectedAudioId(block.audio?.assetId || '');
+        setSelectedPhotoId(block.photo?.assetId || '');
     }, [block]);
 
 
@@ -104,6 +108,9 @@ function EditBlockDialog({ open, onOpenChange, block, assets, memoryId }: { open
         }
         if (block.type === 'album') {
             updateData.album = { ...block.album, assetIds: selectedAssetIds };
+        }
+        if (block.type === 'photo') {
+            updateData.photo = { assetId: selectedPhotoId };
         }
         if (block.type === 'video') {
             updateData.video = { assetId: selectedVideoId };
@@ -173,6 +180,23 @@ function EditBlockDialog({ open, onOpenChange, block, assets, memoryId }: { open
                         </div>
                     </div>
                 )}
+                
+                {block.type === 'photo' && (
+                     <div className="grid grid-cols-4 items-start gap-4">
+                        <Label className="text-right pt-2">写真選択</Label>
+                         <div className="col-span-3">
+                            {imageAssets.map(asset => (
+                                <div key={asset.id} className="flex items-center space-x-2">
+                                     <input type="radio" id={`asset-photo-${asset.id}`} name="photo-asset" value={asset.id} checked={selectedPhotoId === asset.id} onChange={(e) => setSelectedPhotoId(e.target.value)} />
+                                     <label htmlFor={`asset-photo-${asset.id}`} className="text-sm font-medium leading-none truncate" title={asset.name}>
+                                        {asset.name}
+                                     </label>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
 
                 {block.type === 'video' && (
                      <div className="grid grid-cols-4 items-start gap-4">
@@ -350,8 +374,9 @@ export function BlockEditor({ memory, assets }: BlockEditorProps) {
             type,
             order: blocks.length,
             visibility: 'show',
-            title: `新しい ${type === 'album' ? 'アルバム' : type === 'video' ? '動画' : type === 'audio' ? '音声' : 'テキスト'}`,
+            title: `新しい ${type === 'album' ? 'アルバム' : type === 'photo' ? '写真' : type === 'video' ? '動画' : type === 'audio' ? '音声' : 'テキスト'}`,
             ...(type === 'album' && { album: { layout: 'grid', cols: 2, assetIds: [] } }),
+            ...(type === 'photo' && { photo: { assetId: '' } }),
             ...(type === 'video' && { video: { assetId: '' } }),
             ...(type === 'audio' && { audio: { assetId: '' } }),
             ...(type === 'text' && { text: { content: '' } }),
@@ -445,6 +470,9 @@ export function BlockEditor({ memory, assets }: BlockEditorProps) {
           <DropdownMenuContent>
             <DropdownMenuItem onClick={() => addBlock('album')}>
                 <ImageIcon className="mr-2 h-4 w-4" /> 写真アルバム
+            </DropdownMenuItem>
+             <DropdownMenuItem onClick={() => addBlock('photo')}>
+                <Square className="mr-2 h-4 w-4" /> 写真（単体）
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => addBlock('video')}>
                 <Video className="mr-2 h-4 w-4" /> 動画

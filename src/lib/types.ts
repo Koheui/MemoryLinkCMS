@@ -46,7 +46,7 @@ export interface Asset {
 
 export interface PublicPageBlock {
   id: string;
-  type: 'album' | 'video' | 'audio' | 'text';
+  type: 'album' | 'video' | 'audio' | 'text' | 'photo';
   order: number;
   visibility: 'show' | 'hide';
   title?: string;
@@ -68,7 +68,12 @@ export interface PublicPageBlock {
   };
   text?: { 
     content: string; 
-  }; 
+  };
+  photo?: {
+    assetId: string;
+    src?: string;
+    caption?: string;
+  };
   createdAt: Timestamp | string;
   updatedAt: Timestamp | string;
 }
