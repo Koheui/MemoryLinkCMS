@@ -28,21 +28,21 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [memoryId, setMemoryId] = useState<string | null>(null);
-  const [isFetchingMemoryId, setIsFetchingMemoryId] = useState(true);
-
+  
+  // This effect handles the initial check for a user. If not logged in, it redirects to the login page.
   useEffect(() => {
     if (!loading && !user) {
-      // Allow access to login/signup pages without redirecting in a loop
       if (!pathname.startsWith('/login') && !pathname.startsWith('/signup')) {
          router.push('/login');
       }
     }
   }, [user, loading, router, pathname]);
 
+  // This effect sets the sidebar link once the user is authenticated.
+  // The primary redirection logic is now handled by the server-side /memories/redirect page.
   useEffect(() => {
-    const fetchMemoryIdAndRedirect = async () => {
+    const fetchMemoryId = async () => {
         if (user) {
-            setIsFetchingMemoryId(true);
             try {
                 const memoriesQuery = query(
                     collection(db, 'memories'), 
@@ -51,48 +51,21 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
                 );
                 const querySnapshot = await getDocs(memoriesQuery);
                 if (!querySnapshot.empty) {
-                    const memoryDoc = querySnapshot.docs[0];
-                    const fetchedMemoryId = memoryDoc.id;
-                    const memoryData = memoryDoc.data();
-                    
+                    const fetchedMemoryId = querySnapshot.docs[0].id;
                     setMemoryId(fetchedMemoryId);
-
-                    // For existing users, if publicPageId is missing, create it.
-                    if (!memoryData.publicPageId) {
-                        const memoryDocRef = doc(db, 'memories', fetchedMemoryId);
-                        await updateDoc(memoryDocRef, {
-                            publicPageId: fetchedMemoryId,
-                            updatedAt: serverTimestamp()
-                        });
-                    }
-                    
-                    // If user is on a generic authenticated page that is not the target memory page, redirect.
-                    if (pathname !== `/memories/${fetchedMemoryId}`) {
-                        router.replace(`/memories/${fetchedMemoryId}`);
-                    }
-                } else {
-                    console.warn("No memory found for user:", user.uid);
-                    // If no memory, they should be on the account page.
-                    if (pathname !== '/account') {
-                        router.replace('/account');
-                    }
                 }
             } catch (error) {
-                console.error("Error fetching/updating memoryId:", error);
-            } finally {
-                setIsFetchingMemoryId(false);
+                console.error("Error fetching memoryId for sidebar:", error);
             }
-        } else {
-            setIsFetchingMemoryId(false);
         }
     };
-    if (!loading && user) {
-      fetchMemoryIdAndRedirect();
+    if (user) {
+        fetchMemoryId();
     }
-  }, [user, loading, pathname, router]);
+  }, [user]);
 
 
-  if (loading || isFetchingMemoryId) {
+  if (loading) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="flex items-center gap-2">

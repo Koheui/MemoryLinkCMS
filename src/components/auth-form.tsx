@@ -94,15 +94,13 @@ export function AuthForm({ type }: AuthFormProps) {
 
         await setDoc(memoryDocRef, newMemoryData);
         
-        // After signup, redirect to a generic authenticated page to let the layout handle the final redirect.
-        router.push(`/account`);
+        // Redirect to a dedicated redirect page to handle server-side redirection.
+        router.push(`/memories/redirect`);
 
       } else { // Login
         userCredential = await signInWithEmailAndPassword(auth, data.email, data.password);
-        // After login, the onAuthStateChanged in AuthProvider will handle the user state.
-        // The layout will then redirect to the correct page.
-        // We just push to a generic authenticated route to trigger the process.
-        router.push('/account');
+        // Redirect to a dedicated redirect page to handle server-side redirection.
+        router.push('/memories/redirect');
       }
 
     } catch (error: any) {
