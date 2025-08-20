@@ -8,11 +8,9 @@ import { db } from '@/lib/firebase/client';
 import { doc, getDoc, collection, query, orderBy, where, collectionGroup, onSnapshot } from 'firebase/firestore';
 import { notFound, useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { Eye, Loader2, Wand2 } from 'lucide-react';
+import { Eye, Loader2, Wand2, Image as ImageIcon, FileText, Blocks } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
-import { cn } from '@/lib/utils';
 import { BlockEditor } from '@/components/block-editor';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { AboutEditor } from '@/components/about-editor';
 import { DesignEditor } from '@/components/design-editor';
@@ -101,59 +99,55 @@ export default function MemoryEditorPage() {
       </header>
 
       {/* Editor Canvas */}
-       <main className="flex-1 overflow-auto p-4 sm:p-6 lg:p-8">
-            <Tabs defaultValue="blocks" className="w-full">
-                <TabsList className="grid w-full grid-cols-3">
-                    <TabsTrigger value="blocks">ブロック編集</TabsTrigger>
-                    <TabsTrigger value="about">概要編集</TabsTrigger>
-                    <TabsTrigger value="design">デザイン</TabsTrigger>
-                </TabsList>
-                <TabsContent value="blocks">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="font-headline">コンテンツブロック</CardTitle>
-                            <CardDescription>ページの本体となるコンテンツブロックを追加・編集・並び替えします。</CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <BlockEditor memory={memory} assets={assets} />
-                        </CardContent>
-                    </Card>
-                </TabsContent>
-                <TabsContent value="about">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="font-headline">概要</CardTitle>
-                            <CardDescription>ページ上部に表示されるタイトルと紹介文を編集します。</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <AboutEditor memory={memory} />
-                        </CardContent>
-                    </Card>
-                </TabsContent>
-                <TabsContent value="design">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="font-headline">デザインとテーマ</CardTitle>
-                            <CardDescription>カバー画像、プロフィール画像、全体のテーマなどをカスタマイズします。</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <DesignEditor memory={memory} assets={assets} />
-                        </CardContent>
-                    </Card>
-                     <Card className="mt-6">
-                        <CardHeader>
-                            <CardTitle className="font-headline flex items-center gap-2">
-                                <Wand2 className="text-primary" />
-                                AIテーマ提案
-                            </CardTitle>
-                            <CardDescription>AIがページの内容（タイトルや概要）から最適なテーマを提案します。</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <ThemeSuggester memory={memory} />
-                        </CardContent>
-                    </Card>
-                </TabsContent>
-            </Tabs>
+       <main className="flex-1 overflow-auto p-4 sm:p-6 lg:p-8 space-y-6">
+          <Card>
+            <CardHeader>
+                <CardTitle className="font-headline flex items-center gap-2">
+                    <ImageIcon className="text-primary"/>
+                    デザインとテーマ
+                </CardTitle>
+                <CardDescription>カバー画像、プロフィール画像、全体のテーマなどをカスタマイズします。</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <DesignEditor memory={memory} assets={assets} />
+            </CardContent>
+             <CardHeader className="pt-0">
+                <CardTitle className="font-headline flex items-center gap-2">
+                    <Wand2 className="text-primary" />
+                    AIテーマ提案
+                </CardTitle>
+                <CardDescription>AIがページの内容から最適なテーマを提案します。</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <ThemeSuggester memory={memory} />
+            </CardContent>
+          </Card>
+
+           <Card>
+              <CardHeader>
+                  <CardTitle className="font-headline flex items-center gap-2">
+                      <FileText className="text-primary" />
+                      概要
+                  </CardTitle>
+                  <CardDescription>ページ上部に表示されるタイトルと紹介文を編集します。</CardDescription>
+              </CardHeader>
+              <CardContent>
+                  <AboutEditor memory={memory} />
+              </CardContent>
+          </Card>
+          
+           <Card>
+              <CardHeader>
+                  <CardTitle className="font-headline flex items-center gap-2">
+                      <Blocks className="text-primary" />
+                      コンテンツブロック
+                  </CardTitle>
+                  <CardDescription>ページの本体となるコンテンツブロックを追加・編集・並び替えします。</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                  <BlockEditor memory={memory} assets={assets} />
+              </CardContent>
+          </Card>
        </main>
     </div>
   );
