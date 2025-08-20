@@ -7,7 +7,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { storage, db } from '@/lib/firebase/client';
 import { ref, uploadBytesResumable, getDownloadURL, updateMetadata } from 'firebase/storage';
-import { collection, addDoc, serverTimestamp, doc, updateDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, updateDoc, getDoc } from 'firebase/firestore';
 import type { Asset } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
 
@@ -15,11 +15,11 @@ interface MediaUploaderProps {
   assetType: 'image' | 'video' | 'audio';
   accept: string;
   children: ReactNode;
-  onUploadStarted?: (assetId: string) => void;
+  onUploadSuccess?: (asset: Asset) => void;
   memoryId: string;
 }
 
-export function MediaUploader({ assetType, accept, children, onUploadStarted, memoryId }: MediaUploaderProps) {
+export function MediaUploader({ assetType, accept, children, onUploadSuccess, memoryId }: MediaUploaderProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -62,9 +62,6 @@ export function MediaUploader({ assetType, accept, children, onUploadStarted, me
         updatedAt: serverTimestamp(),
       });
 
-      // Notify parent component that an asset has been created and upload is starting
-      onUploadStarted?.(docRef.id);
-
       // 2. Start the upload to Firebase Storage
       const storageRef = ref(storage, storagePath);
       const uploadTask = uploadBytesResumable(storageRef, file, { contentType: file.type });
@@ -87,6 +84,11 @@ export function MediaUploader({ assetType, accept, children, onUploadStarted, me
             url: downloadURL,
             updatedAt: serverTimestamp(),
           });
+          
+          const finalDoc = await getDoc(doc(db, 'assets', docRef.id));
+          const finalAsset = { id: finalDoc.id, ...finalDoc.data() } as Asset;
+
+          onUploadSuccess?.(finalAsset);
           
           toast({ title: '成功', description: `${file.name} のアップロードが完了しました。` });
           setIsUploading(false);
@@ -137,5 +139,3 @@ export function MediaUploader({ assetType, accept, children, onUploadStarted, me
     </>
   );
 }
-
-    
