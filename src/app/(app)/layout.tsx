@@ -20,7 +20,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { db } from '@/lib/firebase/client';
-import { collection, query, where, getDocs, limit, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, limit, doc, updateDoc } from 'firebase/firestore';
 
 
 function AppLayoutContent({ children }: { children: React.ReactNode }) {
@@ -28,6 +28,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [memoryId, setMemoryId] = useState<string | null>(null);
+  const [isFetchingMemoryId, setIsFetchingMemoryId] = useState(true);
   
   // This effect handles the initial check for a user. If not logged in, it redirects to the login page.
   useEffect(() => {
@@ -43,6 +44,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const fetchMemoryId = async () => {
         if (user) {
+            setIsFetchingMemoryId(true);
             try {
                 const memoriesQuery = query(
                     collection(db, 'memories'), 
@@ -63,13 +65,27 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
                 }
             } catch (error) {
                 console.error("Error fetching memoryId for sidebar:", error);
+            } finally {
+              setIsFetchingMemoryId(false);
             }
+        } else {
+          setIsFetchingMemoryId(false);
         }
     };
     if (user && !loading) {
         fetchMemoryId();
     }
   }, [user, loading]);
+
+  // This effect redirects the user to their memory editing page once the memoryId is fetched.
+  useEffect(() => {
+    if (!isFetchingMemoryId && memoryId) {
+      const isMemoriesPage = pathname.startsWith('/memories/');
+      if (!isMemoriesPage) {
+        router.replace(`/memories/${memoryId}`);
+      }
+    }
+  }, [isFetchingMemoryId, memoryId, pathname, router]);
 
 
   if (loading) {
@@ -89,7 +105,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
     return <>{children}</>;
   }
   
-  const editPageHref = memoryId ? `/memories/${memoryId}` : '/account';
+  const editPageHref = memoryId ? `/memories/${memoryId}` : '#';
 
   return (
     <SidebarProvider>
