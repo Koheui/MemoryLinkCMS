@@ -228,7 +228,7 @@ function EditBlockDialog({ open, onOpenChange, block, assets, memoryId }: { open
                         </div>
                     </div>
                 )}
-{/* 
+
                 <div className="grid grid-cols-4 items-start gap-4">
                    <Label className="text-right pt-2">メディア追加</Label>
                    <div className="col-span-3 flex gap-2">
@@ -242,7 +242,7 @@ function EditBlockDialog({ open, onOpenChange, block, assets, memoryId }: { open
                        <Button variant="outline" size="sm"><Mic className="mr-2 h-4 w-4"/>音声</Button>
                      </MediaUploader>
                    </div>
-                </div> */}
+                </div>
 
             </div>
             <DialogFooter>
