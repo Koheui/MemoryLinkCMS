@@ -1,144 +1,212 @@
+
 // src/app/(app)/memories/[memoryId]/page.tsx
 'use client';
 
-import { ThemeSuggester } from '@/components/theme-suggester';
-import { DesignEditor } from '@/components/design-editor';
-import { AboutEditor } from '@/components/about-editor';
-import { BlockEditor } from '@/components/block-editor';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import type { Memory, Asset } from '@/lib/types';
-import { db } from '@/lib/firebase/client';
-import { doc, getDoc, collection, getDocs, query, orderBy } from 'firebase/firestore';
-import { notFound } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import type { Memory, Asset, PublicPageBlock } from '@/lib/types';
+import { db, storage } from '@/lib/firebase/client';
+import { doc, getDoc, collection, getDocs, query, orderBy, onSnapshot } from 'firebase/firestore';
+import { getDownloadURL, ref } from 'firebase/storage';
+import { notFound, useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Edit, Eye, Globe, Image as ImageIcon, Link as LinkIcon, Loader2, Mail, Mic, Milestone, Phone, Plus, Type, UploadCloud, Video } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
+import Image from 'next/image';
+import { cn } from '@/lib/utils';
 
 
-export default function MemoryEditorPage({ params }: { params: { memoryId: string } }) {
+// This is the new Visual Editor Page
+export default function MemoryEditorPage() {
+  const params = useParams();
+  const memoryId = params.memoryId as string;
   const { user, loading: authLoading } = useAuth();
+  
   const [memory, setMemory] = useState<Memory | null>(null);
+  const [blocks, setBlocks] = useState<PublicPageBlock[]>([]);
   const [assets, setAssets] = useState<Asset[]>([]);
+  const [assetUrls, setAssetUrls] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
 
+  // Fetch all required data
   useEffect(() => {
-    if (authLoading) return;
-    if (!user) {
-        // This should be handled by layout, but as a safeguard
-        notFound();
-        return;
-    };
+    if (authLoading || !user || !memoryId) return;
 
-    const fetchMemory = async () => {
-        const memoryDocRef = doc(db, 'memories', params.memoryId);
-        const memoryDoc = await getDoc(memoryDocRef);
-
-        if (!memoryDoc.exists() || memoryDoc.data()?.ownerUid !== user.uid) {
-            notFound();
-            return;
-        }
-
-        const memoryData = memoryDoc.data() as Omit<Memory, 'id'>;
-        setMemory({
-             id: memoryDoc.id,
-            ...memoryData,
-            createdAt: memoryData.createdAt.toDate().toISOString(),
-            updatedAt: memoryData.updatedAt.toDate().toISOString(),
-        } as Memory);
-    };
-
-    const fetchAssets = async () => {
-        const assetsSnapshot = await getDocs(query(collection(db, 'memories', params.memoryId, 'assets'), orderBy('createdAt', 'desc')));
-        
-        const fetchedAssets: Asset[] = assetsSnapshot.docs.map(doc => {
-            const data = doc.data();
-            return {
-                id: doc.id,
-                ...data,
-                createdAt: data.createdAt.toDate().toISOString(),
-            } as Asset;
-        });
-        setAssets(fetchedAssets);
-    };
-
-    const loadData = async () => {
+    const fetchInitialData = async () => {
         setLoading(true);
         try {
-            await Promise.all([fetchMemory(), fetchAssets()]);
+            // Fetch Memory
+            const memoryDocRef = doc(db, 'memories', memoryId);
+            const memoryDoc = await getDoc(memoryDocRef);
+            if (!memoryDoc.exists() || memoryDoc.data()?.ownerUid !== user.uid) {
+                return notFound();
+            }
+            const memoryData = memoryDoc.data() as Omit<Memory, 'id'>;
+            setMemory({ id: memoryDoc.id, ...memoryData } as Memory);
+
+            // Fetch Assets in parallel
+            const assetsQuery = query(collection(db, 'memories', memoryId, 'assets'), orderBy('createdAt', 'desc'));
+            const assetsSnapshot = await getDocs(assetsQuery);
+            const fetchedAssets: Asset[] = assetsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Asset));
+            setAssets(fetchedAssets);
+
+            // Set up real-time listener for blocks
+            const blocksQuery = query(collection(db, 'memories', memoryId, 'blocks'), orderBy('order', 'asc'));
+            const unsubscribe = onSnapshot(blocksQuery, (snapshot) => {
+                const fetchedBlocks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PublicPageBlock));
+                setBlocks(fetchedBlocks);
+            });
+            
+            return () => unsubscribe();
+
         } catch (error) {
             console.error("Error fetching memory data:", error);
-            notFound();
+            return notFound();
         } finally {
             setLoading(false);
         }
-    }
+    };
     
-    loadData();
+    fetchInitialData();
 
-  }, [params.memoryId, user, authLoading]);
+  }, [memoryId, user, authLoading]);
+
+  // Pre-fetch asset URLs for display
+   useEffect(() => {
+    const fetchAssetUrls = async () => {
+      const urls: Record<string, string> = {};
+      const assetsToFetch = [
+        memory?.coverAssetId,
+        memory?.profileAssetId,
+      ].filter(Boolean) as string[];
+
+      for (const assetId of assetsToFetch) {
+        const asset = assets.find(a => a.id === assetId);
+        if (asset?.storagePath) {
+            try {
+                const url = await getDownloadURL(ref(storage, asset.storagePath));
+                urls[asset.id] = url;
+            } catch (error) {
+                console.error(`Failed to get URL for asset ${asset.id}:`, error);
+            }
+        }
+      }
+      setAssetUrls(prev => ({ ...prev, ...urls }));
+    };
+
+    if (assets.length > 0 && memory) {
+      fetchAssetUrls();
+    }
+  }, [assets, memory]);
+
 
   if (loading || authLoading || !memory) {
      return (
-        <div className="flex h-[50vh] items-center justify-center">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <div className="flex h-screen items-center justify-center bg-background">
+            <Loader2 className="h-10 w-10 animate-spin text-primary" />
         </div>
      )
   }
 
+  const coverImageUrl = memory.coverAssetId ? assetUrls[memory.coverAssetId] : null;
+  const profileImageUrl = memory.profileAssetId ? assetUrls[memory.profileAssetId] : null;
+
+  const blockIcons: { [key: string]: React.ReactNode } = {
+    album: <Milestone className="h-5 w-5" />,
+    video: <Video className="h-5 w-5" />,
+    audio: <Mic className="h-5 w-5" />,
+    text: <Type className="h-5 w-5" />,
+    default: <LinkIcon className="h-5 w-5" />,
+  };
+
+
   return (
-    <div className="space-y-6">
-       <div>
-            <h1 className="text-2xl font-bold tracking-tight font-headline">ページの編集</h1>
-            <p className="text-muted-foreground">編集中のページ: <span className="font-semibold text-primary">{memory.title}</span></p>
+    <div className="min-h-screen bg-background">
+      {/* Header */}
+      <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-background/80 px-4 backdrop-blur-sm md:px-6">
+        <div>
+           <h1 className="text-xl font-bold tracking-tight font-headline">{memory.title}</h1>
+           <p className="text-sm text-muted-foreground">編集モード</p>
         </div>
-        
-        <Card>
-            <CardHeader>
-                <CardTitle className="font-headline">デザイン</CardTitle>
-                <CardDescription>
-                    公開ページの見た目をカスタマイズします。カバー画像、プロフィール写真、テーマ、フォントサイズなどを設定できます。
-                </CardDescription>
-            </CardHeader>
-            <CardContent>
-                <DesignEditor memory={memory} assets={assets} />
-            </CardContent>
-        </Card>
+        <div className="flex items-center gap-2">
+          <Button variant="outline">
+            <Eye className="mr-2 h-4 w-4" />
+            プレビュー
+          </Button>
+           <Button>
+            公開する
+          </Button>
+        </div>
+      </header>
 
-        <Card>
-            <CardHeader>
-                <CardTitle className="font-headline">概要</CardTitle>
-                <CardDescription>
-                    ページの冒頭に表示される紹介文です。Markdown形式で記述できます。
-                </CardDescription>
-            </CardHeader>
-            <CardContent>
-                <AboutEditor memory={memory} />
-            </CardContent>
-        </Card>
+      {/* Editor Canvas */}
+      <div className="mx-auto max-w-3xl p-4 md:p-8">
+        <main className="rounded-lg border bg-card shadow-sm">
+          {/* Cover Image */}
+          <div className="group relative h-48 w-full cursor-pointer overflow-hidden rounded-t-lg bg-muted/50">
+            {coverImageUrl ? (
+                <Image src={coverImageUrl} alt={memory.title} fill className="object-cover" />
+            ) : (
+                <div className="flex h-full flex-col items-center justify-center text-muted-foreground">
+                    <ImageIcon className="h-12 w-12"/>
+                    <p className="mt-2 text-sm font-semibold">カバー画像を追加</p>
+                </div>
+            )}
+            <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
+                <Button size="sm" variant="secondary"><Edit className="mr-2 h-4 w-4"/>変更</Button>
+            </div>
+          </div>
 
-        <Card>
-            <CardHeader>
-                <CardTitle className="font-headline">コンテンツブロック</CardTitle>
-                <CardDescription>
-                    写真アルバム、動画、テキストなど、ページに表示するコンテンツを自由に追加・並べ替えできます。
-                </CardDescription>
-            </CardHeader>
-            <CardContent>
-                <BlockEditor memory={memory} assets={assets} />
-            </CardContent>
-        </Card>
+           {/* Profile & Title Section */}
+           <div className="relative mb-8 flex flex-col items-center px-6">
+             <div className="group relative -mt-16 h-32 w-32 cursor-pointer overflow-hidden rounded-full border-4 border-card shadow-lg">
+                {profileImageUrl ? (
+                     <Image src={profileImageUrl} alt="Profile" fill className="object-cover" />
+                ) : (
+                    <div className="flex h-full w-full items-center justify-center bg-muted/50 text-muted-foreground">
+                        <ImageIcon className="h-10 w-10"/>
+                    </div>
+                )}
+                 <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
+                    <Button size="sm" variant="secondary" className="h-8 w-8 rounded-full p-0"><Edit className="h-4 w-4"/></Button>
+                 </div>
+             </div>
+             
+             <div className="group relative mt-4 w-full text-center">
+                 <h1 className="text-3xl font-bold font-headline peer">{memory.title}</h1>
+                 <p className="text-muted-foreground peer">{memory.description || '概要をここに追加します'}</p>
+                 <Button size="sm" variant="ghost" className="absolute -right-2 -top-2 opacity-0 transition-opacity peer-hover:opacity-100 group-hover:opacity-100">
+                    <Edit className="h-4 w-4"/>
+                 </Button>
+             </div>
+           </div>
 
-        <Card>
-            <CardHeader>
-                <CardTitle className="font-headline">AIテーマデザイナー</CardTitle>
-                <CardDescription>
-                    AIがタイトルや説明を分析し、あなたのページにぴったりのテーマを提案します。
-                </CardDescription>
-            </CardHeader>
-            <CardContent>
-                <ThemeSuggester memory={memory} />
-            </CardContent>
-        </Card>
+          {/* Blocks Section */}
+           <div className="space-y-4 p-4 md:p-6">
+              {blocks.map(block => (
+                <div key={block.id} className="group relative w-full cursor-pointer rounded-lg border bg-background p-4 transition-colors hover:border-primary">
+                  <div className="flex items-center gap-4">
+                    <div className="flex-shrink-0 text-muted-foreground">
+                        {blockIcons[block.type] || blockIcons.default}
+                    </div>
+                    <div className="flex-grow text-lg font-semibold">
+                        {block.title}
+                    </div>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100">
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+
+               {/* Add New Block */}
+               <button className="flex w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-muted-foreground/50 py-10 text-center text-muted-foreground transition-colors hover:border-primary hover:bg-primary/5 hover:text-primary">
+                  <Plus className="h-8 w-8"/>
+                  <span className="font-semibold">コンテンツブロックを追加</span>
+               </button>
+           </div>
+        </main>
+      </div>
+
     </div>
   );
 }

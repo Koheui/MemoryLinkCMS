@@ -51,12 +51,13 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
                 if (!querySnapshot.empty) {
                     const fetchedMemoryId = querySnapshot.docs[0].id;
                     setMemoryId(fetchedMemoryId);
-                    // If user lands on a generic authenticated page, redirect them to their memory page
-                    if (pathname === '/account' || pathname === '/dashboard') {
+                    // If user lands on a generic authenticated page that IS NOT the editor itself, redirect them.
+                    if (!pathname.startsWith(`/memories/${fetchedMemoryId}`)) {
                         router.replace(`/memories/${fetchedMemoryId}`);
                     }
                 } else {
                     console.warn("No memory found for user:", user.uid);
+                    // TODO: Handle case where user has no memories (e.g., redirect to a 'create-first-memory' page)
                 }
             } catch (error) {
                 console.error("Error fetching memoryId:", error);
@@ -96,7 +97,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
       <Sidebar>
         <SidebarHeader>
           <div className="flex items-center gap-2">
-             <Link href="/account" className="flex items-center gap-2 font-headline" prefetch={false}>
+             <Link href={editPageHref} className="flex items-center gap-2 font-headline" prefetch={false}>
                 <Heart className="h-6 w-6 text-primary" />
                 <span className="text-lg font-bold">想い出リンク</span>
              </Link>
@@ -105,7 +106,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
         <SidebarMenu className="flex-1">
           <SidebarMenuItem>
             <SidebarMenuButton asChild isActive={pathname.startsWith('/memories')} disabled={!memoryId || isFetchingMemoryId}>
-              <Link href={editPageHref}><Edit/> 編集ページ</Link>
+              <Link href={editPageHref}><Edit/> ページ編集</Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
@@ -142,13 +143,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
         </div>
       </Sidebar>
       <SidebarInset>
-        <header className="flex h-14 items-center gap-4 border-b bg-background px-4 md:px-6">
-            <SidebarTrigger className="md:hidden" />
-            <div className="flex-1">
-              {/* Header content can go here */}
-            </div>
-        </header>
-        <main className="flex-1 p-4 md:p-6">{children}</main>
+        <main className="flex-1 bg-muted/30">{children}</main>
       </SidebarInset>
     </SidebarProvider>
   );
