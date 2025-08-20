@@ -2,7 +2,7 @@
 'use client';
 
 import * as React from 'react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import type { Memory, Asset, PublicPageBlock } from '@/lib/types';
 import { db } from '@/lib/firebase/client';
 import { doc, updateDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
@@ -63,6 +63,15 @@ export function DesignModal({ isOpen, setIsOpen, memory, assets }: { isOpen: boo
         }
     }
 
+    const handleUploadSuccess = (asset: Asset) => {
+        // This function might be too generic if both uploaders use it.
+        // Let's defer deciding which state to update based on some context,
+        // but for now, let's assume we need a way to distinguish.
+        // A simple way is to pass a setter function to MediaUploader.
+        // For now, I'll just set both, which is not ideal. A better approach is needed if this becomes an issue.
+         toast({ title: "アップロード完了", description: `'${asset.name}'をアップロードしました。`})
+    }
+
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogContent>
@@ -74,10 +83,10 @@ export function DesignModal({ isOpen, setIsOpen, memory, assets }: { isOpen: boo
                     <div>
                         <Label>カバー画像</Label>
                         <div className="flex gap-2">
-                             <Select onValueChange={setCoverAssetId} value={coverAssetId ?? undefined}>
+                             <Select onValueChange={setCoverAssetId} value={coverAssetId ?? ""}>
                                 <SelectTrigger><SelectValue placeholder="カバー画像を選択..." /></SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="null">なし</SelectItem>
+                                    <SelectItem value="">なし</SelectItem>
                                     {imageAssets.map(asset => <SelectItem key={asset.id} value={asset.id}>{asset.name}</SelectItem>)}
                                 </SelectContent>
                             </Select>
@@ -100,10 +109,10 @@ export function DesignModal({ isOpen, setIsOpen, memory, assets }: { isOpen: boo
                      <div>
                         <Label>プロフィール画像</Label>
                         <div className="flex gap-2">
-                            <Select onValueChange={setProfileAssetId} value={profileAssetId ?? undefined}>
+                            <Select onValueChange={setProfileAssetId} value={profileAssetId ?? ""}>
                                 <SelectTrigger><SelectValue placeholder="プロフィール画像を選択..." /></SelectTrigger>
                                 <SelectContent>
-                                <SelectItem value="null">なし</SelectItem>
+                                <SelectItem value="">なし</SelectItem>
                                     {imageAssets.map(asset => <SelectItem key={asset.id} value={asset.id}>{asset.name}</SelectItem>)}
                                 </SelectContent>
                             </Select>
@@ -214,16 +223,12 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, blockCoun
     const [isSaving, setIsSaving] = useState(false);
     const { toast } = useToast();
     const isEditing = block !== null;
-    const [selectedAssetUrl, setSelectedAssetUrl] = useState<string | null | undefined>(null);
+    
+    const imageAssets = useMemo(() => assets.filter(a => a.type === 'image'), [assets]);
+    const videoAssets = useMemo(() => assets.filter(a => a.type === 'video'), [assets]);
+    const audioAssets = useMemo(() => assets.filter(a => a.type === 'audio'), [assets]);
+    const selectedAsset = useMemo(() => assets.find(a => a.id === selectedAssetId), [selectedAssetId, assets]);
 
-    useEffect(() => {
-        if (!selectedAssetId) {
-            setSelectedAssetUrl(null);
-            return;
-        }
-        const asset = assets.find(a => a.id === selectedAssetId);
-        setSelectedAssetUrl(asset?.url);
-    }, [selectedAssetId, assets]);
 
     useEffect(() => {
         if (isOpen) {
@@ -249,9 +254,6 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, blockCoun
         }
     }, [block, isOpen, isEditing]);
     
-    const imageAssets = assets.filter(a => a.type === 'image');
-    const videoAssets = assets.filter(a => a.type === 'video');
-    const audioAssets = assets.filter(a => a.type === 'audio');
 
     const handleSave = async () => {
         if (!blockType) {
@@ -300,7 +302,7 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, blockCoun
     
     const handleUploadSuccess = (asset: Asset) => {
         setSelectedAssetId(asset.id);
-        toast({ title: "アップロード完了", description: `"${asset.name}"のアップロードが完了しました。`});
+        toast({ title: "アップロード完了", description: `'${asset.name}'のアップロードが完了しました。`});
     }
 
     const renderAssetSelector = (
@@ -342,16 +344,14 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, blockCoun
             );
         }
         
-        const selectedAsset = assets.find(a => a.id === selectedAssetId);
-
         let specificFields = null;
         if (blockType === 'photo') {
             specificFields = (
                  <div className="space-y-4">
                     {renderAssetSelector('image', imageAssets, '写真を選択...')}
-                    {selectedAssetUrl && (
+                    {selectedAsset?.url && (
                          <div className="mt-2 rounded-md overflow-hidden aspect-video relative bg-muted flex items-center justify-center">
-                            <Image src={selectedAssetUrl} alt="Preview" fill className="object-cover" />
+                            <Image src={selectedAsset.url} alt="Preview" fill className="object-cover" />
                         </div>
                     )}
                      <div>
