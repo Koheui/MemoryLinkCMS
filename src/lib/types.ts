@@ -36,6 +36,7 @@ export interface Memory {
 export interface Asset {
   id: string;
   ownerUid: string;
+  memoryId: string; // To know which memory this asset belongs to
   name: string;
   type: 'image' | 'video' | 'audio';
   storagePath: string; // Path in Firebase Storage

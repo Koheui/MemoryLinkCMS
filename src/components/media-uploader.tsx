@@ -24,10 +24,16 @@ export function MediaUploader({ assetType, accept, children, onUploadSuccess }: 
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const params = useParams();
+  const memoryId = params.memoryId as string;
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (!user) {
       toast({ variant: 'destructive', title: 'エラー', description: 'ログインしていません。' });
+      return;
+    }
+    if (!memoryId) {
+      toast({ variant: 'destructive', title: 'エラー', description: '有効なページではありません。' });
       return;
     }
 
@@ -37,7 +43,8 @@ export function MediaUploader({ assetType, accept, children, onUploadSuccess }: 
     setIsUploading(true);
     if (fileInputRef.current) fileInputRef.current.value = "";
     
-    const storagePath = `users/${user.uid}/assets/${assetType}/${Date.now()}_${file.name}`;
+    // Path for Firebase Storage remains user-specific to align with security rules
+    const storagePath = `users/${user.uid}/memories/${memoryId}/${assetType}/${Date.now()}_${file.name}`;
     const storageRef = ref(storage, storagePath);
 
     try {
@@ -57,6 +64,7 @@ export function MediaUploader({ assetType, accept, children, onUploadSuccess }: 
           
           const assetData: Omit<Asset, 'id' | 'createdAt' | 'updatedAt'> = {
             ownerUid: user.uid,
+            memoryId: memoryId, // Associate asset with the memory page
             name: file.name,
             type: assetType,
             storagePath: storagePath,
@@ -64,8 +72,7 @@ export function MediaUploader({ assetType, accept, children, onUploadSuccess }: 
             size: file.size,
           };
           
-          // Note: All assets are now stored in a single top-level 'assets' collection.
-          // This is a simplified approach for the media library.
+          // Writes to the top-level 'assets' collection, secured by rules.
           const docRef = await addDoc(collection(db, 'assets'), {
              ...assetData,
              createdAt: serverTimestamp(),
