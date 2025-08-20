@@ -14,8 +14,9 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, Save, Image as ImageIcon, Video, Mic, Type, Link, Square, Album } from 'lucide-react';
+import { Loader2, Save, Image as ImageIcon, Video, Mic, Type, Link, Square, Album, Upload } from 'lucide-react';
 import Image from 'next/image';
+import { MediaUploader } from './media-uploader';
 
 // Design Modal (Cover & Profile Image)
 export function DesignModal({ isOpen, setIsOpen, memory, assets }: { isOpen: boolean, setIsOpen: (open: boolean) => void, memory: Memory, assets: Asset[] }) {
@@ -255,6 +256,36 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, blockCoun
             setIsSaving(false);
         }
     };
+    
+    const handleUploadSuccess = (newAsset: Asset) => {
+        setSelectedAssetId(newAsset.id);
+        toast({ title: "アップロード成功", description: `${newAsset.name}が選択されました。`});
+    }
+
+    const renderAssetSelector = (
+        type: 'image' | 'video' | 'audio',
+        availableAssets: Asset[],
+        placeholder: string
+    ) => (
+        <div className="space-y-2">
+            <Label>メディア選択</Label>
+            <div className="flex gap-2">
+                <Select onValueChange={setSelectedAssetId} value={selectedAssetId}>
+                    <SelectTrigger><SelectValue placeholder={placeholder} /></SelectTrigger>
+                    <SelectContent>
+                        {availableAssets.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+                    </SelectContent>
+                </Select>
+                <MediaUploader
+                    assetType={type}
+                    accept={`${type}/*`}
+                    onUploadSuccess={handleUploadSuccess}
+                >
+                    <Button type="button" variant="outline"><Upload className="h-4 w-4"/></Button>
+                </MediaUploader>
+            </div>
+        </div>
+    );
 
     const renderContent = () => {
         if (!blockType) {
@@ -262,35 +293,37 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, blockCoun
                 <div className="grid grid-cols-2 gap-4">
                     <Button variant="outline" className="h-24 flex-col gap-2" onClick={() => setBlockType('text')}><Type className="w-8 h-8"/>テキスト/リンク</Button>
                     <Button variant="outline" className="h-24 flex-col gap-2" onClick={() => setBlockType('photo')}><ImageIcon className="w-8 h-8"/>写真</Button>
-                    <Button variant="outline" className="h-24 flex-col gap-2" onClick={() => setBlockType('album')}><Album className="w-8 h-8"/>アルバム</Button>
+                    <Button variant="outline" className="h-24 flex-col gap-2" onClick={() => setBlockType('album')} disabled><Album className="w-8 h-8"/>アルバム (近日)</Button>
                     <Button variant="outline" className="h-24 flex-col gap-2" onClick={() => setBlockType('video')}><Video className="w-8 h-8"/>動画</Button>
                     <Button variant="outline" className="h-24 flex-col gap-2" onClick={() => setBlockType('audio')}><Mic className="w-8 h-8"/>音声</Button>
                 </div>
             );
         }
 
-        let assetSelector = null;
+        let specificFields = null;
         if (blockType === 'photo') {
-            assetSelector = (
-                <div className="space-y-4">
-                    <Label>メディア選択</Label>
-                    <Select onValueChange={setSelectedAssetId} value={selectedAssetId}>
-                        <SelectTrigger><SelectValue placeholder="写真を選択..." /></SelectTrigger>
-                        <SelectContent>
-                          {imageAssets.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
+            specificFields = (
+                 <div className="space-y-4">
+                    {renderAssetSelector('image', imageAssets, '写真を選択...')}
                      <div>
                         <Label htmlFor="caption">キャプション (任意)</Label>
                         <Input id="caption" value={photoCaption} onChange={(e) => setPhotoCaption(e.target.value)} />
                     </div>
                 </div>
-            );
+            )
         } else if (blockType === 'video') {
-            assetSelector = <><Label>メディア選択</Label><Select onValueChange={setSelectedAssetId} value={selectedAssetId}><SelectTrigger><SelectValue placeholder="動画を選択..." /></SelectTrigger><SelectContent>{videoAssets.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}</SelectContent></Select></>;
+            specificFields = renderAssetSelector('video', videoAssets, '動画を選択...');
         } else if (blockType === 'audio') {
-            assetSelector = <><Label>メディア選択</Label><Select onValueChange={setSelectedAssetId} value={selectedAssetId}><SelectTrigger><SelectValue placeholder="音声を選択..." /></SelectTrigger><SelectContent>{audioAssets.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}</SelectContent></Select></>;
+            specificFields = renderAssetSelector('audio', audioAssets, '音声を選択...');
+        } else if (blockType === 'text') {
+             specificFields = (
+                 <div>
+                    <Label htmlFor="block-content">内容 (リンク先のURLなど)</Label>
+                    <Textarea id="block-content" value={textContent} onChange={(e) => setTextContent(e.target.value)} />
+                </div>
+            );
         }
+
 
         return (
             <div className="space-y-4">
@@ -298,13 +331,7 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, blockCoun
                     <Label htmlFor="block-title">タイトル</Label>
                     <Input id="block-title" value={title} onChange={(e) => setTitle(e.target.value)} />
                 </div>
-                {blockType === 'text' && (
-                    <div>
-                        <Label htmlFor="block-content">内容 (リンク先のURLなど)</Label>
-                        <Textarea id="block-content" value={textContent} onChange={(e) => setTextContent(e.target.value)} />
-                    </div>
-                )}
-                {assetSelector}
+                {specificFields}
             </div>
         );
     };

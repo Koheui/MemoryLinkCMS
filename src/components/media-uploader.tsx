@@ -73,7 +73,6 @@ export function MediaUploader({ assetType, accept, children, onUploadSuccess }: 
             size: file.size,
           };
           
-          // The collection is now 'assets' at the root, secured by rules.
           const docRef = await addDoc(collection(db, 'assets'), {
              ...assetData,
              createdAt: serverTimestamp(),
@@ -94,25 +93,22 @@ export function MediaUploader({ assetType, accept, children, onUploadSuccess }: 
     }
   };
 
-  const handleClick = () => {
+  const handleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     fileInputRef.current?.click();
   };
   
   const child = React.Children.only(children) as React.ReactElement;
-  // Clone the child element to inject props
-  const uploaderContent = React.cloneElement(child, {
+  
+  // Clone the child element to inject props and handle loading state
+  const uploaderTrigger = React.cloneElement(child, {
     disabled: isUploading,
-    onClick: (e: React.MouseEvent<HTMLElement>) => {
-      // If the original child has an onClick, prevent our logic from stopping it
-      if (child.props.onClick) {
-        e.stopPropagation(); 
-      }
-      handleClick();
-    },
+    onClick: handleClick,
     children: isUploading ? (
         <>
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            アップロード中...
+            ...
         </>
     ) : child.props.children
   });
@@ -127,7 +123,7 @@ export function MediaUploader({ assetType, accept, children, onUploadSuccess }: 
         style={{ display: 'none' }}
         disabled={isUploading}
       />
-      {uploaderContent}
+      {uploaderTrigger}
     </>
   );
 }
