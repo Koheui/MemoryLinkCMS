@@ -1,3 +1,4 @@
+
 // src/components/edit-modals.tsx
 'use client';
 
@@ -199,6 +200,7 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, blockCoun
                 }
                 if (block.type === 'video') setSelectedAssetId(block.video?.assetId);
                 if (block.type === 'audio') setSelectedAssetId(block.audio?.assetId);
+                if (block.type === 'album') setSelectedAssetId(undefined); // Reset for album
             } else {
                 // Reset for new block
                 setBlockType(null);

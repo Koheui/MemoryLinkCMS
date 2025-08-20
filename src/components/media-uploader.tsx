@@ -1,3 +1,4 @@
+
 // src/components/media-uploader.tsx
 'use client';
 import * as React from 'react';
@@ -15,9 +16,7 @@ interface MediaUploaderProps {
   accept: string;
   children: ReactNode;
   onUploadSuccess?: (asset: Asset) => void;
-  // Make memoryId optional. If not provided, upload is disabled.
-  // This is safer for contexts like the main media library page.
-  memoryId?: string;
+  memoryId: string;
 }
 
 export function MediaUploader({ assetType, accept, children, onUploadSuccess, memoryId }: MediaUploaderProps) {
@@ -32,7 +31,6 @@ export function MediaUploader({ assetType, accept, children, onUploadSuccess, me
       return;
     }
     
-    // If no memoryId is provided, we cannot proceed.
     if (!memoryId) {
         toast({ variant: 'destructive', title: 'エラー', description: '有効なページが選択されていません。' });
         return;
@@ -42,7 +40,6 @@ export function MediaUploader({ assetType, accept, children, onUploadSuccess, me
     if (!file) return;
 
     setIsUploading(true);
-    // Reset file input to allow uploading the same file again
     if (fileInputRef.current) fileInputRef.current.value = "";
     
     const storagePath = `users/${user.uid}/memories/${memoryId}/${assetType}/${Date.now()}_${file.name}`;
@@ -52,9 +49,7 @@ export function MediaUploader({ assetType, accept, children, onUploadSuccess, me
       const uploadTask = uploadBytesResumable(storageRef, file, { contentType: file.type });
 
       uploadTask.on('state_changed',
-        (snapshot) => {
-          // Progress can be handled here if needed
-        },
+        (snapshot) => {},
         (error) => {
           console.error("Upload failed:", error);
           toast({ variant: 'destructive', title: 'アップロード失敗', description: error.message });
@@ -65,7 +60,7 @@ export function MediaUploader({ assetType, accept, children, onUploadSuccess, me
           
           const assetData: Omit<Asset, 'id' | 'createdAt' | 'updatedAt'> = {
             ownerUid: user.uid,
-            memoryId: memoryId, // Associate asset with the memory page
+            memoryId: memoryId,
             name: file.name,
             type: assetType,
             storagePath: storagePath,
@@ -96,7 +91,6 @@ export function MediaUploader({ assetType, accept, children, onUploadSuccess, me
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    // Disable click if there's no memoryId
     if (!memoryId) {
       toast({
         variant: 'destructive',
@@ -110,7 +104,6 @@ export function MediaUploader({ assetType, accept, children, onUploadSuccess, me
   
   const child = React.Children.only(children) as React.ReactElement;
   
-  // Clone the child element to inject props and handle loading/disabled state
   const uploaderTrigger = React.cloneElement(child, {
     disabled: isUploading || !memoryId,
     onClick: handleClick,

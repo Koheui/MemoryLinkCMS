@@ -13,7 +13,6 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion"
-import { MediaUploader } from '@/components/media-uploader';
 import { PlusCircle, Loader2, Image as ImageIcon, Video, Mic, Trash2 } from 'lucide-react';
 import type { Asset } from '@/lib/types';
 import { useAuth } from '@/hooks/use-auth';
@@ -152,35 +151,19 @@ export default function MediaLibraryPage() {
         <CardHeader>
           <CardTitle className="font-headline">メディアカテゴリ</CardTitle>
            <CardDescription>
-              カテゴリを選択して、アップロード済みのメディアを表示・管理します。メディアはまずここにアップロードしてから、各ページに追加します。
+              カテゴリを選択して、アップロード済みのメディアを表示・管理します。メディアは各ページの編集画面からアップロードしてください。
           </CardDescription>
         </CardHeader>
         <CardContent>
             <Accordion type="single" collapsible className="w-full" defaultValue="image">
-                {assetCategories.map(({ type, label, icon, accept }) => (
+                {assetCategories.map(({ type, label, icon }) => (
                     <AccordionItem value={type} key={type}>
-                        <div className="flex items-center justify-between w-full py-4">
-                          <AccordionTrigger className="text-lg hover:no-underline flex-1 py-0 pr-4">
+                        <AccordionTrigger className="text-lg hover:no-underline flex-1 py-4 pr-4">
                             <div className="flex items-center gap-3">
                               <span className="text-primary">{icon}</span>
                               <span>{label}</span>
                             </div>
-                          </AccordionTrigger>
-                           <div onClick={(e) => e.stopPropagation()}>
-                              <MediaUploader
-                                assetType={type}
-                                accept={accept}
-                                onUploadSuccess={() => { /* can be used to refresh list if needed */ }}
-                                // memoryId is not provided here, so upload is disabled.
-                                // This is intentional for the library page. A page must be selected first.
-                              >
-                                 <Button size="sm">
-                                    <PlusCircle className="mr-2 h-4 w-4"/>
-                                    新規アップロード
-                                </Button>
-                              </MediaUploader>
-                           </div>
-                        </div>
+                        </AccordionTrigger>
                         <AccordionContent>
                            {renderAssetTable(type)}
                         </AccordionContent>
