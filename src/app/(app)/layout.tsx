@@ -79,16 +79,14 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
 
   // This effect redirects the user to their memory editing page once the memoryId is fetched.
   useEffect(() => {
-    if (!isFetchingMemoryId && memoryId) {
-      const isMemoriesPage = pathname.startsWith('/memories/');
-      if (!isMemoriesPage) {
+    // We are on a page that is not the edit page, and we have the ID, so redirect.
+    if (user && !isFetchingMemoryId && memoryId && !pathname.startsWith('/memories')) {
         router.replace(`/memories/${memoryId}`);
-      }
     }
-  }, [isFetchingMemoryId, memoryId, pathname, router]);
+  }, [user, isFetchingMemoryId, memoryId, pathname, router]);
 
 
-  if (loading) {
+  if (loading || (user && isFetchingMemoryId)) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="flex items-center gap-2">

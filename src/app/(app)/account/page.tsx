@@ -20,6 +20,7 @@ export default function AccountPage() {
   const [memoryId, setMemoryId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const router = useRouter();
 
   useEffect(() => {
     if (authLoading) return;
