@@ -48,6 +48,7 @@ export default function MemoryEditorPage() {
   useEffect(() => {
     if (authLoading || !user || !memoryId) return;
 
+    setLoading(true);
     // Listener for memory document
     const memoryDocRef = doc(db, 'memories', memoryId);
     const unsubscribeMemory = onSnapshot(memoryDocRef, (doc) => {
@@ -56,8 +57,8 @@ export default function MemoryEditorPage() {
         } else {
             console.error("Memory not found or access denied.");
             setMemory(null);
+            setLoading(false);
         }
-        setLoading(false);
     });
 
     // Listener for blocks subcollection
@@ -72,8 +73,10 @@ export default function MemoryEditorPage() {
     const unsubscribeAssets = onSnapshot(assetsQuery, (snapshot) => {
         const fetchedAssets: Asset[] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Asset));
         setAssets(fetchedAssets);
+        setLoading(false);
     }, (error) => {
         console.error("Error fetching assets:", error);
+        setLoading(false);
     });
 
 
@@ -140,17 +143,22 @@ export default function MemoryEditorPage() {
 
   return (
     <div className="flex h-full flex-col bg-muted/30">
+       {isDesignModalOpen && memory && (
         <DesignModal 
             isOpen={isDesignModalOpen}
             setIsOpen={setIsDesignModalOpen}
             memory={memory}
             assets={assets}
         />
+       )}
+       {isAboutModalOpen && memory && (
         <AboutModal
             isOpen={isAboutModalOpen}
             setIsOpen={setIsAboutModalOpen}
             memory={memory}
         />
+       )}
+       {isBlockModalOpen && memory && (
         <BlockModal
             isOpen={isBlockModalOpen}
             setIsOpen={setIsBlockModalOpen}
@@ -159,6 +167,7 @@ export default function MemoryEditorPage() {
             block={editingBlock}
             blockCount={blocks.length}
         />
+       )}
 
       {/* Header */}
       <header className="flex h-16 shrink-0 items-center justify-between border-b bg-background px-4 sm:px-6">

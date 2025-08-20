@@ -1,4 +1,3 @@
-
 // src/components/edit-modals.tsx
 'use client';
 
@@ -86,7 +85,10 @@ export function DesignModal({ isOpen, setIsOpen, memory, assets }: { isOpen: boo
                                 assetType="image"
                                 accept="image/*"
                                 memoryId={memory.id}
-                                onUploadSuccess={asset => setCoverAssetId(asset.id)}
+                                onUploadSuccess={(asset) => {
+                                    setCoverAssetId(asset.id);
+                                    toast({ title: "アップロード完了", description: "カバー画像に設定しました。"})
+                                }}
                             >
                                 <Button type="button" variant="outline" size="icon"><Upload className="h-4 w-4"/></Button>
                             </MediaUploader>
@@ -109,7 +111,10 @@ export function DesignModal({ isOpen, setIsOpen, memory, assets }: { isOpen: boo
                                 assetType="image"
                                 accept="image/*"
                                 memoryId={memory.id}
-                                onUploadSuccess={asset => setProfileAssetId(asset.id)}
+                                onUploadSuccess={(asset) => {
+                                    setProfileAssetId(asset.id);
+                                    toast({ title: "アップロード完了", description: "プロフィール画像に設定しました。"})
+                                }}
                             >
                                 <Button type="button" variant="outline" size="icon"><Upload className="h-4 w-4"/></Button>
                             </MediaUploader>
@@ -423,7 +428,3 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, blockCoun
         </Dialog>
     );
 }
-
-    
-
-    
