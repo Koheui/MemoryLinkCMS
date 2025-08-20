@@ -1,10 +1,11 @@
+
 // src/app/(app)/memories/[memoryId]/page.tsx
 'use client';
 
 import { Button } from '@/components/ui/button';
 import type { Memory, Asset } from '@/lib/types';
 import { db, storage } from '@/lib/firebase/client';
-import { doc, getDoc, collection, getDocs, query, orderBy, where } from 'firebase/firestore';
+import { doc, getDoc, collection, getDocs, query, orderBy, where, collectionGroup } from 'firebase/firestore';
 import { getDownloadURL, ref } from 'firebase/storage';
 import { notFound, useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -42,8 +43,8 @@ export default function MemoryEditorPage() {
             const memoryData = memoryDoc.data() as Omit<Memory, 'id'>;
             setMemory({ id: memoryDoc.id, ...memoryData } as Memory);
 
-            // Fetch Assets.
-            const assetsQuery = query(collection(db, 'assets'), where('ownerUid', '==', user.uid), orderBy('createdAt', 'desc'));
+            // Fetch Assets for the current user.
+            const assetsQuery = query(collectionGroup(db, 'assets'), where('ownerUid', '==', user.uid), orderBy('createdAt', 'desc'));
             
             const assetsSnapshot = await getDocs(assetsQuery);
             const fetchedAssets: Asset[] = assetsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Asset));
@@ -108,7 +109,7 @@ export default function MemoryEditorPage() {
   const profileImageUrl = memory.profileAssetId ? assetUrls[memory.profileAssetId] : null;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-muted/30">
       {/* Header */}
       <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-background/80 px-4 backdrop-blur-sm sm:px-6">
         <div>
@@ -127,10 +128,10 @@ export default function MemoryEditorPage() {
       </header>
 
       {/* Editor Canvas */}
-      <div className="mx-auto max-w-3xl p-4 sm:p-8">
-        <main className="rounded-lg border bg-card shadow-sm">
+      <div className="mx-auto max-w-4xl p-4 sm:p-6 lg:p-8">
+        <main className="rounded-xl border bg-card shadow-lg">
           {/* Cover Image */}
-          <div className="group relative h-48 w-full cursor-pointer overflow-hidden rounded-t-lg bg-muted/50 sm:h-64">
+          <div className="group relative h-48 w-full cursor-pointer overflow-hidden rounded-t-xl bg-muted/50 sm:h-64">
             {coverImageUrl ? (
                 <Image src={coverImageUrl} alt={memory.title} fill className="object-cover" />
             ) : (
@@ -145,8 +146,8 @@ export default function MemoryEditorPage() {
           </div>
 
            {/* Profile & Title Section */}
-           <div className="relative mb-8 flex flex-col items-center p-6">
-             <div className="group relative -mt-20 h-32 w-32 cursor-pointer overflow-hidden rounded-full border-4 border-card shadow-lg sm:-mt-24 sm:h-36 sm:w-36">
+           <div className="relative mb-8 flex flex-col items-center px-6 pb-6 pt-0">
+             <div className="group relative -mt-20 h-32 w-32 cursor-pointer overflow-hidden rounded-full border-4 border-card bg-card shadow-lg sm:-mt-24 sm:h-36 sm:w-36">
                 {profileImageUrl ? (
                      <Image src={profileImageUrl} alt="Profile" fill className="object-cover" />
                 ) : (
@@ -169,7 +170,7 @@ export default function MemoryEditorPage() {
            </div>
 
           {/* Blocks Section */}
-           <div className="space-y-4 p-4 pt-0 sm:p-6 sm:pt-0">
+           <div className="space-y-4 px-4 pt-0 pb-4 sm:px-6 sm:pb-6 sm:pt-0">
              <BlockEditor memory={memory} assets={assets} />
            </div>
         </main>

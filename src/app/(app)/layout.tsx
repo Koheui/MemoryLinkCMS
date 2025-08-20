@@ -17,8 +17,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Heart, LogOut, Library, ShieldCheck, Loader2, UserCircle, Edit } from 'lucide-react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { db } from '@/lib/firebase/client';
 import { collection, query, where, getDocs, limit } from 'firebase/firestore';
@@ -53,6 +52,11 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
                 if (!querySnapshot.empty) {
                     const fetchedMemoryId = querySnapshot.docs[0].id;
                     setMemoryId(fetchedMemoryId);
+                     // If user lands on /account, redirect them to their memory page
+                    if (pathname === '/account' && fetchedMemoryId) {
+                       router.replace(`/memories/${fetchedMemoryId}`);
+                       return;
+                    }
                 } else {
                     console.warn("No memory found for user:", user.uid);
                     // This can happen for a new user, they will be directed to create one.
@@ -69,7 +73,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
     if (!loading) {
       fetchMemoryId();
     }
-  }, [user, loading]);
+  }, [user, loading, pathname, router]);
 
 
   if (loading || (!user && !pathname.startsWith('/login') && !pathname.startsWith('/signup') )) {

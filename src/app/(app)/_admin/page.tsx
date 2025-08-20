@@ -1,3 +1,4 @@
+
 // src/app/(app)/_admin/page.tsx
 'use client';
 
@@ -102,7 +103,7 @@ export default function AdminDashboardPage() {
 
   if (loading || authLoading) {
     return (
-      <div className="flex h-[50vh] items-center justify-center">
+      <div className="flex h-[50vh] items-center justify-center p-8">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
@@ -110,7 +111,7 @@ export default function AdminDashboardPage() {
 
   if (!isAdmin) {
     return (
-      <div className="text-center">
+      <div className="text-center p-8">
         <h1 className="text-2xl font-bold">アクセス権がありません</h1>
         <p className="text-muted-foreground">このページは管理者のみがアクセスできます。</p>
       </div>
@@ -118,7 +119,7 @@ export default function AdminDashboardPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4 sm:p-6 lg:p-8">
        <div>
             <h1 className="text-2xl font-bold tracking-tight font-headline">管理者ダッシュボード</h1>
             <p className="text-muted-foreground">ようこそ、管理者。注文と進捗を管理します。</p>

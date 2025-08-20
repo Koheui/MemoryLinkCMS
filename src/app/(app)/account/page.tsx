@@ -12,20 +12,16 @@ import { Loader2 } from 'lucide-react';
 export default function AccountPage() {
   const { user, loading, handleLogout } = useAuth();
 
-  if (loading) {
+  if (loading || !user) {
     return (
-      <div className="flex h-full items-center justify-center">
+      <div className="flex h-full items-center justify-center p-8">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
 
-  if (!user) {
-    return <p>ログインしていません。</p>;
-  }
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4 sm:p-6 lg:p-8">
       <div>
         <h1 className="text-2xl font-bold tracking-tight font-headline">アカウント情報</h1>
         <p className="text-muted-foreground">アカウント設定の確認と管理を行います。</p>
