@@ -46,17 +46,17 @@ export function MediaUploader({ assetType, accept, children, onUploadStarted, me
     
     try {
       // 1. Create a document in Firestore first to get an ID
-      const assetData: Omit<Asset, 'id' | 'createdAt' | 'updatedAt' | 'url' | 'storagePath'> = {
+      const assetData: Omit<Asset, 'id' | 'createdAt' | 'updatedAt' | 'url'> = {
         ownerUid: user.uid,
         memoryId: memoryId,
         name: file.name,
         type: assetType,
         size: file.size,
+        storagePath: storagePath,
       };
 
       const docRef = await addDoc(collection(db, 'assets'), {
         ...assetData,
-        storagePath: storagePath, // Store path early
         url: '', // URL is not available yet
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -119,10 +119,7 @@ export function MediaUploader({ assetType, accept, children, onUploadStarted, me
     disabled: isUploading || !memoryId,
     onClick: handleClick,
     children: isUploading ? (
-        <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ...
-        </>
+        <Loader2 className="h-4 w-4 animate-spin" />
     ) : child.props.children
   });
 

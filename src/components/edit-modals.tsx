@@ -72,26 +72,46 @@ export function DesignModal({ isOpen, setIsOpen, memory, assets }: { isOpen: boo
                 <div className="space-y-6 py-4">
                     <div>
                         <Label>カバー画像</Label>
-                        <Select onValueChange={setCoverAssetId} value={coverAssetId ?? undefined}>
-                            <SelectTrigger><SelectValue placeholder="カバー画像を選択..." /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="null">なし</SelectItem>
-                                {imageAssets.map(asset => <SelectItem key={asset.id} value={asset.id}>{asset.name}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
+                        <div className="flex gap-2">
+                             <Select onValueChange={setCoverAssetId} value={coverAssetId ?? undefined}>
+                                <SelectTrigger><SelectValue placeholder="カバー画像を選択..." /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="null">なし</SelectItem>
+                                    {imageAssets.map(asset => <SelectItem key={asset.id} value={asset.id}>{asset.name}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                            <MediaUploader
+                                assetType="image"
+                                accept="image/*"
+                                memoryId={memory.id}
+                                onUploadStarted={setCoverAssetId}
+                            >
+                                <Button type="button" variant="outline" size="icon"><Upload className="h-4 w-4"/></Button>
+                            </MediaUploader>
+                        </div>
                         <div className="mt-2 rounded-md overflow-hidden aspect-video relative bg-muted flex items-center justify-center">
                             {coverImageUrl ? <Image src={coverImageUrl} alt="Cover preview" fill className="object-cover" /> : <ImageIcon className="text-muted-foreground" />}
                         </div>
                     </div>
                      <div>
                         <Label>プロフィール画像</Label>
-                         <Select onValueChange={setProfileAssetId} value={profileAssetId ?? undefined}>
-                            <SelectTrigger><SelectValue placeholder="プロフィール画像を選択..." /></SelectTrigger>
-                            <SelectContent>
-                               <SelectItem value="null">なし</SelectItem>
-                                {imageAssets.map(asset => <SelectItem key={asset.id} value={asset.id}>{asset.name}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
+                        <div className="flex gap-2">
+                            <Select onValueChange={setProfileAssetId} value={profileAssetId ?? undefined}>
+                                <SelectTrigger><SelectValue placeholder="プロフィール画像を選択..." /></SelectTrigger>
+                                <SelectContent>
+                                <SelectItem value="null">なし</SelectItem>
+                                    {imageAssets.map(asset => <SelectItem key={asset.id} value={asset.id}>{asset.name}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                            <MediaUploader
+                                assetType="image"
+                                accept="image/*"
+                                memoryId={memory.id}
+                                onUploadStarted={setProfileAssetId}
+                            >
+                                <Button type="button" variant="outline" size="icon"><Upload className="h-4 w-4"/></Button>
+                            </MediaUploader>
+                        </div>
                          <div className="mt-2 rounded-full overflow-hidden relative w-24 h-24 bg-muted flex items-center justify-center">
                             {profileImageUrl ? <Image src={profileImageUrl} alt="Profile preview" fill className="object-cover" /> : <ImageIcon className="text-muted-foreground" />}
                          </div>
@@ -263,9 +283,7 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, blockCoun
     
     const handleUploadStarted = (assetId: string) => {
         setSelectedAssetId(assetId);
-        toast({ title: "アップロード開始", description: `ファイルのアップロードを開始しました。`});
-        // We can now immediately save.
-        handleSave();
+        toast({ title: "アップロード準備完了", description: `ファイルのアップロードを開始しました。保存を押してください。`});
     }
 
     const renderAssetSelector = (
@@ -288,7 +306,7 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, blockCoun
                     memoryId={memory.id}
                     onUploadStarted={handleUploadStarted}
                 >
-                    <Button type="button" variant="outline"><Upload className="h-4 w-4"/></Button>
+                    <Button type="button" variant="outline" size="icon"><Upload className="h-4 w-4"/></Button>
                 </MediaUploader>
             </div>
         </div>
@@ -393,5 +411,7 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, blockCoun
         </Dialog>
     );
 }
+
+    
 
     
