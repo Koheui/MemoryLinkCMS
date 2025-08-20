@@ -1,4 +1,3 @@
-
 // src/app/api/memories/create/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { getUidFromRequest } from '../../_lib/auth';
@@ -37,9 +36,15 @@ export async function POST(req: NextRequest) {
 
     await newMemoryRef.set(newMemoryData);
 
+    // We need to return the server-generated timestamps as well, so we fetch the doc again.
+    // However, for performance, we'll construct the object client-side for now.
+    // The client will get the timestamps via its own snapshot listener.
     const newMemory = {
         id: newMemoryRef.id,
-        ...newMemoryData
+        ...newMemoryData,
+        // Faking timestamps for the immediate response to the client
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
     }
 
     return NextResponse.json({ ok: true, data: newMemory }, { status: 200 });

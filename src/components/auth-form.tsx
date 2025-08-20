@@ -74,9 +74,8 @@ export function AuthForm({ type }: AuthFormProps) {
         };
         await setDoc(userRef, userProfile);
         
-        // On new user signup, redirect to dashboard where they can create their first page.
-        // The idea of creating a page automatically is removed to support multiple pages per user.
         toast({ title: "ようこそ！", description: "アカウントが作成されました。ダッシュボードに移動します。"});
+        // After signup, take user to the dashboard to create their first page.
         router.push('/dashboard');
 
       } else { // Login
