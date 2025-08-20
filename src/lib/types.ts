@@ -30,6 +30,7 @@ export interface Memory {
   design: Design;
   createdAt: Timestamp | string; // Allow string for serialized data
   updatedAt: Timestamp | string; // Allow string for serialized data
+  publicUrl?: string; // For client-side use
 }
 
 export interface Asset {
