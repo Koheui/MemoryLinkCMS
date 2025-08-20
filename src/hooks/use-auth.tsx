@@ -1,4 +1,3 @@
-
 // src/hooks/use-auth.tsx
 "use client";
 
@@ -6,8 +5,7 @@ import { createContext, useContext, useEffect, useState, ReactNode, useCallback 
 import { User, onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase/client';
 import { useRouter } from 'next/navigation';
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase/client';
+import Cookies from 'js-cookie';
 
 interface AuthContextType {
   user: (User & { uid: string }) | null;
@@ -37,10 +35,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const claims = tokenResult.claims;
         setIsAdmin(claims.role === 'admin');
         setUser(authUser as AuthContextType['user']);
+        
+        // Save id token to cookie for server components
+        const idToken = await authUser.getIdToken();
+        Cookies.set('idToken', idToken, { expires: 1, secure: process.env.NODE_ENV === 'production' });
+
       } else {
         // User is signed out.
         setUser(null);
         setIsAdmin(false);
+        Cookies.remove('idToken');
       }
       setLoading(false);
     });
@@ -51,7 +55,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const handleLogout = useCallback(async () => {
     try {
       await auth.signOut();
-      // No need to call a server endpoint, onAuthStateChanged will handle state change
+      // onAuthStateChanged will handle cookie removal and state change
       router.push('/login');
     } catch (error) {
       console.error("Logout failed:", error);

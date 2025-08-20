@@ -2,27 +2,37 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
+
+    function isSignedIn() { return request.auth != null; }
+    function isOwner(uid) { return isSignedIn() && request.auth.uid == uid; }
+    function isAdmin() { return isSignedIn() && request.auth.token.role == 'admin'; }
+
     // User can only read/write their own user document
-    match /users/{uid} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+    match /users/{userId} {
+      allow read, write: if isOwner(userId) || isAdmin();
     }
 
-    // Memories can only be read/written by their owner.
     match /memories/{memoryId} {
-      allow read, write: if request.auth != null && get(/databases/$(database)/documents/memories/$(memoryId)).data.ownerUid == request.auth.uid;
+      // Allow reading a specific memory if the user is the owner or an admin
+      allow get: if isOwner(resource.data.ownerUid) || isAdmin();
       
-      // Blocks can be read/written by the owner of the parent memory.
-      match /blocks/{blockId} {
-        allow read, write: if request.auth != null && get(/databases/$(database)/documents/memories/$(memoryId)).data.ownerUid == request.auth.uid;
-      }
-    }
-    
-    // Assets can be created by any signed-in user, but only read/updated/deleted by the owner.
-    match /assets/{assetId} {
-      allow create: if request.auth != null && request.resource.data.ownerUid == request.auth.uid;
-      allow read, update, delete: if request.auth != null && resource.data.ownerUid == request.auth.uid;
+      // Allow listing/querying memories only by the owner
+      allow list: if isSignedIn() && request.query.where.ownerUid == request.auth.uid;
+
+      // Allow writing if the user is the owner or an admin
+      allow write: if isOwner(request.resource.data.ownerUid) || isAdmin();
     }
 
+    // Assets can be created by the owner of the memory.
+    // Reading/updating/deleting requires ownership.
+    match /assets/{assetId} {
+      allow create: if isOwner(request.resource.data.ownerUid) || isAdmin();
+      allow read, update, delete: if isOwner(resource.data.ownerUid) || isAdmin();
+    }
+
+    // Orders are admin-only for now
+    match /orders/{orderId} {
+      allow read, write: if isAdmin();
+    }
   }
 }
