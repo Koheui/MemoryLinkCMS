@@ -31,14 +31,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const unsubscribe = onAuthStateChanged(auth, async (authUser) => {
       if (authUser) {
         try {
-          const tokenResult = await authUser.getIdTokenResult(); // Does not need to be forced on every change
+          const tokenResult = await authUser.getIdTokenResult();
           const claims = tokenResult.claims;
           setIsAdmin(claims.role === 'admin');
           setUser(authUser as AuthContextType['user']);
           apiClient.setToken(tokenResult.token);
         } catch (error) {
            console.error("Error getting user token:", error);
-           // Handle error, maybe sign out user
            await auth.signOut();
            setUser(null);
            setIsAdmin(false);

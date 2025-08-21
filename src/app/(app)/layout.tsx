@@ -24,8 +24,9 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   
   useEffect(() => {
+    // This effect now only handles redirecting unauthenticated users.
+    // The responsibility of redirecting after login/signup is moved to AuthForm.
     if (!loading && !user) {
-      // Allow access to signup/login pages without being authenticated
       if (!pathname.startsWith('/login') && !pathname.startsWith('/signup')) {
          router.push('/login');
       }
@@ -43,12 +44,12 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
     );
   }
   
+  // If no user, it means we are on a public-facing page like /login or /signup
+  // which is handled by its own layout. Let it render.
   if (!user) {
-    // If there is no user, we are likely on the login/signup page.
-    // The main content will be rendered without the sidebar.
     return <>{children}</>;
   }
-
+  
   const dashboardHref = '/dashboard';
 
   return (
