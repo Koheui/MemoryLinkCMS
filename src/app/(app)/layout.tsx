@@ -25,6 +25,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
   
   useEffect(() => {
     if (!loading && !user) {
+      // Allow access to signup/login pages without being authenticated
       if (!pathname.startsWith('/login') && !pathname.startsWith('/signup')) {
          router.push('/login');
       }

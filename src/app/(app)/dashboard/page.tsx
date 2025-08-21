@@ -13,6 +13,7 @@ import { db } from "@/lib/firebase/client";
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
+import { apiClient } from "@/lib/api-client";
 
 export default function DashboardPage() {
     const { user, loading: authLoading } = useAuth();
@@ -51,13 +52,9 @@ export default function DashboardPage() {
         if (!user) return;
         setIsCreating(true);
         try {
-            const idToken = await user.getIdToken();
-            const res = await fetch('/api/memories/create', {
+            // The API client now automatically includes the auth token
+            const res = await apiClient.fetch('/api/memories/create', {
                 method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${idToken}`,
-                    'Content-Type': 'application/json',
-                },
                 body: JSON.stringify({ type: 'other' }) // Create a generic page by default
             });
 
@@ -132,11 +129,10 @@ export default function DashboardPage() {
                     ))}
                 </div>
             ) : (
-                <div className="text-center py-20 bg-muted/50 rounded-lg border border-dashed">
+                 <div className="text-center py-20 bg-muted/50 rounded-lg border border-dashed">
                     <h2 className="text-xl font-semibold">まだ想い出ページがありません</h2>
                     <p className="text-muted-foreground mt-2">下のボタンから最初の想い出ページを作成しましょう。</p>
-                    <p className="text-xs text-muted-foreground mt-2">（将来的には、ここで秘密鍵の入力が求められます）</p>
-                    <Button onClick={handleCreateNewMemory} disabled={isCreating} className="mt-6">
+                     <Button onClick={handleCreateNewMemory} disabled={isCreating} className="mt-6">
                         {isCreating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
                         最初のページを作成する
                     </Button>

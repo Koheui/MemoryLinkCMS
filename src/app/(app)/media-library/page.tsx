@@ -17,11 +17,11 @@ import type { Asset } from '@/lib/types';
 import { useAuth } from '@/hooks/use-auth';
 import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase/client';
-import { collection, query, where, orderBy, onSnapshot, collectionGroup } from 'firebase/firestore';
+import { collectionGroup, query, where, orderBy, onSnapshot } from 'firebase/firestore';
 import { format } from 'date-fns';
 
 export default function MediaLibraryPage() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalSize, setTotalSize] = useState(0);
@@ -31,13 +31,13 @@ export default function MediaLibraryPage() {
   const TOTAL_STORAGE_LIMIT_BYTES = TOTAL_STORAGE_LIMIT_MB * 1024 * 1024;
 
   useEffect(() => {
-    if (!user) {
+    if (authLoading || !user) {
         setLoading(false);
         return;
     }
     setLoading(true);
     
-    // Use collectionGroup to query all 'assets' subcollections across all 'memories'
+    // Use collectionGroup to query all 'assets' subcollections across all 'memories' for the current user
     const assetsQuery = query(
       collectionGroup(db, 'assets'), 
       where('ownerUid', '==', user.uid), 
@@ -66,7 +66,7 @@ export default function MediaLibraryPage() {
     });
 
     return () => unsubscribe();
-  }, [user]);
+  }, [user, authLoading]);
 
   function formatBytes(bytes: number, decimals = 2) {
       if (!bytes || bytes === 0) return '0 Bytes';
@@ -122,7 +122,7 @@ export default function MediaLibraryPage() {
     );
   };
 
-  if (loading) {
+  if (loading || authLoading) {
     return (
        <div className="flex h-full items-center justify-center p-8">
          <Loader2 className="h-8 w-8 animate-spin text-primary" />
