@@ -1,3 +1,4 @@
+
 rules_version = '2';
 
 function isSignedIn() { return request.auth != null; }
@@ -12,13 +13,13 @@ service cloud.firestore {
       allow read, write: if isOwner(uid) || isAdmin();
     }
 
-    // Memories can only be read/written by their owner or an admin
+    // Memories can only be created by owner, and read/written by their owner or an admin
     match /memories/{memoryId} {
-      allow read, update, delete: if isOwner(resource.data.ownerUid) || isAdmin();
       allow create: if isOwner(request.resource.data.ownerUid) || isAdmin();
+      allow read, update, delete: if isOwner(resource.data.ownerUid) || isAdmin();
     }
 
-    // Assets can be created, read, updated, and deleted only by the owner or an admin.
+    // Assets can be read/written by the owner or an admin.
     match /assets/{assetId} {
        allow create: if isOwner(request.resource.data.ownerUid) || isAdmin();
        allow read, update, delete: if isOwner(resource.data.ownerUid) || isAdmin();
