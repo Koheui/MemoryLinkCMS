@@ -4,8 +4,8 @@ export interface UserProfile {
   id: string;
   email: string;
   displayName?: string;
-  createdAt: Timestamp | string;
-  updatedAt: Timestamp | string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
 }
 
 export interface Design {
@@ -28,8 +28,8 @@ export interface Memory {
   profileAssetId: string | null;
   description: string;
   design: Design;
-  createdAt: Timestamp | string;
-  updatedAt: Timestamp | string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
   publicUrl?: string;
 }
 
@@ -42,8 +42,8 @@ export interface Asset {
   storagePath: string;
   url: string;
   size: number;
-  createdAt: Timestamp | string;
-  updatedAt: Timestamp | string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
 }
 
 export interface PublicPageBlock {
@@ -76,8 +76,8 @@ export interface PublicPageBlock {
     src?: string;
     caption?: string;
   };
-  createdAt: Timestamp | string;
-  updatedAt: Timestamp | string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
 }
 
 export interface PublicPage {
@@ -99,7 +99,7 @@ export interface PublicPage {
     blocks: PublicPageBlock[];
     publish: {
         status: "draft" | "published";
-        publishedAt?: Timestamp | string;
+        publishedAt?: Timestamp;
     }
 }
 
@@ -116,8 +116,8 @@ export interface Order {
     selectedModelId?: string | null;
     payment?: { method?: 'stripe' | 'invoice', linkUrl?: string, paidAt?: Timestamp };
     shipping?: { nfcWritten?: boolean, shippedAt?: Timestamp };
-    createdAt: Timestamp | string;
-    updatedAt: Timestamp | string;
+    createdAt: Timestamp;
+    updatedAt: Timestamp;
     // For UI display
     memoryTitle?: string;
 }

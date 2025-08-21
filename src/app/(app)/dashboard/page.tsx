@@ -23,13 +23,12 @@ export default function DashboardPage() {
     const router = useRouter();
     const { toast } = useToast();
 
-    const fetchMemories = useCallback(async () => {
-        if (!user) return;
+    const fetchMemories = useCallback(async (uid: string) => {
         setLoading(true);
         try {
             const q = query(
-                collection(db, 'memories'), 
-                where('ownerUid', '==', user.uid),
+                collection(db, 'memories'),
+                where('ownerUid', '==', uid),
                 orderBy('createdAt', 'desc')
             );
             const snapshot = await getDocs(q);
@@ -41,16 +40,17 @@ export default function DashboardPage() {
         } finally {
             setLoading(false);
         }
-    }, [user, toast]);
+    }, [toast]);
 
     useEffect(() => {
         if (!authLoading && user) {
-            fetchMemories();
+            fetchMemories(user.uid);
         } else if (!authLoading && !user) {
+            // User is not logged in, stop loading.
             setLoading(false);
         }
     }, [user, authLoading, fetchMemories]);
-    
+
     const handleCreateNewMemory = async () => {
         if (!user) return;
         setIsCreating(true);
@@ -82,6 +82,16 @@ export default function DashboardPage() {
         return (
             <div className="flex h-[calc(100vh-4rem)] items-center justify-center">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        );
+    }
+
+    if (!user) {
+        // This case should be handled by the layout redirect, but as a fallback:
+        return (
+            <div className="text-center p-8">
+                <h1 className="text-2xl font-bold">認証エラー</h1>
+                <p className="text-muted-foreground">このページを表示するにはログインが必要です。</p>
             </div>
         );
     }

@@ -1,55 +1,47 @@
+
 rules_version = '2';
+
+function isSignedIn() { return request.auth != null; }
+function isAdmin() { return isSignedIn() && request.auth.token.role == 'admin'; }
+function isOwner(uid) { return isSignedIn() && request.auth.uid == uid; }
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function isSignedIn() {
-      return request.auth != null;
+    // User can only read/write their own user document
+    match /users/{uid} {
+      allow read, write: if isOwner(uid) || isAdmin();
     }
 
-    function isOwner(uid) {
-      return isSignedIn() && request.auth.uid == uid;
-    }
-
-    function isAdmin() {
-      return isSignedIn() && request.auth.token.role == 'admin';
-    }
-
-    match /users/{userId} {
-      allow read, write: if isOwner(userId) || isAdmin();
-    }
-
+    // Memories:
+    // - Owner or admin can read/update/delete.
+    // - Owner or admin can create new memories.
     match /memories/{memoryId} {
-      allow read, create: if isSignedIn();
-      allow update, delete: if isOwner(resource.data.ownerUid) || isAdmin();
-
-      // Allow owner or admin to manage blocks within their memory
-      match /blocks/{blockId} {
-        allow read, write: if isOwner(get(/databases/$(database)/documents/memories/$(memoryId)).data.ownerUid) || isAdmin();
-      }
-
-       // Allow owner or admin to manage assets within their memory
-      match /assets/{assetId} {
-        allow read, write: if isOwner(get(/databases/$(database)/documents/memories/$(memoryId)).data.ownerUid) || isAdmin();
-      }
+      allow read, update, delete: if isOwner(resource.data.ownerUid) || isAdmin();
+      allow create: if isOwner(request.resource.data.ownerUid) || isAdmin();
     }
-    
-    // This rule allows a user to query all assets they own, regardless of the memory.
-    // This is essential for the Media Library feature.
-    match /{path=**}/assets/{assetId} {
-      allow read: if isOwner(resource.data.ownerUid);
+
+    // Assets can be read/written by their owner or an admin.
+    match /assets/{assetId} {
+       allow create: if isOwner(request.resource.data.ownerUid) || isAdmin();
+       allow read, update, delete: if isOwner(resource.data.ownerUid) || isAdmin();
     }
-    
+
     // Orders are admin-only
     match /orders/{orderId} {
       allow read, write: if isAdmin();
     }
 
-    // Public pages are read-only for everyone and cannot be written by clients.
-    // This will be managed by Firebase Functions.
+    // Public pages are read-only for everyone, and cannot be written by clients.
     match /publicPages/{pageId} {
       allow read: if true;
-      allow write: if false; // Managed by functions
+      allow write: if false;
+    }
+
+    // Blocks cannot be edited directly by clients.
+    match /publicPages/{pageId}/blocks/{blockId} {
+      allow read: if false;
+      allow write: if false;
     }
   }
 }
