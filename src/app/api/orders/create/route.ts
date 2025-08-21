@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getUidFromRequest } from '../../_lib/auth';
 import { getAdminApp } from '@/lib/firebase/firebaseAdmin';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
-import type { Order } from '@/lib/types';
+import type { Order, Memory } from '@/lib/types';
 import admin from 'firebase-admin';
 
 function err(status: number, msg: string) {
@@ -38,29 +38,47 @@ export async function POST(req: NextRequest) {
     }
 
     const db = getFirestore(getAdminApp());
-    const newOrderRef = db.collection('orders').doc();
     
-    const newOrderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt' | 'userUid' | 'memoryId' | 'email'> = {
+    // --- Step 1: Create the Memory page first to get an ID ---
+    const newMemoryRef = db.collection('memories').doc();
+    const newMemoryData: Omit<Memory, 'id' | 'createdAt' | 'updatedAt' | 'ownerUid'> = {
+        title: '新しい想い出ページ',
+        type: 'other', // This can be customized later based on productType
+        status: 'draft',
+        publicPageId: newMemoryRef.id,
+        coverAssetId: null,
+        profileAssetId: null,
+        description: '',
+        design: { theme: 'light', fontScale: 1.0 },
+    };
+    await newMemoryRef.set({
+      ...newMemoryData,
+      ownerUid: null, // Initially unowned
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+
+
+    // --- Step 2: Create the Order and link it to the new Memory ID ---
+    const newOrderRef = db.collection('orders').doc();
+    const newOrderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'> = {
+      userUid: null, // No user assigned yet
+      memoryId: newMemoryRef.id,
+      email: email, // The invited email
       productType: productType,
       status: 'draft',
     };
 
     await newOrderRef.set({
       ...newOrderData,
-      email: email, // Store email for invitation
-      userUid: null,
-      memoryId: null,
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
-      createdBy: adminUid, // Track which admin created it
+      createdBy: adminUid,
     });
 
     const finalOrder = {
         id: newOrderRef.id,
         ...newOrderData,
-        email: email,
-        userUid: null,
-        memoryId: null,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
     }

@@ -15,7 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, PlusCircle, Save } from "lucide-react";
+import { Loader2, PlusCircle, Save, Copy } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiClient } from "@/lib/api-client";
 
@@ -127,6 +127,7 @@ export default function AdminDashboardPage() {
   const { user, isAdmin, loading: authLoading } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
 
   const fetchOrders = async () => {
     setLoading(true);
@@ -145,14 +146,6 @@ export default function AdminDashboardPage() {
           let userEmail = data.email || 'N/A'; // Use stored email first
           let memoryTitle = 'N/A';
           
-          if (!data.email && data.userUid) { // Fallback for older data
-              try {
-                  const userDoc = await getDoc(doc(db, 'users', data.userUid));
-                  if(userDoc.exists()) userEmail = userDoc.data()?.email;
-              } catch (e) {
-                  console.error(`Failed to fetch user ${data.userUid}`, e);
-              }
-          }
           if (data.memoryId) {
               try {
                   const memoryDoc = await getDoc(doc(db, 'memories', data.memoryId));
@@ -197,6 +190,11 @@ export default function AdminDashboardPage() {
 
   }, [user, isAdmin, authLoading])
 
+  const handleCopyToClipboard = (text: string) => {
+      navigator.clipboard.writeText(text);
+      toast({ title: "コピーしました", description: text });
+  }
+
   if (loading || authLoading) {
     return (
       <div className="flex h-[50vh] items-center justify-center p-8">
@@ -237,10 +235,9 @@ export default function AdminDashboardPage() {
                         <TableRow>
                             <TableHead>注文日時</TableHead>
                             <TableHead>顧客メール</TableHead>
-                            <TableHead>ページタイトル</TableHead>
+                            <TableHead>ページID (公開URL)</TableHead>
                             <TableHead>製品タイプ</TableHead>
                             <TableHead>ステータス</TableHead>
-                            <TableHead>最終更新</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -248,7 +245,14 @@ export default function AdminDashboardPage() {
                             <TableRow key={order.id}>
                                 <TableCell>{order.createdAt.toString()}</TableCell>
                                 <TableCell>{order.email}</TableCell>
-                                <TableCell>{order.memoryTitle}</TableCell>
+                                <TableCell>
+                                    <div className="flex items-center gap-2">
+                                        <span className="font-mono text-xs">{order.memoryId}</span>
+                                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleCopyToClipboard(order.memoryId)}>
+                                            <Copy className="h-3 w-3" />
+                                        </Button>
+                                    </div>
+                                </TableCell>
                                  <TableCell>
                                     <Badge variant="outline">
                                         {productTypeTextMap[order.productType] || order.productType}
@@ -259,12 +263,11 @@ export default function AdminDashboardPage() {
                                         {statusTextMap[order.status] || order.status}
                                     </Badge>
                                 </TableCell>
-                                <TableCell>{order.updatedAt.toString()}</TableCell>
                             </TableRow>
                         ))}
                          {orders.length === 0 && (
                             <TableRow>
-                                <TableCell colSpan={6} className="text-center h-24">
+                                <TableCell colSpan={5} className="text-center h-24">
                                     まだ注文がありません。
                                 </TableCell>
                             </TableRow>

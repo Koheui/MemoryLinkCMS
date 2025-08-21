@@ -19,7 +19,7 @@ export interface Design {
 
 export interface Memory {
   id: string;
-  ownerUid: string;
+  ownerUid: string | null; // Can be null until claimed by a user
   title: string;
   type: "pet" | "birth" | "memorial" | "other";
   status: 'draft' | 'active' | 'archived';
@@ -107,7 +107,7 @@ export interface PublicPage {
 export interface Order {
     id: string;
     userUid: string | null;
-    memoryId: string | null;
+    memoryId: string;
     email: string;
     productType: string;
     status: 'draft' | 'assets_uploaded' | 'model_ready' | 'selected' | 'paid' | 'delivered';
