@@ -13,18 +13,22 @@ service cloud.firestore {
 
     match /memories/{memoryId} {
       allow read: if isOwner(resource.data.ownerUid) || isAdmin();
-      allow create: if isOwner(request.resource.data.ownerUid) || isAdmin();
-      allow update, delete: if isOwner(resource.data.ownerUid) || isAdmin();
+      allow list: if isAdmin() || (isSignedIn() && request.query.where.is_a(list) && request.query.where[0].field == 'ownerUid' && request.query.where[0].value == request.auth.uid);
+      allow write: if (isOwner(request.resource.data.ownerUid) && request.resource.data.ownerUid == request.auth.uid) || isAdmin();
     }
     
-    // Subcollection assets (legacy, can be removed later if unused)
+    match /assets/{assetId} {
+       allow create: if isOwner(request.resource.data.ownerUid);
+       allow read, update, delete: if isOwner(resource.data.ownerUid);
+       allow list: if isSignedIn() && request.query.where.is_a(list) && request.query.where[0].field == 'ownerUid' && request.query.where[0].value == request.auth.uid;
+    }
+
     match /memories/{memoryId}/assets/{assetId} {
        allow read, write: if isOwner(get(/databases/$(database)/documents/memories/$(memoryId)).data.ownerUid) || isAdmin();
     }
     
-    match /assets/{assetId} {
-       allow create: if request.resource.data.ownerUid == request.auth.uid || isAdmin();
-       allow read, update, delete: if resource.data.ownerUid == request.auth.uid || isAdmin();
+    match /memories/{memoryId}/blocks/{blockId} {
+      allow read, write: if isOwner(get(/databases/$(database)/documents/memories/$(memoryId)).data.ownerUid) || isAdmin();
     }
 
     match /orders/{orderId} {
@@ -33,12 +37,12 @@ service cloud.firestore {
 
     match /publicPages/{pageId} {
       allow read: if true;
-      allow write: if false; // クライアントからの書き込みは禁止
+      allow write: if false;
     }
 
     match /publicPages/{pageId}/blocks/{blockId} {
-      allow read: if true;
-      allow write: if false; // クライアントからの書き込みは禁止
+      allow read: if false;
+      allow write: if false;
     }
   }
 }
