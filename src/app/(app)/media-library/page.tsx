@@ -12,14 +12,15 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion"
-import { PlusCircle, Loader2, Image as ImageIcon, Video, Mic, Trash2 } from 'lucide-react';
+import { PlusCircle, Loader2, Image as ImageIcon, Video, Mic, Trash2, Upload } from 'lucide-react';
 import type { Asset } from '@/lib/types';
 import { useAuth } from '@/hooks/use-auth';
 import { useState, useEffect, useCallback } from 'react';
 import { db } from '@/lib/firebase/client';
-import { collection, query, where, orderBy, Timestamp, getDocs } from 'firebase/firestore';
+import { collection, query, where, orderBy, getDocs, Timestamp } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
+import { MediaUploader } from '@/components/media-uploader';
 
 export default function MediaLibraryPage() {
   const { user, loading: authLoading } = useAuth();
@@ -144,10 +145,24 @@ export default function MediaLibraryPage() {
 
   return (
     <div className="space-y-6 p-4 sm:p-6 lg:p-8">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight font-headline">メディアライブラリ</h1>
-        <p className="text-muted-foreground">アップロードした全てのメディアを管理します。</p>
-      </div>
+       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div>
+                <h1 className="text-2xl font-bold tracking-tight font-headline">メディアライブラリ</h1>
+                <p className="text-muted-foreground">アップロードした全てのメディアを管理します。</p>
+            </div>
+            {user && (
+                 <MediaUploader
+                    assetType="image" // Default, can be any as it's just a trigger
+                    accept="image/*,video/*,audio/*"
+                    onUploadSuccess={() => fetchAssets(user.uid)}
+                  >
+                    <Button>
+                        <Upload className="mr-2 h-4 w-4" />
+                        新規アップロード
+                    </Button>
+                </MediaUploader>
+            )}
+        </div>
 
        <Card>
             <CardHeader>
@@ -165,7 +180,7 @@ export default function MediaLibraryPage() {
         <CardHeader>
           <CardTitle className="font-headline">メディアカテゴリ</CardTitle>
            <CardDescription>
-              カテゴリを選択して、アップロード済みのメディアを表示・管理します。メディアは各ページの編集画面からアップロードしてください。
+              カテゴリを選択して、アップロード済みのメディアを表示・管理します。メディアは各ページの編集画面からもアップロードできます。
           </CardDescription>
         </CardHeader>
         <CardContent>
