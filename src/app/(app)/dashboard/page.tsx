@@ -47,7 +47,6 @@ export default function DashboardPage() {
         if (!authLoading && user) {
             fetchMemories();
         } else if (!authLoading && !user) {
-            // If not loading and no user, no need to fetch, just stop loading.
             setLoading(false);
         }
     }, [user, authLoading, fetchMemories]);
@@ -58,7 +57,7 @@ export default function DashboardPage() {
         try {
             const res = await apiClient.fetch('/api/memories/create', {
                 method: 'POST',
-                body: JSON.stringify({ type: 'other' }) // Create a generic page by default
+                body: JSON.stringify({ type: 'other' })
             });
 
             if (!res.ok) {
@@ -69,7 +68,6 @@ export default function DashboardPage() {
             const { data: newMemory } = await res.json();
             
             toast({ title: '成功', description: '新しい想い出ページが作成されました。編集画面に移動します。'});
-            // Instead of reloading, directly navigate to the new page
             router.push(`/memories/${newMemory.id}`);
 
         } catch (error: any) {
