@@ -1,4 +1,3 @@
-
 rules_version = '2';
 
 function isSignedIn() { return request.auth != null; }
@@ -13,21 +12,25 @@ service cloud.firestore {
       allow read, write: if isOwner(uid) || isAdmin();
     }
 
-    // Memories:
-    // - Owner or admin can read/update/delete.
-    // - Owner or admin can create new memories.
+    // Memories can only be read/written by their owner or an admin
     match /memories/{memoryId} {
-      allow read, update, delete: if isOwner(resource.data.ownerUid) || isAdmin();
       allow create: if isOwner(request.resource.data.ownerUid) || isAdmin();
+      allow read, update, delete: if isOwner(resource.data.ownerUid) || isAdmin();
     }
 
-    // Assets can be read/written by their owner or an admin.
+    // Assets can be created, read, updated, or deleted only by the owner or an admin.
+    // This rule is critical for allowing indexed queries on the 'assets' collection.
     match /assets/{assetId} {
        allow create: if isOwner(request.resource.data.ownerUid) || isAdmin();
        allow read, update, delete: if isOwner(resource.data.ownerUid) || isAdmin();
     }
+    
+    // Subcollection assets (legacy, can be removed later if unused)
+    match /memories/{memoryId}/assets/{assetId} {
+       allow read, write: if isOwner(get(/databases/$(database)/documents/memories/$(memoryId)).data.ownerUid) || isAdmin();
+    }
 
-    // Orders are admin-only
+    // Orders are admin-only for now
     match /orders/{orderId} {
       allow read, write: if isAdmin();
     }
