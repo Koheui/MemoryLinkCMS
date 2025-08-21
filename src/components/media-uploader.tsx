@@ -15,7 +15,7 @@ interface MediaUploaderProps {
   accept: string;
   children: ReactNode;
   onUploadSuccess?: (asset: Asset) => void;
-  memoryId: string;
+  memoryId?: string; // Make optional for library-wide uploads
 }
 
 export function MediaUploader({ assetType, accept, children, onUploadSuccess, memoryId }: MediaUploaderProps) {
@@ -29,11 +29,6 @@ export function MediaUploader({ assetType, accept, children, onUploadSuccess, me
       toast({ variant: 'destructive', title: 'エラー', description: 'ログインしていません。' });
       return;
     }
-    
-    if (!memoryId) {
-        toast({ variant: 'destructive', title: 'エラー', description: '有効なページが選択されていません。' });
-        return;
-    }
 
     const file = event.target.files?.[0];
     if (!file) return;
@@ -41,15 +36,17 @@ export function MediaUploader({ assetType, accept, children, onUploadSuccess, me
     setIsUploading(true);
     if (fileInputRef.current) fileInputRef.current.value = "";
     
-    // IMPORTANT: The path is now a subcollection of the specific memory
-    const storagePath = `users/${user.uid}/memories/${memoryId}/${assetType}/${Date.now()}_${file.name}`;
+    // Path now depends on whether memoryId is provided
+    const storagePath = memoryId 
+      ? `users/${user.uid}/memories/${memoryId}/${assetType}/${Date.now()}_${file.name}`
+      : `users/${user.uid}/library/${assetType}/${Date.now()}_${file.name}`;
     
     try {
-      // 1. Create a document in the subcollection first to get an ID
-      const assetCollectionRef = collection(db, 'memories', memoryId, 'assets');
+      // 1. Create a document in the root 'assets' collection
+      const assetCollectionRef = collection(db, 'assets');
       const assetData: Omit<Asset, 'id' | 'createdAt' | 'updatedAt' | 'url'> = {
         ownerUid: user.uid,
-        memoryId: memoryId,
+        memoryId: memoryId || null,
         name: file.name,
         type: assetType,
         size: file.size,
@@ -70,7 +67,6 @@ export function MediaUploader({ assetType, accept, children, onUploadSuccess, me
         createdAt: new Date(), 
         updatedAt: new Date() 
       } as Asset;
-      onUploadSuccess?.(newAssetStub); // Notify parent immediately with a stub
 
       // 2. Start the upload to Firebase Storage
       const storageRef = ref(storage, storagePath);
@@ -90,11 +86,17 @@ export function MediaUploader({ assetType, accept, children, onUploadSuccess, me
           // 3. Once upload is complete, get the URL and update the Firestore document
           const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
           
-          await updateDoc(doc(db, 'memories', memoryId, 'assets', docRef.id), {
+          const finalAssetDoc = doc(db, 'assets', docRef.id);
+          await updateDoc(finalAssetDoc, {
             url: downloadURL,
             updatedAt: serverTimestamp(),
           });
           
+          const finalAssetSnapshot = await getDoc(finalAssetDoc);
+          const finalAsset = { id: finalAssetSnapshot.id, ...finalAssetSnapshot.data() } as Asset;
+
+          onUploadSuccess?.(finalAsset);
+
           toast({ title: '成功', description: `${file.name} のアップロードが完了しました。` });
           setIsUploading(false);
         }
@@ -109,21 +111,13 @@ export function MediaUploader({ assetType, accept, children, onUploadSuccess, me
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!memoryId) {
-      toast({
-        variant: 'destructive',
-        title: 'アップロード不可',
-        description: 'まず想い出ページを選択または作成してください。',
-      });
-      return;
-    }
     fileInputRef.current?.click();
   };
   
   const child = React.Children.only(children) as React.ReactElement;
   
   const uploaderTrigger = React.cloneElement(child, {
-    disabled: isUploading || !memoryId,
+    disabled: isUploading,
     onClick: handleClick,
     children: isUploading ? (
         <Loader2 className="h-4 w-4 animate-spin" />
@@ -138,7 +132,7 @@ export function MediaUploader({ assetType, accept, children, onUploadSuccess, me
         onChange={handleFileChange}
         accept={accept}
         style={{ display: 'none' }}
-        disabled={isUploading || !memoryId}
+        disabled={isUploading}
       />
       {uploaderTrigger}
     </>

@@ -88,8 +88,6 @@ export default function DashboardPage() {
         );
     }
 
-    // This part of the logic needs to be re-evaluated for the "invitation" model
-    // but for now, it allows creating a new page for development.
     if (memories.length === 0) {
         return (
             <div className="flex h-full items-center justify-center p-4">

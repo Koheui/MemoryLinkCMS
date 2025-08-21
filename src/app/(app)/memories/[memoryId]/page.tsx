@@ -60,7 +60,6 @@ export default function MemoryEditorPage() {
             console.error("Memory not found or access denied.");
             setMemory(null);
         }
-        // Combined loading state will be handled with assets
     }, (error) => {
       console.error("Error fetching memory:", error);
       setMemory(null);
@@ -74,8 +73,8 @@ export default function MemoryEditorPage() {
         setBlocks(fetchedBlocks);
     });
 
-    // Listener for all user assets for this memory
-    const assetsQuery = query(collection(db, 'memories', memoryId, 'assets'), orderBy('createdAt', 'desc'));
+    // Listener for all user assets (not just for this memory)
+    const assetsQuery = query(collection(db, 'assets'), where('ownerUid', '==', user.uid), orderBy('createdAt', 'desc'));
     const unsubscribeAssets = onSnapshot(assetsQuery, (snapshot) => {
         const fetchedAssets: Asset[] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Asset));
         setAssets(fetchedAssets);

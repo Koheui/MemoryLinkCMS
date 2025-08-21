@@ -66,9 +66,7 @@ export function DesignModal({ isOpen, setIsOpen, memory, assets }: { isOpen: boo
     const handleUploadSuccess = (asset: Asset) => {
         // This function might be too generic if both uploaders use it.
         // Let's defer deciding which state to update based on some context,
-        // but for now, let's assume we need a way to distinguish.
-        // A simple way is to pass a setter function to MediaUploader.
-        // For now, I'll just set both, which is not ideal. A better approach is needed if this becomes an issue.
+        // but for now, I'll just set both, which is not ideal. A better approach is needed if this becomes an issue.
          toast({ title: "アップロード完了", description: `'${asset.name}'をアップロードしました。`})
     }
 

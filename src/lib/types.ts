@@ -36,7 +36,7 @@ export interface Memory {
 export interface Asset {
   id: string;
   ownerUid: string;
-  memoryId: string; 
+  memoryId: string | null; 
   name: string;
   type: 'image' | 'video' | 'audio';
   storagePath: string;

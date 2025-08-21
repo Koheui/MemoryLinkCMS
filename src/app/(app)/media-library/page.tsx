@@ -17,7 +17,7 @@ import type { Asset } from '@/lib/types';
 import { useAuth } from '@/hooks/use-auth';
 import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase/client';
-import { collectionGroup, query, where, orderBy, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
 import { format } from 'date-fns';
 
 export default function MediaLibraryPage() {
@@ -37,9 +37,8 @@ export default function MediaLibraryPage() {
     }
     setLoading(true);
     
-    // Use collectionGroup to query all 'assets' subcollections across all 'memories' for the current user
     const assetsQuery = query(
-      collectionGroup(db, 'assets'), 
+      collection(db, 'assets'), 
       where('ownerUid', '==', user.uid), 
       orderBy('createdAt', 'desc')
     );
@@ -101,7 +100,7 @@ export default function MediaLibraryPage() {
                 {filteredAssets.length > 0 ? filteredAssets.map((asset) => (
                     <TableRow key={asset.id}>
                         <TableCell className="font-medium truncate max-w-xs">{asset.name}</TableCell>
-                        <TableCell className="font-mono text-xs">{asset.memoryId}</TableCell>
+                        <TableCell className="font-mono text-xs">{asset.memoryId || 'N/A'}</TableCell>
                         <TableCell>{format(asset.createdAt as Date, 'yyyy/MM/dd')}</TableCell>
                         <TableCell>{formatBytes(asset.size || 0)}</TableCell>
                         <TableCell className="text-right">
