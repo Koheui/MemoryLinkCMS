@@ -1,47 +1,47 @@
 rules_version = '2';
 
-function isSignedIn() { return request.auth != null; }
-function isAdmin() { return isSignedIn() && request.auth.token.role == 'admin'; }
-function isOwner(uid) { return isSignedIn() && request.auth.uid == uid; }
-
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.role == 'admin';
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
 
     match /users/{uid} {
       allow read, write: if isOwner(uid) || isAdmin();
     }
 
     match /memories/{memoryId} {
-      allow read: if isOwner(resource.data.ownerUid) || isAdmin();
-      allow list: if isAdmin() || (isSignedIn() && request.query.where.is_a(list) && request.query.where[0].field == 'ownerUid' && request.query.where[0].value == request.auth.uid);
-      allow write: if (isOwner(request.resource.data.ownerUid) && request.resource.data.ownerUid == request.auth.uid) || isAdmin();
-    }
-    
-    match /assets/{assetId} {
-       allow create: if isOwner(request.resource.data.ownerUid);
-       allow read, update, delete: if isOwner(resource.data.ownerUid);
-       allow list: if isSignedIn() && request.query.where.is_a(list) && request.query.where[0].field == 'ownerUid' && request.query.where[0].value == request.auth.uid;
+      allow get, list: if resource.data.ownerUid == request.auth.uid || isAdmin();
+      allow create: if request.resource.data.ownerUid == request.auth.uid || isAdmin();
+      allow update, delete: if resource.data.ownerUid == request.auth.uid || isAdmin();
+
+      // Blocks are subcollections of memories
+      match /blocks/{blockId} {
+        allow read, list, write: if get(/databases/$(database)/documents/memories/$(memoryId)).data.ownerUid == request.auth.uid || isAdmin();
+      }
     }
 
-    match /memories/{memoryId}/assets/{assetId} {
-       allow read, write: if isOwner(get(/databases/$(database)/documents/memories/$(memoryId)).data.ownerUid) || isAdmin();
-    }
-    
-    match /memories/{memoryId}/blocks/{blockId} {
-      allow read, write: if isOwner(get(/databases/$(database)/documents/memories/$(memoryId)).data.ownerUid) || isAdmin();
+    match /assets/{assetId} {
+      allow get, list: if resource.data.ownerUid == request.auth.uid || isAdmin();
+      allow create: if request.resource.data.ownerUid == request.auth.uid || isAdmin();
+      allow update, delete: if resource.data.ownerUid == request.auth.uid || isAdmin();
     }
 
     match /orders/{orderId} {
       allow read, write: if isAdmin();
     }
 
-    match /publicPages/{pageId} {
+    match /publicPages/{pageId}/{documents=**} {
       allow read: if true;
-      allow write: if false;
-    }
-
-    match /publicPages/{pageId}/blocks/{blockId} {
-      allow read: if false;
       allow write: if false;
     }
   }
