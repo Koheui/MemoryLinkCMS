@@ -81,10 +81,10 @@ export function DesignModal({ isOpen, setIsOpen, memory, assets }: { isOpen: boo
                     <div>
                         <Label>カバー画像</Label>
                         <div className="flex gap-2">
-                             <Select onValueChange={setCoverAssetId} value={coverAssetId ?? ""}>
+                             <Select onValueChange={(value) => setCoverAssetId(value || undefined)} value={coverAssetId ?? undefined}>
                                 <SelectTrigger><SelectValue placeholder="カバー画像を選択..." /></SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="">なし</SelectItem>
+                                    <SelectItem value="no-selection">なし</SelectItem>
                                     {imageAssets.map(asset => <SelectItem key={asset.id} value={asset.id}>{asset.name}</SelectItem>)}
                                 </SelectContent>
                             </Select>
@@ -107,10 +107,10 @@ export function DesignModal({ isOpen, setIsOpen, memory, assets }: { isOpen: boo
                      <div>
                         <Label>プロフィール画像</Label>
                         <div className="flex gap-2">
-                            <Select onValueChange={setProfileAssetId} value={profileAssetId ?? ""}>
+                            <Select onValueChange={(value) => setProfileAssetId(value || undefined)} value={profileAssetId ?? undefined}>
                                 <SelectTrigger><SelectValue placeholder="プロフィール画像を選択..." /></SelectTrigger>
                                 <SelectContent>
-                                <SelectItem value="">なし</SelectItem>
+                                <SelectItem value="no-selection">なし</SelectItem>
                                     {imageAssets.map(asset => <SelectItem key={asset.id} value={asset.id}>{asset.name}</SelectItem>)}
                                 </SelectContent>
                             </Select>
@@ -311,7 +311,7 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, blockCoun
         <div className="space-y-2">
             <Label>メディア選択</Label>
             <div className="flex gap-2">
-                <Select onValueChange={setSelectedAssetId} value={selectedAssetId}>
+                <Select onValueChange={(value) => setSelectedAssetId(value || undefined)} value={selectedAssetId}>
                     <SelectTrigger><SelectValue placeholder={placeholder} /></SelectTrigger>
                     <SelectContent>
                         {availableAssets.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
