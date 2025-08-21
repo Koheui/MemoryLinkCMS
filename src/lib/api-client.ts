@@ -12,12 +12,15 @@ class ApiClient {
     if (this.token) {
       headers.set('Authorization', `Bearer ${this.token}`);
     }
-    if (!headers.has('Content-Type')) {
+    // Ensure Content-Type is set only for methods that typically have a body.
+    const method = options.method?.toUpperCase() || 'GET';
+    if (!headers.has('Content-Type') && ['POST', 'PUT', 'PATCH'].includes(method)) {
         headers.set('Content-Type', 'application/json');
     }
 
     const response = await fetch(url, {
       ...options,
+      method,
       headers,
     });
 
