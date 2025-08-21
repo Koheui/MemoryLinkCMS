@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getUidFromRequest } from '../../_lib/auth';
 import { getAdminApp } from '@/lib/firebase/firebaseAdmin';
-import { getFirestore } from 'firebase-admin/firestore';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import type { Memory } from '@/lib/types';
 
 function err(status: number, msg: string) {
@@ -41,8 +41,8 @@ export async function POST(req: NextRequest) {
     // We cannot use it directly in the object returned to the client.
     await newMemoryRef.set({
       ...newMemoryData,
-      createdAt: getFirestore().FieldValue.serverTimestamp(),
-      updatedAt: getFirestore().FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
     });
 
     const newMemory: Memory = {
