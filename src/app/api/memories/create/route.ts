@@ -22,9 +22,6 @@ export async function POST(req: NextRequest) {
     const db = getFirestore(getAdminApp());
     const newMemoryRef = db.collection('memories').doc();
     
-    // In the future, secret key validation would happen here.
-    // For now, we just create a new memory for the authenticated user.
-
     const newMemoryData: Omit<Memory, 'id' | 'createdAt' | 'updatedAt'> = {
       ownerUid: uid,
       title: '新しい想い出ページ',
@@ -37,8 +34,6 @@ export async function POST(req: NextRequest) {
       design: { theme: 'light', fontScale: 1.0 }, // Ensure design has a default value
     };
     
-    // The serverTimestamp will be evaluated by Firestore.
-    // We cannot use it directly in the object returned to the client.
     await newMemoryRef.set({
       ...newMemoryData,
       createdAt: FieldValue.serverTimestamp(),
@@ -61,6 +56,6 @@ export async function POST(req: NextRequest) {
     if (msg.includes('UNAUTHENTICATED') || msg.includes('verifyIdToken')) {
       return err(401, 'verifyIdToken failed');
     }
-    return err(500, msg);
+    return err(500, 'Internal Server Error: ' + msg);
   }
 }
