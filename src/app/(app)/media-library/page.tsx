@@ -17,7 +17,7 @@ import type { Asset } from '@/lib/types';
 import { useAuth } from '@/hooks/use-auth';
 import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase/client';
-import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, Timestamp } from 'firebase/firestore';
 import { format } from 'date-fns';
 
 export default function MediaLibraryPage() {
@@ -51,7 +51,7 @@ export default function MediaLibraryPage() {
           return {
             id: docSnapshot.id,
             ...data,
-            createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(),
+            createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(),
           } as Asset;
         });
 

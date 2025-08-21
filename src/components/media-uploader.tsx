@@ -4,9 +4,9 @@ import * as React from 'react';
 import { useRef, useState, type ReactNode } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
-import { storage, db } from '@/lib/firebase/client';
+import { storage, db, serverTimestamp } from '@/lib/firebase/client';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { collection, addDoc, serverTimestamp, doc, updateDoc, getDoc } from 'firebase/firestore';
+import { collection, addDoc, doc, updateDoc, getDoc } from 'firebase/firestore';
 import type { Asset } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
 
@@ -60,14 +60,6 @@ export function MediaUploader({ assetType, accept, children, onUploadSuccess, me
         updatedAt: serverTimestamp(),
       });
       
-      const newAssetStub = { 
-        id: docRef.id, 
-        ...assetData, 
-        url: '', // temporary
-        createdAt: new Date(), 
-        updatedAt: new Date() 
-      } as Asset;
-
       // 2. Start the upload to Firebase Storage
       const storageRef = ref(storage, storagePath);
       const uploadTask = uploadBytesResumable(storageRef, file, { contentType: file.type });

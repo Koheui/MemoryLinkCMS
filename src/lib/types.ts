@@ -42,8 +42,8 @@ export interface Asset {
   storagePath: string;
   url: string;
   size: number;
-  createdAt: Timestamp | any;
-  updatedAt: Timestamp | any;
+  createdAt: Timestamp | string;
+  updatedAt: Timestamp | string;
 }
 
 export interface PublicPageBlock {
