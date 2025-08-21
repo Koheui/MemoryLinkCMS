@@ -15,10 +15,11 @@ import {
 import { PlusCircle, Loader2, Image as ImageIcon, Video, Mic, Trash2 } from 'lucide-react';
 import type { Asset } from '@/lib/types';
 import { useAuth } from '@/hooks/use-auth';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { db } from '@/lib/firebase/client';
-import { collection, query, where, orderBy, onSnapshot, Timestamp } from 'firebase/firestore';
+import { collection, query, where, orderBy, Timestamp, getDocs } from 'firebase/firestore';
 import { format } from 'date-fns';
+import { useToast } from '@/hooks/use-toast';
 
 export default function MediaLibraryPage() {
   const { user, loading: authLoading } = useAuth();
@@ -26,46 +27,58 @@ export default function MediaLibraryPage() {
   const [loading, setLoading] = useState(true);
   const [totalSize, setTotalSize] = useState(0);
   const [storagePercentage, setStoragePercentage] = useState(0);
+  const { toast } = useToast();
 
   const TOTAL_STORAGE_LIMIT_MB = 200;
   const TOTAL_STORAGE_LIMIT_BYTES = TOTAL_STORAGE_LIMIT_MB * 1024 * 1024;
 
+  const fetchAssets = useCallback(async (uid: string) => {
+    setLoading(true);
+    try {
+      const assetsQuery = query(
+        collection(db, 'assets'), 
+        where('ownerUid', '==', uid), 
+        orderBy('createdAt', 'desc')
+      );
+      
+      const snapshot = await getDocs(assetsQuery);
+
+      let currentTotalSize = 0;
+      const resolvedAssets = snapshot.docs.map((docSnapshot) => {
+        const data = docSnapshot.data();
+        currentTotalSize += data.size || 0;
+        return {
+          id: docSnapshot.id,
+          ...data,
+          createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(data.createdAt),
+          updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate() : new Date(data.updatedAt),
+        } as Asset;
+      });
+
+      setAssets(resolvedAssets);
+      setTotalSize(currentTotalSize);
+      setStoragePercentage((currentTotalSize / TOTAL_STORAGE_LIMIT_BYTES) * 100);
+
+    } catch (error) {
+      console.error("Failed to fetch assets:", error);
+      toast({
+        variant: 'destructive',
+        title: "メディアの読み込み失敗",
+        description: "メディアの読み込み中にエラーが発生しました。しばらくしてから再度お試しください。"
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
+
+
   useEffect(() => {
     if (authLoading || !user) {
-        setLoading(false);
+        if (!authLoading) setLoading(false);
         return;
     }
-    setLoading(true);
-    
-    const assetsQuery = query(
-      collection(db, 'assets'), 
-      where('ownerUid', '==', user.uid), 
-      orderBy('createdAt', 'desc')
-    );
-
-    const unsubscribe = onSnapshot(assetsQuery, (snapshot) => {
-        let currentTotalSize = 0;
-        const resolvedAssets = snapshot.docs.map((docSnapshot) => {
-          const data = docSnapshot.data();
-          currentTotalSize += data.size || 0;
-          return {
-            id: docSnapshot.id,
-            ...data,
-            createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(),
-          } as Asset;
-        });
-
-        setAssets(resolvedAssets);
-        setTotalSize(currentTotalSize);
-        setStoragePercentage((currentTotalSize / TOTAL_STORAGE_LIMIT_BYTES) * 100);
-        setLoading(false);
-    }, (error) => {
-      console.error("Failed to fetch assets in real-time:", error);
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, [user, authLoading]);
+    fetchAssets(user.uid);
+  }, [user, authLoading, fetchAssets]);
 
   function formatBytes(bytes: number, decimals = 2) {
       if (!bytes || bytes === 0) return '0 Bytes';
@@ -101,7 +114,7 @@ export default function MediaLibraryPage() {
                     <TableRow key={asset.id}>
                         <TableCell className="font-medium truncate max-w-xs">{asset.name}</TableCell>
                         <TableCell className="font-mono text-xs">{asset.memoryId || 'N/A'}</TableCell>
-                        <TableCell>{format(asset.createdAt as Date, 'yyyy/MM/dd')}</TableCell>
+                        <TableCell>{format(new Date(asset.createdAt as any), 'yyyy/MM/dd')}</TableCell>
                         <TableCell>{formatBytes(asset.size || 0)}</TableCell>
                         <TableCell className="text-right">
                             <Button variant="ghost" size="icon">

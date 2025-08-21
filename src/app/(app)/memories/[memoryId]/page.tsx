@@ -4,7 +4,7 @@
 import { Button } from '@/components/ui/button';
 import type { Memory, PublicPageBlock, Asset } from '@/lib/types';
 import { db } from '@/lib/firebase/client';
-import { doc, onSnapshot, collection, query, orderBy, writeBatch, deleteDoc, where } from 'firebase/firestore';
+import { doc, onSnapshot, collection, query, orderBy, writeBatch, deleteDoc, where, getDocs, Timestamp } from 'firebase/firestore';
 import { notFound, useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Eye, Loader2, PlusCircle, Edit, Image as ImageIcon, Trash2 } from 'lucide-react';
@@ -49,50 +49,62 @@ export default function MemoryEditorPage() {
   useEffect(() => {
     if (authLoading || !user || !memoryId) return;
 
-    setLoading(true);
+    let unsubMemory: () => void;
+    let unsubBlocks: () => void;
     
-    // Listener for memory document
-    const memoryDocRef = doc(db, 'memories', memoryId);
-    const unsubscribeMemory = onSnapshot(memoryDocRef, (doc) => {
-        if (doc.exists() && doc.data()?.ownerUid === user.uid) {
-             setMemory({ id: doc.id, ...doc.data() } as Memory);
-        } else {
-            console.error("Memory not found or access denied.");
-            setMemory(null);
+    setLoading(true);
+
+    const fetchAllData = async () => {
+        try {
+            // Listener for memory document
+            const memoryDocRef = doc(db, 'memories', memoryId);
+            unsubMemory = onSnapshot(memoryDocRef, (doc) => {
+                if (doc.exists() && doc.data()?.ownerUid === user.uid) {
+                     setMemory({ id: doc.id, ...doc.data() } as Memory);
+                } else {
+                    console.error("Memory not found or access denied.");
+                    setMemory(null);
+                }
+            }, (error) => {
+              console.error("Error fetching memory:", error);
+              setMemory(null);
+            });
+
+            // Listener for blocks subcollection
+            const blocksQuery = query(collection(db, 'memories', memoryId, 'blocks'), orderBy('order', 'asc'));
+            unsubBlocks = onSnapshot(blocksQuery, (snapshot) => {
+                const fetchedBlocks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PublicPageBlock));
+                setBlocks(fetchedBlocks);
+            });
+
+            // One-time fetch for assets
+            const assetsQuery = query(collection(db, 'assets'), where('ownerUid', '==', user.uid), orderBy('createdAt', 'desc'));
+            const assetsSnapshot = await getDocs(assetsQuery);
+            const fetchedAssets: Asset[] = assetsSnapshot.docs.map(docSnap => ({ 
+                id: docSnap.id, 
+                ...docSnap.data(),
+                createdAt: (docSnap.data().createdAt as Timestamp).toDate(),
+                updatedAt: (docSnap.data().updatedAt as Timestamp).toDate(),
+            } as Asset));
+            setAssets(fetchedAssets);
+
+        } catch (error) {
+            console.error("Error fetching page data:", error);
+            toast({ variant: 'destructive', title: "Error", description: "ページのデータ読み込みに失敗しました。" });
+        } finally {
+            setLoading(false);
         }
-    }, (error) => {
-      console.error("Error fetching memory:", error);
-      setMemory(null);
-      setLoading(false);
-    });
-
-    // Listener for blocks subcollection
-    const blocksQuery = query(collection(db, 'memories', memoryId, 'blocks'), orderBy('order', 'asc'));
-    const unsubscribeBlocks = onSnapshot(blocksQuery, (snapshot) => {
-        const fetchedBlocks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PublicPageBlock));
-        setBlocks(fetchedBlocks);
-    });
-
-    // Listener for all user assets (not just for this memory)
-    const assetsQuery = query(collection(db, 'assets'), where('ownerUid', '==', user.uid), orderBy('createdAt', 'desc'));
-    const unsubscribeAssets = onSnapshot(assetsQuery, (snapshot) => {
-        const fetchedAssets: Asset[] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Asset));
-        setAssets(fetchedAssets);
-        setLoading(false); // Set loading to false after assets (the last query) are fetched
-    }, (error) => {
-        console.error("Error fetching assets:", error);
-        setAssets([]);
-        setLoading(false);
-    });
+    }
+    
+    fetchAllData();
 
 
     return () => {
-      unsubscribeMemory();
-      unsubscribeBlocks();
-      unsubscribeAssets();
+      if (unsubMemory) unsubMemory();
+      if (unsubBlocks) unsubBlocks();
     }
 
-  }, [memoryId, user, authLoading]);
+  }, [memoryId, user, authLoading, toast]);
   
   async function handleDragEnd(event: DragEndEvent) {
     const {active, over} = event;
