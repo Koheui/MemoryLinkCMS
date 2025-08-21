@@ -14,12 +14,11 @@ service cloud.firestore {
 
     // Memories can only be read/written by their owner or an admin
     match /memories/{memoryId} {
-      allow create: if isOwner(request.resource.data.ownerUid) || isAdmin();
       allow read, update, delete: if isOwner(resource.data.ownerUid) || isAdmin();
+      allow create: if isOwner(request.resource.data.ownerUid) || isAdmin();
     }
 
-    // Assets can be created, read, updated, or deleted only by the owner or an admin.
-    // This rule is critical for allowing indexed queries on the 'assets' collection.
+    // Assets can be created, read, updated, and deleted only by the owner or an admin.
     match /assets/{assetId} {
        allow create: if isOwner(request.resource.data.ownerUid) || isAdmin();
        allow read, update, delete: if isOwner(resource.data.ownerUid) || isAdmin();
