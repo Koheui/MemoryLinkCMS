@@ -69,7 +69,7 @@ orders/{orderId}                    // 顧客・進捗管理の中核
   shipping: { nfcWritten?: boolean, shippedAt?: Timestamp }
   createdAt, updatedAt, audit: { createdBy?: string, lastUpdatedBy?: string }
 
-publicPages/{pageId}                // 公開メタ（閲覧専用）
+publicPages/{pageId}                // 公開メタデータ（閲覧専用）
   memoryId: string
   title: string
   about: { text: string, format: "md" | "plain" }
@@ -79,7 +79,7 @@ publicPages/{pageId}                // 公開メタ（閲覧専用）
   publish: { status: "draft" | "published", publishedAt?: Timestamp }
   createdAt, updatedAt
 
-publicPages/{pageId}/blocks/{blockId} // 編集側ブロック（writeはFunctions経由推奨）
+publicPages/{pageId}/blocks/{blockId} // 公開用ブロックデータ（編集は/memories/{id}/blocksで行う）
   type: "album" | "video" | "audio" | "text"
   order: number
   visibility: "show" | "hide"
@@ -92,10 +92,12 @@ publicPages/{pageId}/blocks/{blockId} // 編集側ブロック（writeはFunctio
   createdAt, updatedAt
 
 2.2 Storage
-# 編集（非公開）
+# 編集・処理中（非公開）
 users/{uid}/memories/{memoryId}/uploads/{fileId}.{ext}
+proc/users/{uid}/memories/{memoryId}/images/{fileId}_w1600.jpg
+proc/users/{uid}/memories/{memoryId}/thumbs/{fileId}_w400.jpg
 
-# 公開（閲覧のみ、Functionsが書込）
+# 公開（CDN配信 / 閲覧のみ）
 deliver/publicPages/{pageId}/cover.jpg
 deliver/publicPages/{pageId}/profile.jpg
 deliver/publicPages/{pageId}/gallery/{fileId}.jpg
@@ -104,8 +106,9 @@ deliver/publicPages/{pageId}/video/{fileId}.mp4
 deliver/publicPages/{pageId}/audio/{fileId}.mp3
 deliver/publicPages/{pageId}/manifest.json
 
-3. セキュリティルール（そのまま反映OK）
+3. セキュリティルール
 3.1 Firestore（firestore.rules）
+```
 rules_version = '2';
 
 function isSignedIn() { return request.auth != null; }
@@ -115,44 +118,37 @@ function isOwner(uid) { return isSignedIn() && request.auth.uid == uid; }
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // User can only read/write their own user document
     match /users/{uid} {
       allow read, write: if isOwner(uid) || isAdmin();
     }
 
-    // Memories can only be read/written by their owner or an admin
     match /memories/{memoryId} {
       allow read, write: if isOwner(resource.data.ownerUid) || isAdmin();
     }
 
-    // Subcollection assets
     match /memories/{memoryId}/assets/{assetId} {
        allow read, write: if isOwner(get(/databases/$(database)/documents/memories/$(memoryId)).data.ownerUid) || isAdmin();
     }
 
-    // Orders are read-only for clients, write is admin-only.
     match /orders/{orderId} {
       allow read, write: if isAdmin();
-      // To allow users to see their own orders:
-      // allow read: if isAdmin() || isOwner(resource.data.userUid);
-      // allow write: if isAdmin();
     }
 
-    // Public pages are read-only for everyone, and cannot be written by clients.
     match /publicPages/{pageId} {
       allow read: if true;
-      allow write: if false;
+      allow write: if false; // クライアントからの書き込みは禁止
     }
 
-    // Blocks cannot be edited directly by clients.
     match /publicPages/{pageId}/blocks/{blockId} {
-      allow read: if false;
-      allow write: if false;
+      allow read: if true;
+      allow write: if false; // クライアントからの書き込みは禁止
     }
   }
 }
+```
 
 3.2 Storage（storage.rules）
+```
 rules_version = '2';
 
 function isSignedIn() { return request.auth != null; }
@@ -177,135 +173,68 @@ function withinSizeLimit() {
 service firebase.storage {
   match /b/{bucket}/o {
 
-    // User can write to their own memory folders
     match /users/{uid}/{path=**} {
       allow read, write: if isUser(uid) && isAllowedContentType() && withinSizeLimit();
     }
+    
+    match /proc/{path=**} {
+        allow read, write: if false; // サーバー(Functions)からのみ
+    }
 
-    // Public delivery assets are read-only for everyone, and cannot be written.
     match /deliver/publicPages/{pageId}/{all=**} {
       allow read: if true;
-      allow write: if false;
+      allow write: if false; // Functionsからのみ
     }
   }
 }
+```
 
-
-反映コマンド
-
-firebase deploy --only firestore:rules,storage:rules
-
-4. 認証（Auth）— 落とさない超丁寧ガイド
-4.1 Console設定（必須チェック）
-
-*   Authentication → Sign-in method
-    *   Email/Password: Enabled
-*   Authentication → Authorized domains
-    *   localhost / 127.0.0.1（開発）
-    *   app.example.com（本番アプリ）
-*   App Check
-    *   MVPはOFF（ONにする場合はWebキー設定＋SDK実装が必要）
-*   リージョン統一
-    *   Firestore/Storage/Functionsは同一リージョン（例：asia-northeast1）
-
-4.2 管理者（admin）付与（最初の1回だけ）
-
-*   安全な環境で実行（Admin SDK）
-    ```javascript
-    import { initializeApp, applicationDefault } from "firebase-admin/app";
-    import { getAuth } from "firebase-admin/auth";
-    initializeApp({ credential: applicationDefault() });
-    await getAuth().setCustomUserClaims("<ADMIN_UID>", { role: "admin" });
-    ```
-*   付与後、そのユーザーは「再ログイン」必須（トークン再発行のため）
-
-4.3 管理画面の保護：Session Cookie + middleware（直打ちも404）
-
-*   管理者が通常ログイン→idToken取得
-*   APIへidTokenをPOST→HTTP only Session Cookieを発行
-*   Next.js middlewareが /_admin/** でそのCookieをサーバー検証
-*   role=adminのみ通す／それ以外は404へ偽装
+4. 認証フロー
+（省略、`LOGIN_FIX_MEMO.md` および `LOGIN_FAILURE_ANALYSIS.md` を参照）
 
 5. 画面仕様
 5.1 アプリ（app.example.com）
 
 *   `/signup`, `/login`：Email/Pass
-*   `/dashboard`：自分のMemories一覧（公開URL/QR、編集/公開）
-*   `/memories/{memoryId}`：
-    *   Design：カバー/プロフィール/テーマ/フォント倍率
-    *   About：概要（Markdown）
-    *   Blocks：Album/Video/Audio/Text 追加・並べ替え・非表示
-    *   Publish：プレビュー→公開ビルド（Functions）→URL/QR表示
-*   `/_admin/**`（**顧客管理システム**）
-    *   **注文管理**: 顧客一覧（orders）表示、ステータス遷移（入金確認、発送済みなど）
-    *   **新規注文作成**: 顧客メールと製品タイプを入力して新しい注文（招待）を作成
-    *   **ページID確認**: 注文に紐づく公開ページID（`memoryId`）を確認し、NFC書き込み作業に利用
-    *   **保護**: Session Cookie + middleware で保護（非adminは常に404）
+*   `/dashboard`：自分のMemories一覧
+*   `/memories/{memoryId}`：ビジュアルエディタ
+*   `/_admin/**`：顧客管理システム
+    *   注文管理、新規注文作成（招待）、ページID確認、NFC書込情報提供
 
 5.2 公開（mem.example.com）
 
-*   `/p/{pageId}`：
-    *   最初に deliver/publicPages/{pageId}/manifest.json を取得
-    *   スマホ向けリンク集UIで描画（CDNキャッシュ重視、Firestore直読なし）
-    *   OGP設定（カバーをog:image）
-
-5.3 LP（www.example.com）
-
-*   説明・料金・FAQ・はじめる→/signup（アプリへリンク）
-*   LP自体は静的でOK（Auth不要）
+*   `/p/{pageId}`：静的生成されたコンテンツを表示
 
 6. Functions 概要
 6.1 画像圧縮（onFinalize）
 
-*   トリガ：users/{uid}/memories/{memoryId}/uploads/*
-*   出力：proc/.../images/*_w1600.jpg と proc/.../thumbs/*_w400.jpg（sharp）
+*   トリガ：`users/{uid}/memories/{memoryId}/uploads/*`
+*   処理：Web表示用に画像をリサイズ（例:幅1600px）、サムネイル生成（幅400px）
+*   出力：`proc/`配下の対応するパス
 
 6.2 公開ビルド（HTTPS）
 
-*   POST /api/generate-public-page { memoryId }
-*   認可：memory.ownerUid == uid もしくは admin
-*   手順：
-    1.  Firestoreから編集データ（memories, blocks）取得
-    2.  参照する proc/** を deliver/publicPages/{pageId}/** にコピー
-    3.  manifest.json 生成（デザイン/順序/URL群）
-    4.  memories.status="active" / publishedAt 更新
+*   トリガ：POST `/api/publish-page`
+*   処理：
+    1. Firestoreから編集データを取得
+    2. `proc/`から必要な画像・動画を`deliver/publicPages/{pageId}/`にコピー
+    3. `manifest.json`を生成
+    4. `memories`のステータスを`active`に更新
 
-7. キャッシュ/コスト（firebase.json）
-```json
-{
-  "hosting": {
-    "headers": [
-      { "source": "/p/**", "headers": [ { "key": "Cache-Control", "value": "public, max-age=300" } ] },
-      { "source": "/deliver/**", "headers": [ { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" } ] }
-    ]
-  }
-}
-```
+7. キャッシュ戦略とコスト削減
+このシステムのアーキテクチャは、買い切りモデルを維持するために、ランニングコスト（サーバー代、通信費）を最小限に抑えることを最優先に設計されている。
 
-8. 受け入れ基準（UAT）
-
-*   サインアップ/ログイン→招待されたページを編集→公開→/p/{pageId} 表示
-*   Firestore停止想定でも公開ページは表示（manifest.json＋静的ファイルのみ）
-*   他人のmemoriesにアクセス不可
-*   /_admin 非adminは常に404、adminは入れる
-*   管理画面から注文作成→ユーザー招待→ユーザーがページ編集できる
-*   NFC：iOS/AndroidでURL起動可
-
-9. セットアップ手順（ゼロ→起動）
-
-1.  Firebaseプロジェクト作成（リージョン統一）
-2.  Auth：Email/PassをEnabled、Authorized domains に localhost・app.example.com
-3.  ルール反映
-    `firebase deploy --only firestore:rules,storage:rules`
-4.  Functions（画像圧縮/公開ビルド）を配置→
-    `cd functions && npm i && npm run deploy`
-5.  Hosting（アプリ/公開をビルド&デプロイ）→
-    `npm run build && firebase deploy --only hosting`
-6.  管理者付与（Admin SDKで role:"admin"）→管理者は再ログイン
-
-10. 補足（運用/拡張）
-
-*   決済はMVPで請求書→のちにStripe Webhook連携へ拡張。
-*   個人情報は公開ページに載せない運用。
-*   **マルチテナント**: サービス（赤ちゃん筆、ペット追悼など）ごとにドメインを分け、同じアプリで運用する。アプリはドメインを判別し、表示するロゴやテーマ、フィルタリングするページ種別（`memories.type`）を動的に切り替える。
-```
+*   **静的コンテンツ配信**: 公開ページ(`/p/{pageId}`)は、アクセス毎にFirestoreのデータを読み取る動的なページではない。代わりに、ユーザーが「公開」したタイミングでFirebase Functionsが一度だけ`manifest.json`（ページの全情報を含むJSONファイル）と、表示に必要な画像・動画ファイルを生成する。実際の閲覧リクエストは、この静的ファイル群に対して行われる。
+*   **CDNの積極活用**: 生成された静的ファイルは、Firebase HostingのCDN（コンテンツデリバリーネットワーク）によって世界中のエッジサーバーにキャッシュされる。これにより、ユーザーは最寄りのサーバーから高速に応答を受けられると同時に、バックエンドへのリクエスト数が劇的に削減され、Firestoreの読み取りコストとFunctionsの実行回数を最小限に抑える。
+*   **キャッシュ制御ヘッダー**: `firebase.json`で`Cache-Control`ヘッダーを適切に設定する。特に、一度配信された画像や動画などのメディアファイルには`immutable`（不変）を指定し、長期間（例:1年間）ブラウザにキャッシュさせることで、再訪時の通信量を削減する。
+    ```json
+    {
+      "hosting": {
+        "headers": [
+          { "source": "/p/**", "headers": [ { "key": "Cache-Control", "value": "public, max-age=300" } ] },
+          { "source": "/deliver/**", "headers": [ { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" } ] }
+        ]
+      }
+    }
+    ```
+*   **画像・動画の最適化**: ユーザーがアップロードした元のファイルは直接配信しない。FunctionsがWeb表示に最適化されたサイズ（例:画像幅1600px、動画720p）に圧縮したものを生成し、`deliver/`配下に配置する。これにより、ストレージ容量と通信データ量の両方を大幅に削減する。
