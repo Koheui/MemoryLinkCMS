@@ -2,7 +2,7 @@
 {
   "indexes": [
     {
-      "collectionGroup": "assets",
+      "collectionGroup": "memories",
       "queryScope": "COLLECTION",
       "fields": [
         {
@@ -16,7 +16,7 @@
       ]
     },
     {
-      "collectionGroup": "memories",
+      "collectionGroup": "assets",
       "queryScope": "COLLECTION",
       "fields": [
         {
