@@ -34,9 +34,10 @@ export const generateThumbnail = storage.onObjectFinalized({
   const contentType = event.data.contentType;
   const customMetadata = event.data.metadata;
 
+  // Read the assetId from the custom metadata
   const assetId = customMetadata?.assetId;
 
-  // Exit if this is not a user asset (check path and metadata)
+  // Exit if this is not a user asset (check path and required metadata)
   if (!filePath || !filePath.startsWith("users/") || !assetId) {
     logger.info(`Not a user asset with required metadata, skipping: ${filePath}`);
     return;
@@ -65,7 +66,7 @@ export const generateThumbnail = storage.onObjectFinalized({
     await bucket.file(filePath).download({destination: tempFilePath});
     logger.info("Video downloaded locally to", tempFilePath);
 
-    // 2. Generate a thumbnail using ffmpeg, wrapped in a promise
+    // 2. Generate a thumbnail using ffmpeg, wrapped in a promise for async/await
     await new Promise<void>((resolve, reject) => {
       ffmpeg(tempFilePath)
           .on("end", () => {
@@ -84,25 +85,21 @@ export const generateThumbnail = storage.onObjectFinalized({
           });
     });
 
-    // 3. Upload the thumbnail
+    // 3. Upload the thumbnail to a 'thumbnails' subfolder
     const thumbUploadPath = path.join(path.dirname(filePath), "thumbnails", thumbFileName);
     const [uploadedFile] = await bucket.upload(tempThumbPath, {
       destination: thumbUploadPath,
       metadata: { contentType: "image/jpeg" },
     });
     
-    // 4. Get a Signed URL for the thumbnail
-    const expires = new Date();
-    expires.setFullYear(expires.getFullYear() + 100); // Set expiration 100 years from now
-    const [thumbnailUrl] = await uploadedFile.getSignedUrl({
-        action: "read",
-        expires: expires,
-    });
+    // 4. Get a public URL for the thumbnail
+    const thumbnailUrl = uploadedFile.publicUrl();
 
     logger.info(`Thumbnail uploaded to ${thumbUploadPath}, URL: ${thumbnailUrl}`);
 
     // 5. Update the corresponding document in Firestore using the assetId from metadata
     const db = admin.firestore();
+    // Directly target the document using the assetId, no search needed
     const assetRef = db.collection("assets").doc(assetId);
     
     await assetRef.update({
@@ -115,7 +112,7 @@ export const generateThumbnail = storage.onObjectFinalized({
   } catch (error) {
     logger.error("Function failed:", error);
   } finally {
-    // 6. Clean up temporary files
+    // 6. Clean up temporary files regardless of success or failure
     if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
     if (fs.existsSync(tempThumbPath)) fs.unlinkSync(tempThumbPath);
     logger.info("Cleaned up temporary files.");
