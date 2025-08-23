@@ -21,31 +21,34 @@ admin.initializeApp();
 
 setGlobalOptions({maxInstances: 10});
 
-// Trigger on all video uploads in the 'users/{uid}/...' path, which is where media-uploader places them.
+// Trigger on all object finalizations in the default bucket
 export const generateThumbnail = storage.onObjectFinalized({
   cpu: 1,
   memory: "512MiB",
   timeoutSeconds: 60,
-  bucket: process.env.GCLOUD_STORAGE_BUCKET, // Use the default bucket
+  bucket: process.env.GCLOUD_STORAGE_BUCKET,
 }, async (event) => {
   const fileBucket = event.data.bucket;
   const filePath = event.data.name;
   const contentType = event.data.contentType;
 
-  // Exit if this is not a video.
-  if (!contentType?.startsWith("video/")) {
-    logger.info(`Not a video: ${filePath} (${contentType})`);
-    return;
-  }
-  if (!filePath) {
-    logger.error("File path is not available.");
+  // This is the path pattern where media-uploader.tsx uploads files.
+  // Exit if the file is not in a user's asset folder.
+  if (!filePath || !filePath.startsWith("users/")) {
+    logger.info(`Not a user asset, skipping: ${filePath}`);
     return;
   }
 
+  // Exit if this is not a video.
+  if (!contentType?.startsWith("video/")) {
+    logger.info(`Not a video, skipping: ${filePath} (${contentType})`);
+    return;
+  }
+  
   const fileName = path.basename(filePath);
   // Exit if the image is already a thumbnail.
   if (fileName.startsWith("thumb_")) {
-    logger.info(`Already a thumbnail: ${filePath}`);
+    logger.info(`Already a thumbnail, skipping: ${filePath}`);
     return;
   }
 
@@ -88,10 +91,16 @@ export const generateThumbnail = storage.onObjectFinalized({
       destination: thumbUploadPath,
       metadata: metadata,
     });
+    
+    // 4. Get a Signed URL for the thumbnail
+    const expires = new Date();
+    expires.setFullYear(expires.getFullYear() + 100); // Set expiration 100 years from now
+    
+    const [thumbnailUrl] = await uploadedFile.getSignedUrl({
+        action: 'read',
+        expires: expires,
+    });
 
-    // 4. Get a public URL for the thumbnail
-    // This is simpler than a signed URL for public assets. Ensure your Storage Rules allow public read.
-    const thumbnailUrl = uploadedFile.publicUrl();
     logger.info(`Thumbnail uploaded to ${thumbUploadPath}, URL: ${thumbnailUrl}`);
 
     // 5. Update the corresponding document in Firestore
