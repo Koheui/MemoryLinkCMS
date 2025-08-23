@@ -4,7 +4,7 @@
 import { Button } from '@/components/ui/button';
 import type { Memory, PublicPageBlock, Asset } from '@/lib/types';
 import { db } from '@/lib/firebase/client';
-import { doc, getDoc, Timestamp, updateDoc, arrayUnion, arrayRemove, serverTimestamp, collection, getDocs, orderBy, query, where } from 'firebase/firestore';
+import { doc, getDoc, Timestamp, updateDoc, arrayUnion, arrayRemove, serverTimestamp, collection, getDocs, query, where } from 'firebase/firestore';
 import { notFound, useParams } from 'next/navigation';
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Eye, Loader2, PlusCircle, Edit, Image as ImageIcon, Trash2 } from 'lucide-react';
@@ -62,20 +62,32 @@ export default function MemoryEditorPage() {
       const memoryData = { 
         id: memoryDocSnap.id, 
         ...memoryDocSnap.data(),
+        blocks: memoryDocSnap.data().blocks || []
       } as Memory;
       
-      if (!memoryData.blocks) {
-        memoryData.blocks = [];
-      }
       setMemory(memoryData);
 
       const assetsQuery = query(
         collection(db, 'assets'),
-        where('ownerUid', '==', currentUid),
-        orderBy('createdAt', 'desc')
+        where('ownerUid', '==', currentUid)
       );
       const assetsSnap = await getDocs(assetsQuery);
-      const fetchedAssets = assetsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Asset));
+      const fetchedAssets = assetsSnap.docs.map(d => {
+          const data = d.data();
+          return {
+            id: d.id,
+            ...data,
+            createdAt: (data.createdAt as Timestamp)?.toDate() || new Date()
+          } as Asset
+      });
+
+      // Sort assets on the client-side
+      fetchedAssets.sort((a, b) => {
+        const dateA = a.createdAt instanceof Date ? a.createdAt.getTime() : 0;
+        const dateB = b.createdAt instanceof Date ? b.createdAt.getTime() : 0;
+        return dateB - dateA;
+      });
+      
       setAssets(fetchedAssets);
       
     } catch (e) {
@@ -130,8 +142,15 @@ export default function MemoryEditorPage() {
   };
 
   const handleAssetUpload = (asset: Asset) => {
-    setAssets(prevAssets => [asset, ...prevAssets]);
-    fetchAllData(memoryId, user!.uid); // Re-fetch all data to ensure consistency
+    setAssets(prevAssets => {
+      const newAssets = [asset, ...prevAssets];
+      newAssets.sort((a, b) => {
+        const dateA = a.createdAt instanceof Date ? a.createdAt.getTime() : 0;
+        const dateB = b.createdAt instanceof Date ? b.createdAt.getTime() : 0;
+        return dateB - dateA;
+      });
+      return newAssets;
+    });
   }
   
   const handleSaveBlock = async (newBlockData: Omit<PublicPageBlock, 'id' | 'createdAt' | 'updatedAt' | 'order'>, blockToEdit?: PublicPageBlock | null) => {
