@@ -6,7 +6,7 @@ import type { Memory, PublicPageBlock, Asset } from '@/lib/types';
 import { db } from '@/lib/firebase/client';
 import { doc, getDoc, Timestamp, updateDoc, arrayUnion, arrayRemove, serverTimestamp, collection, getDocs, query, where } from 'firebase/firestore';
 import { notFound, useParams } from 'next/navigation';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Eye, Loader2, PlusCircle, Edit, Image as ImageIcon, Trash2, GripVertical, Type as TypeIcon, Video as VideoIcon, Mic, Album, Clapperboard } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
@@ -46,14 +46,13 @@ export default function MemoryEditorPage() {
   );
   
   const fetchAllData = useCallback(async (currentMemoryId: string, currentUid: string) => {
-    // setLoading(true) is not set here to avoid re-showing loader on block updates
     try {
       const memoryDocRef = doc(db, 'memories', currentMemoryId);
       const memoryDocSnap = await getDoc(memoryDocRef);
 
       if (!memoryDocSnap.exists() || memoryDocSnap.data()?.ownerUid !== currentUid) {
         console.error("Memory not found or access denied.");
-        setMemory(null); // This will trigger notFound()
+        setMemory(null);
         setLoading(false);
         return;
       }
@@ -93,7 +92,7 @@ export default function MemoryEditorPage() {
     } catch (e) {
       console.error("Error fetching page data:", e);
       toast({ variant: 'destructive', title: "Error", description: "ページデータの読み込みに失敗しました。" });
-      setMemory(null); // This will trigger notFound()
+      setMemory(null);
     } finally {
         setLoading(false);
     }
@@ -102,8 +101,9 @@ export default function MemoryEditorPage() {
 
   useEffect(() => {
     if (authLoading || !user || !memoryId) return;
-    if (!loading) return; // Prevent re-fetching after initial load
-    fetchAllData(memoryId, user.uid);
+    if (loading) {
+       fetchAllData(memoryId, user.uid);
+    }
   }, [memoryId, user, authLoading, fetchAllData, loading]);
   
   async function handleDragEnd(event: DragEndEvent) {
@@ -140,11 +140,7 @@ export default function MemoryEditorPage() {
 
   const handleAssetUpload = (asset: Asset) => {
     setAssets(prevAssets => {
-      // Avoid duplicates and add new asset to the top
-      if (prevAssets.some(a => a.id === asset.id)) {
-        return prevAssets.map(p => p.id === asset.id ? asset : p);
-      }
-      const newAssets = [asset, ...prevAssets];
+      const newAssets = [asset, ...prevAssets.filter(a => a.id !== asset.id)];
       newAssets.sort((a, b) => {
         const dateA = a.createdAt instanceof Date ? a.createdAt.getTime() : 0;
         const dateB = b.createdAt instanceof Date ? b.createdAt.getTime() : 0;
@@ -437,7 +433,7 @@ function SortableBlockItem({ block, assets, onEdit, onDelete }: { block: PublicP
                 return (
                     <div className="p-2 space-y-2">
                         <p className="font-semibold text-sm">{block.title || "無題の写真"}</p>
-                        <div className="relative aspect-video w-full overflow-hidden rounded-lg">
+                        <div className="relative w-full overflow-hidden rounded-lg" style={{ aspectRatio: '16/9' }}>
                            <Image src={asset.url} alt={block.title || 'Photo content'} fill sizes="(max-width: 768px) 100vw, 80vw" className="object-cover" />
                         </div>
                         {block.photo.caption && <p className="text-sm text-muted-foreground mt-2">{block.photo.caption}</p>}
@@ -449,7 +445,7 @@ function SortableBlockItem({ block, assets, onEdit, onDelete }: { block: PublicP
         if (block.type === 'video' && block.video?.assetId) {
             const asset = assets.find(a => a.id === block.video?.assetId);
             if (asset) {
-                const thumbnailUrl = asset.thumbnailUrl || "https://placehold.co/600x400.png";
+                const thumbnailUrl = asset.thumbnailUrl || "https://placehold.co/600x400.png?text=サムネイル生成中...";
                 return (
                     <div className="p-2 space-y-2">
                         <p className="font-semibold text-sm">{block.title || "無題の動画"}</p>
@@ -464,7 +460,6 @@ function SortableBlockItem({ block, assets, onEdit, onDelete }: { block: PublicP
                 )
             }
         }
-
 
         // Fallback for other types or if photo asset not found
         return (
