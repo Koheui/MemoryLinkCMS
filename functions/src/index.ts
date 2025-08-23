@@ -32,10 +32,13 @@ export const generateThumbnail = storage.onObjectFinalized({
   const fileBucket = event.data.bucket;
   const filePath = event.data.name;
   const contentType = event.data.contentType;
+  const customMetadata = event.data.metadata;
 
-  // Exit if the file is not in a user's asset folder.
-  if (!filePath || !filePath.startsWith("users/")) {
-    logger.info(`Not a user asset, skipping: ${filePath}`);
+  const assetId = customMetadata?.assetId;
+
+  // Exit if this is not a user asset (check path and metadata)
+  if (!filePath || !filePath.startsWith("users/") || !assetId) {
+    logger.info(`Not a user asset with required metadata, skipping: ${filePath}`);
     return;
   }
 
@@ -56,16 +59,13 @@ export const generateThumbnail = storage.onObjectFinalized({
   const tempFilePath = path.join(os.tmpdir(), fileName);
   const thumbFileName = `thumb_${path.parse(fileName).name}.jpg`;
   const tempThumbPath = path.join(os.tmpdir(), thumbFileName);
-  const metadata = {
-    contentType: "image/jpeg",
-  };
-
+  
   try {
     // 1. Download video from bucket
     await bucket.file(filePath).download({destination: tempFilePath});
     logger.info("Video downloaded locally to", tempFilePath);
 
-    // 2. Generate a thumbnail using ffmpeg
+    // 2. Generate a thumbnail using ffmpeg, wrapped in a promise
     await new Promise<void>((resolve, reject) => {
       ffmpeg(tempFilePath)
           .on("end", () => {
@@ -84,17 +84,16 @@ export const generateThumbnail = storage.onObjectFinalized({
           });
     });
 
-    // 3. Upload the thumbnail to a dedicated 'thumbnails' subfolder
+    // 3. Upload the thumbnail
     const thumbUploadPath = path.join(path.dirname(filePath), "thumbnails", thumbFileName);
     const [uploadedFile] = await bucket.upload(tempThumbPath, {
       destination: thumbUploadPath,
-      metadata: metadata,
+      metadata: { contentType: "image/jpeg" },
     });
     
     // 4. Get a Signed URL for the thumbnail
     const expires = new Date();
     expires.setFullYear(expires.getFullYear() + 100); // Set expiration 100 years from now
-    
     const [thumbnailUrl] = await uploadedFile.getSignedUrl({
         action: "read",
         expires: expires,
@@ -102,24 +101,16 @@ export const generateThumbnail = storage.onObjectFinalized({
 
     logger.info(`Thumbnail uploaded to ${thumbUploadPath}, URL: ${thumbnailUrl}`);
 
-    // 5. Update the corresponding document in Firestore
+    // 5. Update the corresponding document in Firestore using the assetId from metadata
     const db = admin.firestore();
-    const assetsRef = db.collection("assets");
-    const q = assetsRef.where("storagePath", "==", filePath).limit(1);
-    const snapshot = await q.get();
-
-    if (snapshot.empty) {
-      logger.error("No matching asset found in Firestore for storagePath:", filePath);
-      return; // Exit if no document found
-    }
-
-    const assetDoc = snapshot.docs[0];
-    await assetDoc.ref.update({
+    const assetRef = db.collection("assets").doc(assetId);
+    
+    await assetRef.update({
       thumbnailUrl: thumbnailUrl,
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
-    logger.info("Firestore document updated for asset:", assetDoc.id);
+    logger.info("Firestore document updated for asset:", assetId);
 
   } catch (error) {
     logger.error("Function failed:", error);

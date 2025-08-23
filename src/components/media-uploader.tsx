@@ -62,9 +62,15 @@ export function MediaUploader({ assetType, accept, children, onUploadSuccess, me
         updatedAt: serverTimestamp(),
       });
       
-      // 2. Start the upload to Firebase Storage
+      // 2. Start the upload to Firebase Storage with custom metadata
       const storageRef = ref(storage, storagePath);
-      const uploadTask = uploadBytesResumable(storageRef, file, { contentType: file.type });
+      const metadata = { 
+        contentType: file.type,
+        customMetadata: {
+            assetId: docRef.id
+        }
+      };
+      const uploadTask = uploadBytesResumable(storageRef, file, metadata);
 
       uploadTask.on('state_changed',
         (snapshot) => {
