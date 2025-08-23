@@ -286,11 +286,22 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
         }
     };
     
+    // This function is for selecting an existing asset from the library
     const handleUploadAndSelect = (asset: Asset) => {
         onUploadSuccess(asset); 
         setSelectedAssetId(asset.id);
         toast({ title: "アップロード完了", description: `'${asset.name}'をアップロードし、選択しました。`});
     }
+    
+    // This function is for uploading a new asset AND creating a block in one go
+    const handleUploadAndSaveBlock = async (newBlockData: Omit<PublicPageBlock, 'id'|'order'|'createdAt'|'updatedAt'>) => {
+        try {
+            await onSave(newBlockData, null); // Always creates a new block
+            setIsOpen(false);
+        } catch (error) {
+            // Error is already toasted in onSave
+        }
+    };
 
     const renderAssetSelector = (
         type: 'image' | 'video' | 'audio',
@@ -310,7 +321,8 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
                     assetType={type}
                     accept={`${type}/*`}
                     memoryId={memory.id}
-                    onUploadSuccess={handleUploadAndSelect}
+                    onUploadSuccess={onUploadSuccess}
+                    onSaveBlock={handleUploadAndSaveBlock}
                 >
                     <Button type="button" variant="outline" size="icon"><Upload className="h-4 w-4"/></Button>
                 </MediaUploader>
@@ -393,7 +405,10 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
     };
 
     return (
-        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <Dialog open={isOpen} onOpenChange={(open) => {
+            if(!open) setBlockType(null); // Reset block type when closing
+            setIsOpen(open);
+        }}>
             <DialogContent className="sm:max-w-[480px]">
                 <DialogHeader>
                     <DialogTitle>{isEditing ? 'ブロックを編集' : '新しいブロックを追加'}</DialogTitle>
@@ -401,9 +416,18 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
                 <div className="py-4">
                     {renderContent()}
                 </div>
-                {blockType && (
+                {blockType && !isEditing && ( // Only show save for manual block creation/editing
                     <DialogFooter>
                         <Button variant="ghost" onClick={() => setBlockType(null)} disabled={isEditing}>戻る</Button>
+                        <DialogClose asChild><Button variant="outline">キャンセル</Button></DialogClose>
+                        <Button onClick={handleSave} disabled={isSaving}>
+                            {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                            保存
+                        </Button>
+                    </DialogFooter>
+                )}
+                 {blockType && isEditing && ( // Only show save for manual block creation/editing
+                    <DialogFooter>
                         <DialogClose asChild><Button variant="outline">キャンセル</Button></DialogClose>
                         <Button onClick={handleSave} disabled={isSaving}>
                             {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}

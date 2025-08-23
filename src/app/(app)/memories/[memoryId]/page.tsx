@@ -119,7 +119,7 @@ export default function MemoryEditorPage() {
     fetchAllData(memoryId, user.uid);
   }, [memoryId, user, authLoading, fetchAllData]);
   
-  async function handleDragEnd(event: DragEndEvent) {
+  async function handleDragEnd(event: DragEvent) {
     const {active, over} = event;
     if (over && active.id !== over.id) {
         if (!memory) return;
@@ -217,26 +217,13 @@ export default function MemoryEditorPage() {
     if (!blockToDelete || !memory) return;
 
     try {
-        const res = await apiClient.fetch('/api/blocks/delete', {
-            method: 'POST',
-            body: JSON.stringify({
-                memoryId: memory.id,
-                blockId: blockToDelete.id,
-            })
-        });
+        const memoryRef = doc(db, 'memories', memoryId);
+        const updatedBlocks = memory.blocks.filter(b => b.id !== blockToDelete.id)
+            .map((b, index) => ({...b, order: index})); // Re-order remaining
 
-        if (!res.ok) {
-            const errorData = await res.json();
-            throw new Error(errorData.error || 'サーバーで削除に失敗しました。');
-        }
+        await updateDoc(memoryRef, { blocks: updatedBlocks, updatedAt: serverTimestamp() });
 
-        const { updatedBlocks, deletedAssetId } = await res.json();
-        
         setMemory(prev => prev ? { ...prev, blocks: updatedBlocks } : null);
-        if (deletedAssetId) {
-            setAssets(prev => prev.filter(a => a.id !== deletedAssetId));
-        }
-
         toast({ title: '成功', description: 'ブロックを削除しました。' });
     } catch (error: any) {
         console.error('Failed to delete block:', error);
@@ -341,7 +328,7 @@ export default function MemoryEditorPage() {
             <AlertDialogHeader>
               <AlertDialogTitle>ブロックを削除しますか？</AlertDialogTitle>
               <AlertDialogDescription>
-                この操作は取り消せません。ブロック「{blockToDelete?.title || '無題'}」を完全に削除します。関連するメディアがある場合、それもライブラリから削除されます。
+                この操作は取り消せません。ブロック「{blockToDelete?.title || '無題'}」を完全に削除します。関連するメディアがある場合、それはライブラリに残りますが、このブロックからは削除されます。
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -522,16 +509,19 @@ function SortableBlockItem({ block, assets, onEdit, onDelete }: { block: PublicP
                 <GripVertical className="h-5 w-5 text-muted-foreground" />
             </button>
             
-            <div className="flex-grow" >
+            <div className="flex-grow cursor-pointer" onClick={onEdit}>
                 {renderBlockContent()}
             </div>
 
-            <div className="flex items-center gap-2 p-2 border-l">
+            <div className="flex items-center gap-1 p-2 border-l">
                  <Button variant="ghost" size="icon" onClick={onEdit}>
                     <Edit className="h-4 w-4" />
                     <span className="sr-only">編集</span>
                 </Button>
-                <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={onDelete}>
+                <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={(e) => {
+                    e.stopPropagation();
+                    onDelete();
+                }}>
                     <Trash2 className="h-4 w-4" />
                      <span className="sr-only">削除</span>
                 </Button>
