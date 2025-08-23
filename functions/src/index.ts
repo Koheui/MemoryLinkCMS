@@ -22,12 +22,13 @@ admin.initializeApp();
 
 setGlobalOptions({maxInstances: 10});
 
-// Trigger on all object finalizations in the default bucket
+// Trigger on all object finalizations in the default bucket.
+// By not specifying a bucket, it defaults to the project's default bucket,
+// which is more reliable than using environment variables.
 export const generateThumbnail = storage.onObjectFinalized({
   cpu: 1,
   memory: "512MiB",
   timeoutSeconds: 60,
-  bucket: process.env.GCLOUD_STORAGE_BUCKET,
 }, async (event) => {
   const fileBucket = event.data.bucket;
   const filePath = event.data.name;
