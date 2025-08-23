@@ -81,6 +81,7 @@ export interface Asset {
   size: number;
   createdAt: Timestamp;
   updatedAt: Timestamp;
+  thumbnailUrl?: string;
 }
 
 

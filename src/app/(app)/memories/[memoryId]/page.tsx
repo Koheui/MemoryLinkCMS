@@ -102,9 +102,9 @@ export default function MemoryEditorPage() {
 
   useEffect(() => {
     if (authLoading || !user || !memoryId) return;
-    setLoading(true);
+    if (!loading) return; // Prevent re-fetching after initial load
     fetchAllData(memoryId, user.uid);
-  }, [memoryId, user, authLoading, fetchAllData]);
+  }, [memoryId, user, authLoading, fetchAllData, loading]);
   
   async function handleDragEnd(event: DragEndEvent) {
     const {active, over} = event;
@@ -142,7 +142,7 @@ export default function MemoryEditorPage() {
     setAssets(prevAssets => {
       // Avoid duplicates and add new asset to the top
       if (prevAssets.some(a => a.id === asset.id)) {
-        return prevAssets;
+        return prevAssets.map(p => p.id === asset.id ? asset : p);
       }
       const newAssets = [asset, ...prevAssets];
       newAssets.sort((a, b) => {
@@ -242,7 +242,9 @@ export default function MemoryEditorPage() {
             newBlock.photo.src = getAssetUrl(newBlock.photo.assetId);
         }
         if (newBlock.type === 'video' && newBlock.video?.assetId) {
-            newBlock.video.src = getAssetUrl(newBlock.video.assetId);
+            const asset = assets.find(a => a.id === newBlock.video?.assetId);
+            newBlock.video.src = asset?.url;
+            newBlock.video.poster = asset?.thumbnailUrl;
         }
         if (newBlock.type === 'audio' && newBlock.audio?.assetId) {
             newBlock.audio.src = getAssetUrl(newBlock.audio.assetId);
@@ -447,12 +449,13 @@ function SortableBlockItem({ block, assets, onEdit, onDelete }: { block: PublicP
         if (block.type === 'video' && block.video?.assetId) {
             const asset = assets.find(a => a.id === block.video?.assetId);
             if (asset) {
+                const thumbnailUrl = asset.thumbnailUrl || "https://placehold.co/600x400.png";
                 return (
                     <div className="p-2 space-y-2">
                         <p className="font-semibold text-sm">{block.title || "無題の動画"}</p>
                         <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-slate-800">
-                           <Image src="https://placehold.co/600x400.png" alt={block.title || 'Video content'} fill sizes="(max-width: 768px) 100vw, 80vw" className="object-cover opacity-50" data-ai-hint="video placeholder" />
-                           <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
+                           <Image src={thumbnailUrl} alt={block.title || 'Video content'} fill sizes="(max-width: 768px) 100vw, 80vw" className="object-cover opacity-80" data-ai-hint="video placeholder" />
+                           <div className="absolute inset-0 flex flex-col items-center justify-center text-white bg-black/20">
                                <Clapperboard className="w-10 h-10" />
                                <span className="mt-2 text-xs font-semibold">{asset.name}</span>
                            </div>
