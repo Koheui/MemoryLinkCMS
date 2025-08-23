@@ -7,7 +7,7 @@ import { db } from '@/lib/firebase/client';
 import { doc, getDoc, Timestamp, updateDoc, arrayUnion, arrayRemove, serverTimestamp, collection, getDocs, query, where } from 'firebase/firestore';
 import { notFound, useParams } from 'next/navigation';
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { Eye, Loader2, PlusCircle, Edit, Image as ImageIcon, Trash2, GripVertical, Type as TypeIcon, Video as VideoIcon, Mic, Album } from 'lucide-react';
+import { Eye, Loader2, PlusCircle, Edit, Image as ImageIcon, Trash2, GripVertical, Type as TypeIcon, Video as VideoIcon, Mic, Album, Clapperboard } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
@@ -186,18 +186,18 @@ export default function MemoryEditorPage() {
 
   const handleAboutSave = (data: { title: string, description: string, profileAssetId: string | null }) => {
     if (!memory) return;
-    setMemory({
-        ...memory,
+    setMemory(prev => prev ? {
+        ...prev,
         ...data,
-    });
+    } : null);
   };
   
   const handleCoverPhotoSave = (data: { coverAssetId: string | null }) => {
       if(!memory) return;
-      setMemory({
-        ...memory,
+      setMemory(prev => prev ? {
+        ...prev,
         ...data,
-      });
+      } : null);
   }
   
    const handleDeleteBlock = async (blockId: string) => {
@@ -443,6 +443,25 @@ function SortableBlockItem({ block, assets, onEdit, onDelete }: { block: PublicP
                 )
             }
         }
+        
+        if (block.type === 'video' && block.video?.assetId) {
+            const asset = assets.find(a => a.id === block.video?.assetId);
+            if (asset) {
+                return (
+                    <div className="p-2 space-y-2">
+                        <p className="font-semibold text-sm">{block.title || "無題の動画"}</p>
+                        <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-slate-800">
+                           <Image src="https://placehold.co/600x400.png" alt={block.title || 'Video content'} fill sizes="(max-width: 768px) 100vw, 80vw" className="object-cover opacity-50" data-ai-hint="video placeholder" />
+                           <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
+                               <Clapperboard className="w-10 h-10" />
+                               <span className="mt-2 text-xs font-semibold">{asset.name}</span>
+                           </div>
+                        </div>
+                    </div>
+                )
+            }
+        }
+
 
         // Fallback for other types or if photo asset not found
         return (
