@@ -35,7 +35,7 @@ export default function MemoryEditorPage() {
   const [isBlockModalOpen, setIsBlockModalOpen] = useState(false);
   const [editingBlock, setEditingBlock] = useState<PublicPageBlock | null>(null);
 
-  const blocks = memory?.blocks || [];
+  const blocks = useMemo(() => memory?.blocks || [], [memory]);
 
   // DND sensors
    const sensors = useSensors(
@@ -205,8 +205,8 @@ export default function MemoryEditorPage() {
       try {
           const memoryRef = doc(db, 'memories', memoryId);
           // For arrayRemove to work, you must pass an object that is an exact match.
-          // Firestore Timestamps need to be handled carefully. It's safer to just
-          // filter the array on the client and update the entire `blocks` field.
+          // Firestore Timestamps can be tricky. A safer way is to filter the array on the client 
+          // and update the entire `blocks` field, re-ordering the remaining blocks.
           const newBlocks = blocks
               .filter(b => b.id !== blockId)
               .map((b, index) => ({ ...b, order: index })); // Re-order remaining blocks
