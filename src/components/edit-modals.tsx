@@ -18,7 +18,7 @@ import Image from 'next/image';
 import { MediaUploader } from './media-uploader';
 
 // Design Modal (Cover & Profile Image)
-export function DesignModal({ isOpen, setIsOpen, memory, assets, onUploadSuccess }: { isOpen: boolean, setIsOpen: (open: boolean) => void, memory: Memory, assets: Asset[], onUploadSuccess: (asset: Asset) => void }) {
+export function DesignModal({ isOpen, setIsOpen, memory, assets, onUploadSuccess, onSave }: { isOpen: boolean, setIsOpen: (open: boolean) => void, memory: Memory, assets: Asset[], onUploadSuccess: (asset: Asset) => void, onSave: (data: { coverAssetId: string | null, profileAssetId: string | null }) => void }) {
     const [coverAssetId, setCoverAssetId] = useState(memory.coverAssetId);
     const [profileAssetId, setProfileAssetId] = useState(memory.profileAssetId);
     const [isSaving, setIsSaving] = useState(false);
@@ -45,16 +45,17 @@ export function DesignModal({ isOpen, setIsOpen, memory, assets, onUploadSuccess
         setIsSaving(true);
         try {
             const memoryRef = doc(db, 'memories', memory.id);
-            await updateDoc(memoryRef, {
+            const saveData = {
                 coverAssetId: coverAssetId || null,
                 profileAssetId: profileAssetId || null,
+            };
+            await updateDoc(memoryRef, {
+                ...saveData,
                 updatedAt: serverTimestamp()
             });
             toast({ title: '成功', description: 'カバーとプロフィール画像を更新しました。' });
+            onSave(saveData); // Notify parent component of the change
             setIsOpen(false);
-            // After saving, we don't need to call onUploadSuccess,
-            // but we might need a way to tell the parent to re-fetch memory.
-            // For now, parent state updates on its own.
         } catch (error) {
             console.error("Failed to save design:", error);
             toast({ variant: 'destructive', title: 'エラー', description: '画像の更新に失敗しました。' });
@@ -64,13 +65,13 @@ export function DesignModal({ isOpen, setIsOpen, memory, assets, onUploadSuccess
     }
     
     const handleCoverUploadSuccess = (asset: Asset) => {
-        onUploadSuccess(asset); // Propagate to parent to update main asset list
+        onUploadSuccess(asset); 
         setCoverAssetId(asset.id);
         toast({ title: "アップロード完了", description: "カバー画像に設定しました。"});
     }
 
     const handleProfileUploadSuccess = (asset: Asset) => {
-        onUploadSuccess(asset); // Propagate to parent to update main asset list
+        onUploadSuccess(asset); 
         setProfileAssetId(asset.id);
         toast({ title: "アップロード完了", description: "プロフィール画像に設定しました。"});
     }
@@ -281,7 +282,7 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
     };
     
     const handleUploadAndSelect = (asset: Asset) => {
-        onUploadSuccess(asset); // Propagate to parent to update main asset list
+        onUploadSuccess(asset); 
         setSelectedAssetId(asset.id);
         toast({ title: "アップロード完了", description: `'${asset.name}'をアップロードし、選択しました。`});
     }

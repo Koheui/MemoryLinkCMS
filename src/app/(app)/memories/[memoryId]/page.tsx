@@ -7,7 +7,7 @@ import { db } from '@/lib/firebase/client';
 import { doc, getDoc, Timestamp, updateDoc, arrayUnion, arrayRemove, serverTimestamp, collection, getDocs, query, where } from 'firebase/firestore';
 import { notFound, useParams } from 'next/navigation';
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { Eye, Loader2, PlusCircle, Edit, Image as ImageIcon, Trash2 } from 'lucide-react';
+import { Eye, Loader2, PlusCircle, Edit, Image as ImageIcon, Trash2, GripVertical, Type as TypeIcon, Video as VideoIcon, Mic, Album } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
@@ -15,7 +15,6 @@ import { CSS } from '@dnd-kit/utilities';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { AboutModal, DesignModal, BlockModal } from '@/components/edit-modals';
-import { GripVertical } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
 
@@ -47,7 +46,6 @@ export default function MemoryEditorPage() {
   );
   
   const fetchAllData = useCallback(async (currentMemoryId: string, currentUid: string) => {
-    // Keep loading until all data is fetched
     setLoading(true);
     try {
       const memoryDocRef = doc(db, 'memories', currentMemoryId);
@@ -56,7 +54,7 @@ export default function MemoryEditorPage() {
       if (!memoryDocSnap.exists() || memoryDocSnap.data()?.ownerUid !== currentUid) {
         console.error("Memory not found or access denied.");
         setMemory(null);
-        setLoading(false); // Stop loading if memory not found
+        setLoading(false);
         return;
       }
       
@@ -66,7 +64,6 @@ export default function MemoryEditorPage() {
         blocks: memoryDocSnap.data().blocks || []
       } as Memory;
       
-      // Set memory first
       setMemory(memoryData);
 
       const assetsQuery = query(
@@ -83,7 +80,6 @@ export default function MemoryEditorPage() {
           } as Asset
       });
 
-      // Sort assets on the client-side
       fetchedAssets.sort((a, b) => {
         const dateA = a.createdAt instanceof Date ? a.createdAt.getTime() : 0;
         const dateB = b.createdAt instanceof Date ? b.createdAt.getTime() : 0;
@@ -97,13 +93,11 @@ export default function MemoryEditorPage() {
       toast({ variant: 'destructive', title: "Error", description: "ページデータの読み込みに失敗しました。" });
       setMemory(null);
     } finally {
-        // Only stop loading after all fetches are complete
         setLoading(false);
     }
   }, [toast]);
 
 
-  // Fetch all required data
   useEffect(() => {
     if (authLoading || !user || !memoryId) return;
     fetchAllData(memoryId, user.uid);
@@ -118,14 +112,11 @@ export default function MemoryEditorPage() {
         const newIndex = blocks.findIndex((item) => item.id === over.id);
         const newBlocks = arrayMove(blocks, oldIndex, newIndex);
 
-        // Update the order property for each block
         const reorderedBlocks = newBlocks.map((block, index) => ({ ...block, order: index }));
 
         try {
             const memoryRef = doc(db, 'memories', memoryId);
             await updateDoc(memoryRef, { blocks: reorderedBlocks, updatedAt: serverTimestamp() });
-            // The local state will be updated optimistically for a better UX,
-            // or you can rely on re-fetching/state-management library.
             setMemory(prev => prev ? { ...prev, blocks: reorderedBlocks } : null);
         } catch (error) {
              console.error("Failed to reorder blocks:", error);
@@ -146,7 +137,6 @@ export default function MemoryEditorPage() {
 
   const handleAssetUpload = (asset: Asset) => {
     setAssets(prevAssets => {
-      // Avoid adding duplicates
       if (prevAssets.some(a => a.id === asset.id)) {
         return prevAssets;
       }
@@ -165,14 +155,14 @@ export default function MemoryEditorPage() {
       const memoryRef = doc(db, 'memories', memoryId);
 
       try {
-        if (blockToEdit) { // Editing existing block
+        if (blockToEdit) { 
             const updatedBlocks = blocks.map(b => 
                 b.id === blockToEdit.id ? { ...b, ...newBlockData, updatedAt: Timestamp.now() } : b
             );
             await updateDoc(memoryRef, { blocks: updatedBlocks, updatedAt: serverTimestamp() });
             setMemory(prev => prev ? { ...prev, blocks: updatedBlocks } : null);
             toast({ title: "成功", description: "ブロックを更新しました。" });
-        } else { // Adding new block
+        } else { 
             const newBlock: PublicPageBlock = {
                 ...newBlockData,
                 id: uuidv4(),
@@ -188,6 +178,15 @@ export default function MemoryEditorPage() {
         console.error('Error saving block:', error);
         toast({ variant: 'destructive', title: 'エラー', description: 'ブロックの保存に失敗しました。' });
       }
+  };
+
+  const handleDesignSave = (data: { coverAssetId: string | null, profileAssetId: string | null }) => {
+    if (!memory) return;
+    setMemory({
+        ...memory,
+        coverAssetId: data.coverAssetId,
+        profileAssetId: data.profileAssetId,
+    });
   };
   
    const handleDeleteBlock = async (blockId: string) => {
@@ -215,7 +214,6 @@ export default function MemoryEditorPage() {
   const handlePreview = () => {
     if (!memory) return;
     
-    // Resolve asset URLs before saving to localStorage
     const getAssetUrl = (assetId: string | null): string | undefined => {
       if (!assetId) return undefined;
       return assets.find(a => a.id === assetId)?.url;
@@ -273,6 +271,7 @@ export default function MemoryEditorPage() {
             memory={memory}
             assets={assets}
             onUploadSuccess={handleAssetUpload}
+            onSave={handleDesignSave}
         />
        )}
        {isAboutModalOpen && memory && (
@@ -370,6 +369,7 @@ export default function MemoryEditorPage() {
                                 <SortableBlockItem 
                                     key={block.id} 
                                     block={block}
+                                    assets={assets}
                                     onEdit={() => handleEditBlock(block)}
                                     onDelete={() => handleDeleteBlock(block.id)}
                                 />
@@ -390,7 +390,7 @@ export default function MemoryEditorPage() {
 }
 
 
-function SortableBlockItem({ block, onEdit, onDelete }: { block: PublicPageBlock; onEdit: () => void; onDelete: () => void; }) {
+function SortableBlockItem({ block, assets, onEdit, onDelete }: { block: PublicPageBlock; assets: Asset[], onEdit: () => void; onDelete: () => void; }) {
     const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: block.id });
 
     const style = {
@@ -403,16 +403,56 @@ function SortableBlockItem({ block, onEdit, onDelete }: { block: PublicPageBlock
         onDelete();
     };
 
+    const blockIcons = {
+        text: <TypeIcon className="w-5 h-5 text-muted-foreground" />,
+        photo: <ImageIcon className="w-5 h-5 text-muted-foreground" />,
+        album: <Album className="w-5 h-5 text-muted-foreground" />,
+        video: <VideoIcon className="w-5 h-5 text-muted-foreground" />,
+        audio: <Mic className="w-5 h-5 text-muted-foreground" />,
+    }
+
+    const renderBlockContent = () => {
+        if (block.type === 'photo' && block.photo?.assetId) {
+            const asset = assets.find(a => a.id === block.photo?.assetId);
+            if (asset?.url) {
+                return (
+                    <div className='flex items-center gap-3'>
+                        <div className="w-10 h-10 bg-muted rounded-md overflow-hidden relative flex-shrink-0">
+                             <Image src={asset.url} alt={block.title || 'Photo thumbnail'} fill className="object-cover" sizes="40px" />
+                        </div>
+                        <div>
+                             <p className="font-semibold">{block.title || "無題の写真"}</p>
+                             <p className="text-sm text-muted-foreground truncate max-w-xs">{asset.name}</p>
+                        </div>
+                    </div>
+                )
+            }
+        }
+
+        // Fallback for other types or if photo asset not found
+        return (
+             <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-muted rounded-md flex items-center justify-center flex-shrink-0">
+                    {blockIcons[block.type] || <GripVertical className="w-5 h-5" />}
+                </div>
+                 <div>
+                    <p className="font-semibold">{block.title || `無題の${block.type}ブロック`}</p>
+                    <p className="text-sm text-muted-foreground capitalize">{block.type}</p>
+                </div>
+            </div>
+        )
+    };
+
+
     return (
-        <div ref={setNodeRef} style={style} className="group relative p-4 rounded-lg border bg-card shadow-sm flex items-center gap-4 transition-shadow hover:shadow-md">
-             <button {...attributes} {...listeners} className="cursor-grab p-2 touch-none">
+        <div ref={setNodeRef} style={style} className="group relative rounded-lg border bg-card shadow-sm flex items-center gap-2 transition-shadow hover:shadow-md">
+             <button {...attributes} {...listeners} className="cursor-grab p-4 touch-none self-stretch flex items-center">
                 <GripVertical className="h-5 w-5 text-muted-foreground" />
             </button>
-            <div className="flex-grow cursor-pointer" onClick={onEdit}>
-                <p className="font-semibold">{block.title || "無題のブロック"}</p>
-                <p className="text-sm text-muted-foreground capitalize">{block.type}</p>
+            <div className="flex-grow cursor-pointer py-3 pr-2" onClick={onEdit}>
+                {renderBlockContent()}
             </div>
-            <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2">
+            <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2 absolute right-4 top-1/2 -translate-y-1/2 bg-card">
                 <Button variant="outline" size="icon" onClick={onEdit}>
                     <Edit className="h-4 w-4" />
                     <span className="sr-only">編集</span>
