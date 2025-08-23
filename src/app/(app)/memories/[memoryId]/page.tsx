@@ -5,7 +5,7 @@
 import { Button } from '@/components/ui/button';
 import type { Memory, PublicPageBlock, Asset } from '@/lib/types';
 import { db } from '@/lib/firebase/client';
-import { doc, getDoc, Timestamp, updateDoc, arrayUnion, arrayRemove, serverTimestamp, collection, getDocs, query, where } from 'firebase/firestore';
+import { doc, getDoc, Timestamp, updateDoc, serverTimestamp, collection, getDocs, query, where } from 'firebase/firestore';
 import { notFound, useParams } from 'next/navigation';
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Eye, Loader2, PlusCircle, Edit, Image as ImageIcon, Trash2, GripVertical, Type as TypeIcon, Video as VideoIcon, Mic, Album, Clapperboard } from 'lucide-react';
@@ -170,7 +170,7 @@ export default function MemoryEditorPage() {
                 createdAt: Timestamp.now(),
                 updatedAt: Timestamp.now(),
             };
-            await updateDoc(memoryRef, { blocks: arrayUnion(newBlock), updatedAt: serverTimestamp() });
+            await updateDoc(memoryRef, { blocks: [...blocks, newBlock], updatedAt: serverTimestamp() });
             setMemory(prev => prev ? { ...prev, blocks: [...prev.blocks, newBlock] } : null);
             toast({ title: "成功", description: "新しいブロックを追加しました。" });
         }
@@ -203,19 +203,16 @@ export default function MemoryEditorPage() {
 
     try {
         const memoryRef = doc(db, 'memories', memoryId);
-
-        // Filter out the block to be deleted
+        
         const updatedBlocks = memory.blocks
             .filter((b) => b.id !== blockIdToDelete)
-            .map((b, index) => ({ ...b, order: index })); // Re-order the remaining blocks
+            .map((b, index) => ({ ...b, order: index })); 
 
-        // Update the document with the new blocks array
         await updateDoc(memoryRef, {
             blocks: updatedBlocks,
             updatedAt: serverTimestamp(),
         });
 
-        // Update local state
         setMemory((prev) => {
             if (!prev) return null;
             return { ...prev, blocks: updatedBlocks };
@@ -419,19 +416,12 @@ export default function MemoryEditorPage() {
 }
 
 
-function SortableBlockItem({ block, assets, onEdit, onDelete }: { block: PublicPageBlock; assets: Asset[], onEdit: () => void; onDelete: () => void; }) {
+function SortableBlockItem({ block, assets, onEdit, onDelete }: { block: PublicPageBlock; assets: Asset[]; onEdit: () => void; onDelete: () => void; }) {
     const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: block.id });
 
     const style = {
         transform: CSS.Transform.toString(transform),
         transition,
-    };
-
-    const handleDeleteClick = (e: React.MouseEvent) => {
-        // Prevent the click from triggering other events like drag start or edit.
-        e.preventDefault();
-        e.stopPropagation();
-        onDelete();
     };
 
     const blockIcons = {
@@ -491,21 +481,23 @@ function SortableBlockItem({ block, assets, onEdit, onDelete }: { block: PublicP
         )
     };
 
-
     return (
         <div ref={setNodeRef} style={style} className="group relative rounded-lg border bg-card shadow-sm flex items-center gap-2 transition-shadow hover:shadow-md">
+             {/* Drag Handle */}
              <button {...attributes} {...listeners} className="cursor-grab p-4 touch-none self-stretch flex items-center">
                 <GripVertical className="h-5 w-5 text-muted-foreground" />
             </button>
-            <div className="flex-grow cursor-pointer" onClick={onEdit}>
+            {/* Content Preview */}
+            <div className="flex-grow">
                 {renderBlockContent()}
             </div>
-            <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2 absolute right-4 top-4 bg-card/50 backdrop-blur-sm rounded-md p-1">
+            {/* Action Buttons */}
+            <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2 absolute right-4 top-1/2 -translate-y-1/2 bg-card/50 backdrop-blur-sm rounded-md p-1">
                 <Button variant="outline" size="icon" onClick={onEdit}>
                     <Edit className="h-4 w-4" />
                     <span className="sr-only">編集</span>
                 </Button>
-                <Button variant="destructive" size="icon" onClick={handleDeleteClick}>
+                <Button variant="destructive" size="icon" onClick={onDelete}>
                     <Trash2 className="h-4 w-4" />
                      <span className="sr-only">削除</span>
                 </Button>
