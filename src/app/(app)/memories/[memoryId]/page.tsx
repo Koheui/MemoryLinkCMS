@@ -5,7 +5,7 @@
 import { Button } from '@/components/ui/button';
 import type { Memory, PublicPageBlock, Asset } from '@/lib/types';
 import { db } from '@/lib/firebase/client';
-import { doc, getDoc, Timestamp, updateDoc, serverTimestamp, collection, getDocs, query, where } from 'firebase/firestore';
+import { doc, getDoc, Timestamp, updateDoc, serverTimestamp, collection, getDocs, query, where, arrayRemove } from 'firebase/firestore';
 import { notFound, useParams } from 'next/navigation';
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Eye, Loader2, PlusCircle, Edit, Image as ImageIcon, Trash2, GripVertical, Type as TypeIcon, Video as VideoIcon, Mic, Album, Clapperboard } from 'lucide-react';
@@ -416,12 +416,18 @@ export default function MemoryEditorPage() {
 }
 
 
-function SortableBlockItem({ block, assets, onEdit, onDelete }: { block: PublicPageBlock; assets: Asset[]; onEdit: () => void; onDelete: () => void; }) {
+function SortableBlockItem({ block, assets, onEdit, onDelete }: { block: PublicPageBlock; assets: Asset[]; onEdit: () => void; onDelete: (e: React.MouseEvent) => void; }) {
     const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: block.id });
 
     const style = {
         transform: CSS.Transform.toString(transform),
         transition,
+    };
+
+    const handleDeleteClick = (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onDelete(e);
     };
 
     const blockIcons = {
@@ -451,7 +457,7 @@ function SortableBlockItem({ block, assets, onEdit, onDelete }: { block: PublicP
         if (block.type === 'video' && block.video?.assetId) {
             const asset = assets.find(a => a.id === block.video?.assetId);
             if (asset) {
-                const thumbnailUrl = asset.thumbnailUrl || "https://placehold.co/600x400.png?text=サムネイル生成中...";
+                const thumbnailUrl = asset.thumbnailUrl || `https://placehold.co/600x400.png?text=サムネイル生成中...`;
                 return (
                     <div className="p-2 space-y-2">
                         <p className="font-semibold text-sm">{block.title || "無題の動画"}</p>
@@ -482,22 +488,24 @@ function SortableBlockItem({ block, assets, onEdit, onDelete }: { block: PublicP
     };
 
     return (
-        <div ref={setNodeRef} style={style} className="group relative rounded-lg border bg-card shadow-sm flex items-center gap-2 transition-shadow hover:shadow-md">
-             {/* Drag Handle */}
-             <button {...attributes} {...listeners} className="cursor-grab p-4 touch-none self-stretch flex items-center">
+        <div ref={setNodeRef} style={style} className="rounded-lg border bg-card shadow-sm flex items-center transition-shadow hover:shadow-md" {...attributes}>
+            {/* Drag Handle */}
+            <button {...listeners} className="cursor-grab p-4 touch-none self-stretch flex items-center">
                 <GripVertical className="h-5 w-5 text-muted-foreground" />
             </button>
+            
             {/* Content Preview */}
             <div className="flex-grow">
                 {renderBlockContent()}
             </div>
+
             {/* Action Buttons */}
-            <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2 absolute right-4 top-1/2 -translate-y-1/2 bg-card/50 backdrop-blur-sm rounded-md p-1">
+            <div className="flex items-center gap-2 p-2">
                 <Button variant="outline" size="icon" onClick={onEdit}>
                     <Edit className="h-4 w-4" />
                     <span className="sr-only">編集</span>
                 </Button>
-                <Button variant="destructive" size="icon" onClick={onDelete}>
+                <Button variant="destructive" size="icon" onClick={handleDeleteClick}>
                     <Trash2 className="h-4 w-4" />
                      <span className="sr-only">削除</span>
                 </Button>
