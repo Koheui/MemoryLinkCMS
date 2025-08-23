@@ -8,14 +8,13 @@
  */
 
 import {setGlobalOptions} from "firebase-functions/v2";
-import * as logger from "firebase-functions/logger";
 import {onObjectFinalized} from "firebase-functions/v2/storage";
+import * as logger from "firebase-functions/logger";
 import * as admin from "firebase-admin";
 import * as path from "path";
 import * as os from "os";
 import * as fs from "fs";
 import ffmpeg from "fluent-ffmpeg";
-
 
 admin.initializeApp();
 
@@ -31,25 +30,20 @@ export const generateThumbnail = onObjectFinalized({
   const fileBucket = event.data.bucket;
   const filePath = event.data.name;
   const contentType = event.data.contentType;
+  const customMetadata = event.data.metadata;
+  
+  // Get the assetId from the custom metadata
+  const assetId = customMetadata?.assetId;
 
-  // Exit if this is not a user asset (check path)
-  if (!filePath || !filePath.startsWith("users/")) {
-    logger.info(`Not a user asset, skipping: ${filePath}`);
+  // Exit if this is not a user asset (check path and required metadata)
+  if (!filePath || !filePath.startsWith("users/") || !assetId) {
+    logger.info(`Not a user asset with required metadata, skipping: ${filePath}`);
     return;
   }
 
   // Exit if this is not a video.
   if (!contentType?.startsWith("video/")) {
     logger.info(`Not a video, skipping: ${filePath} (${contentType})`);
-    return;
-  }
-
-  // Get the assetId from the custom metadata
-  const customMetadata = event.data.metadata;
-  const assetId = customMetadata?.assetId;
-
-  if (!assetId) {
-    logger.error(`assetId is missing in custom metadata for ${filePath}`);
     return;
   }
   
