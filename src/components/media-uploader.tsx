@@ -122,7 +122,10 @@ export function MediaUploader({ assetType, accept, children, onUploadSuccess, me
     disabled: isUploading,
     onClick: handleClick,
     children: isUploading ? (
-        <Loader2 className="h-4 w-4 animate-spin" />
+        <>
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          処理中
+        </>
     ) : child.props.children
   });
 

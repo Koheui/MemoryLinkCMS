@@ -6,7 +6,7 @@ import type { Memory, PublicPageBlock, Asset } from '@/lib/types';
 import { db } from '@/lib/firebase/client';
 import { doc, getDoc, Timestamp, updateDoc, arrayUnion, arrayRemove, serverTimestamp, collection, getDocs, query, where } from 'firebase/firestore';
 import { notFound, useParams } from 'next/navigation';
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Eye, Loader2, PlusCircle, Edit, Image as ImageIcon, Trash2, GripVertical, Type as TypeIcon, Video as VideoIcon, Mic, Album, Clapperboard } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
@@ -35,7 +35,7 @@ export default function MemoryEditorPage() {
   const [isBlockModalOpen, setIsBlockModalOpen] = useState(false);
   const [editingBlock, setEditingBlock] = useState<PublicPageBlock | null>(null);
 
-  const blocks = useMemo(() => memory?.blocks || [], [memory]);
+  const blocks = memory?.blocks || [];
 
   // DND sensors
    const sensors = useSensors(
