@@ -1,7 +1,7 @@
 // src/app/p/[pageId]/page.tsx
 'use client';
 import { useState, useEffect } from 'react';
-import { notFound } from 'next/navigation';
+import { notFound, useParams } from 'next/navigation';
 import Image from 'next/image';
 import type { PublicPage, PublicPageBlock, Memory, Asset } from '@/lib/types';
 import { Globe, Phone, Mail, Link as LinkIcon, Music, Clapperboard, Milestone, Camera, Loader2 } from 'lucide-react';
@@ -193,7 +193,9 @@ const BlockRenderer = ({ block }: { block: PublicPageBlock }) => {
 }
 
 
-export default function PublicPage({ params }: { params: { pageId: string } }) {
+export default function PublicPage() {
+  const params = useParams();
+  const pageId = params.pageId as string;
   const [manifest, setManifest] = useState<PublicPage | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -202,7 +204,7 @@ export default function PublicPage({ params }: { params: { pageId: string } }) {
         setLoading(true);
         let pageData: PublicPage | null = null;
 
-        if (params.pageId === 'preview') {
+        if (pageId === 'preview') {
             const storedPreviewData = localStorage.getItem('memory-preview');
             if (storedPreviewData) {
                 try {
@@ -217,7 +219,7 @@ export default function PublicPage({ params }: { params: { pageId: string } }) {
             // This is a live page, fetch from Firestore.
             // Note: This is a client-side fetch, which is not ideal for SEO.
             // A production app might use SSR/ISR with this logic.
-            const data = await fetchPublicPageData(params.pageId);
+            const data = await fetchPublicPageData(pageId);
             if (data) {
                 pageData = convertMemoryToPublicPage(data.memory, data.assets);
             }
@@ -230,8 +232,10 @@ export default function PublicPage({ params }: { params: { pageId: string } }) {
         setLoading(false);
     }
     
-    loadPageData();
-  }, [params.pageId]);
+    if(pageId) {
+        loadPageData();
+    }
+  }, [pageId]);
 
   if (loading) {
     return (
@@ -246,7 +250,7 @@ export default function PublicPage({ params }: { params: { pageId: string } }) {
         <div className="flex min-h-screen flex-col items-center justify-center bg-gray-900 text-white text-center p-4">
             <h1 className="text-2xl font-bold">ページが見つかりません</h1>
             <p className="mt-2 text-gray-300">
-                {params.pageId === 'preview' 
+                {pageId === 'preview' 
                     ? 'プレビューデータが見つかりませんでした。編集画面から再度プレビューボタンを押してください。'
                     : 'この想い出ページは存在しないか、まだ公開されていません。'}
             </p>
