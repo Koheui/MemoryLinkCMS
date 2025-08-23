@@ -68,7 +68,8 @@ export default function DashboardPage() {
             const { data: newMemory } = await res.json();
             
             toast({ title: '成功', description: '新しい想い出ページが作成されました。編集画面に移動します。'});
-            router.push(`/memories/${newMemory.id}`);
+            // Use window.location.assign for a full page reload to ensure data is loaded.
+            window.location.assign(`/memories/${newMemory.id}`);
 
         } catch (error: any) {
              console.error("Error creating new memory:", error);
