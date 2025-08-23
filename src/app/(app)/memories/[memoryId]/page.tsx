@@ -136,7 +136,7 @@ export default function MemoryEditorPage() {
     setIsBlockModalOpen(true);
   };
 
-  const handleAssetUpload = (asset: Asset) => {
+  const handleAssetUpdate = (asset: Asset) => {
      // This function is called when a new asset is uploaded or an existing one is updated (e.g. thumbnail change).
      // We update the local state to ensure the UI reflects the change immediately, 
      // even before the Firestore listener might fire.
@@ -272,7 +272,7 @@ export default function MemoryEditorPage() {
             setIsOpen={setIsCoverPhotoModalOpen}
             memory={memory}
             assets={assets}
-            onUploadSuccess={handleAssetUpload}
+            onUploadSuccess={handleAssetUpdate}
             onSave={handleCoverPhotoSave}
         />
        )}
@@ -282,7 +282,7 @@ export default function MemoryEditorPage() {
             setIsOpen={setIsAboutModalOpen}
             memory={memory}
             assets={assets}
-            onUploadSuccess={handleAssetUpload}
+            onUploadSuccess={handleAssetUpdate}
             onSave={handleAboutSave}
         />
        )}
@@ -294,7 +294,7 @@ export default function MemoryEditorPage() {
             assets={assets}
             block={editingBlock}
             onSave={handleSaveBlock}
-            onUploadSuccess={handleAssetUpload}
+            onUploadSuccess={handleAssetUpdate}
         />
        )}
         <AlertDialog open={blockToDelete !== null} onOpenChange={(open) => !open && setBlockToDelete(null)}>
@@ -447,15 +447,21 @@ function SortableBlockItem({ block, assets, onEdit, onDelete }: { block: PublicP
         if (block.type === 'video' && block.video?.assetId) {
             const asset = assets.find(a => a.id === block.video?.assetId);
             if (asset) {
-                const thumbnailUrl = asset.thumbnailUrl || "https://placehold.co/600x400.png?text=サムネイル...";
+                const thumbnailUrl = asset.thumbnailUrl;
                 return (
                     <div className="p-2 space-y-2">
                         <p className="font-semibold text-sm truncate">{block.title || "無題の動画"}</p>
                         <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-slate-800">
-                           <Image src={thumbnailUrl} alt={block.title || 'Video content'} fill sizes="(max-width: 768px) 100vw, 80vw" className="object-cover opacity-80" data-ai-hint="video placeholder" />
-                           <div className="absolute inset-0 flex flex-col items-center justify-center text-white bg-black/20">
-                               <Clapperboard className="w-10 h-10" />
-                               <span className="mt-2 text-xs font-semibold">{asset.name}</span>
+                           {thumbnailUrl ? (
+                                <Image src={thumbnailUrl} alt={block.title || 'Video content'} fill sizes="(max-width: 768px) 100vw, 80vw" className="object-cover opacity-80" data-ai-hint="video placeholder" />
+                           ) : (
+                                <div className="w-full h-full flex flex-col items-center justify-center text-white bg-black/20">
+                                   <Loader2 className="w-8 h-8 animate-spin" />
+                                   <span className="mt-2 text-xs font-semibold">サムネイル生成中...</span>
+                               </div>
+                           )}
+                           <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/40 transition-colors">
+                                <Clapperboard className="w-10 h-10 text-white/80" />
                            </div>
                         </div>
                     </div>
@@ -503,4 +509,3 @@ function SortableBlockItem({ block, assets, onEdit, onDelete }: { block: PublicP
         </div>
     );
 }
-

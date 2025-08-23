@@ -1,149 +1,143 @@
 // src/components/media-uploader.tsx
 'use client';
 import * as React from 'react';
-import { useRef, useState, type ReactNode } from 'react';
+import { useRef, useState, useImperativeHandle } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { storage, db, serverTimestamp } from '@/lib/firebase/client';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { collection, addDoc, doc, updateDoc, getDoc, Timestamp } from 'firebase/firestore';
 import type { Asset } from '@/lib/types';
-import { Loader2 } from 'lucide-react';
+
+export interface MediaUploaderRef {
+  triggerUpload: () => void;
+  uploadFile: (file: File) => Promise<Asset | null>;
+}
 
 interface MediaUploaderProps {
   assetType: 'image' | 'video' | 'audio';
   accept: string;
-  children: ReactNode;
   onUploadSuccess?: (asset: Asset) => void;
-  memoryId?: string; // If provided, asset is associated with a memory
+  onFileSelected?: (file: File) => void;
+  memoryId?: string;
 }
 
-export function MediaUploader({ assetType, accept, children, onUploadSuccess, memoryId }: MediaUploaderProps) {
-  const { user } = useAuth();
-  const { toast } = useToast();
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [isUploading, setIsUploading] = useState(false);
+export const MediaUploader = React.forwardRef<MediaUploaderRef, MediaUploaderProps>(
+  ({ assetType, accept, onUploadSuccess, onFileSelected, memoryId }, ref) => {
+    const { user } = useAuth();
+    const { toast } = useToast();
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (!user) {
-      toast({ variant: 'destructive', title: 'エラー', description: 'ログインしていません。' });
-      return;
-    }
-
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    setIsUploading(true);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-    
-    const storagePath = memoryId
-      ? `users/${user.uid}/memories/${memoryId}/assets/${Date.now()}_${file.name}`
-      : `users/${user.uid}/library/${Date.now()}_${file.name}`;
-      
-    const assetCollectionRef = collection(db, 'assets');
-    
-    try {
-      // 1. Create a document in the root 'assets' collection to get an ID
-      const assetData: Omit<Asset, 'id' | 'createdAt' | 'updatedAt' | 'url'> = {
-        ownerUid: user.uid,
-        memoryId: memoryId || null,
-        name: file.name,
-        type: file.type.startsWith('image') ? 'image' : file.type.startsWith('video') ? 'video' : 'audio',
-        size: file.size,
-        storagePath: storagePath,
-      };
-
-      const docRef = await addDoc(assetCollectionRef, {
-        ...assetData,
-        url: '', // Initialize with empty URL
-        thumbnailUrl: '', // Initialize with empty thumbnail URL
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      });
-      
-      // 2. Start the upload to Firebase Storage with the assetId in metadata
-      const storageRef = ref(storage, storagePath);
-      const metadata = { 
-        contentType: file.type,
-        customMetadata: {
-            assetId: docRef.id // Embed the asset ID here for the Cloud Function
+    const uploadFile = async (file: File): Promise<Asset | null> => {
+        if (!user) {
+            toast({ variant: 'destructive', title: 'エラー', description: 'ログインしていません。' });
+            return null;
         }
-      };
-      const uploadTask = uploadBytesResumable(storageRef, file, metadata);
 
-      uploadTask.on('state_changed',
-        (snapshot) => {
-          // Progress reporting can be implemented here
-        },
-        (error) => {
-          console.error("Upload failed:", error);
-          toast({ variant: 'destructive', title: 'アップロード失敗', description: error.message });
-          setIsUploading(false);
-        },
-        async () => {
-          // 3. Once upload is complete, get the URL and update the Firestore document
-          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-          
-          const finalAssetDoc = doc(db, 'assets', docRef.id);
-          await updateDoc(finalAssetDoc, {
-            url: downloadURL,
-            updatedAt: serverTimestamp(),
-          });
-          
-          const finalAssetSnapshot = await getDoc(finalAssetDoc);
-          const finalDocData = finalAssetSnapshot.data();
+        const storagePath = memoryId
+            ? `users/${user.uid}/memories/${memoryId}/assets/${Date.now()}_${file.name}`
+            : `users/${user.uid}/library/${Date.now()}_${file.name}`;
+            
+        const assetCollectionRef = collection(db, 'assets');
 
-          const finalAsset: Asset = { 
-            id: finalAssetSnapshot.id,
-            ...finalDocData,
-            createdAt: (finalDocData?.createdAt as Timestamp)?.toDate(),
-            updatedAt: (finalDocData?.updatedAt as Timestamp)?.toDate(),
-          } as Asset;
+        try {
+            const assetData: Omit<Asset, 'id' | 'createdAt' | 'updatedAt' | 'url'> = {
+                ownerUid: user.uid,
+                memoryId: memoryId || null,
+                name: file.name,
+                type: file.type.startsWith('image') ? 'image' : file.type.startsWith('video') ? 'video' : 'audio',
+                size: file.size,
+                storagePath: storagePath,
+            };
 
-          onUploadSuccess?.(finalAsset);
+            const docRef = await addDoc(assetCollectionRef, {
+                ...assetData,
+                url: '',
+                thumbnailUrl: '',
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+            });
 
-          // We no longer show a generic success toast here,
-          // the parent component will handle user feedback.
-          setIsUploading(false);
+            const storageRef = ref(storage, storagePath);
+            const metadata = { 
+                contentType: file.type,
+                customMetadata: { assetId: docRef.id }
+            };
+
+            return new Promise((resolve, reject) => {
+                const uploadTask = uploadBytesResumable(storageRef, file, metadata);
+
+                uploadTask.on('state_changed',
+                    null,
+                    (error) => {
+                        console.error("Upload failed:", error);
+                        toast({ variant: 'destructive', title: 'アップロード失敗', description: error.message });
+                        reject(error);
+                    },
+                    async () => {
+                        const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+                        const finalAssetDoc = doc(db, 'assets', docRef.id);
+                        await updateDoc(finalAssetDoc, {
+                            url: downloadURL,
+                            updatedAt: serverTimestamp(),
+                        });
+                        
+                        const finalAssetSnapshot = await getDoc(finalAssetDoc);
+                        const finalDocData = finalAssetSnapshot.data();
+
+                        const finalAsset: Asset = { 
+                            id: finalAssetSnapshot.id,
+                            ...finalDocData,
+                            createdAt: (finalDocData?.createdAt as Timestamp)?.toDate(),
+                            updatedAt: (finalDocData?.updatedAt as Timestamp)?.toDate(),
+                        } as Asset;
+
+                        resolve(finalAsset);
+                    }
+                );
+            });
+        } catch (error) {
+            console.error("Upload process failed:", error);
+            toast({ variant: 'destructive', title: 'エラー', description: 'アップロード処理中にエラーが発生しました。' });
+            return null;
         }
-      );
-    } catch (error) {
-      console.error("Upload failed:", error);
-      toast({ variant: 'destructive', title: 'エラー', description: 'アップロード処理中にエラーが発生しました。' });
-      setIsUploading(false);
-    }
-  };
+    };
+    
+    useImperativeHandle(ref, () => ({
+      triggerUpload: () => {
+        fileInputRef.current?.click();
+      },
+      uploadFile
+    }));
 
-  const handleClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    fileInputRef.current?.click();
-  };
-  
-  const child = React.Children.only(children) as React.ReactElement;
-  
-  const uploaderTrigger = React.cloneElement(child, {
-    disabled: isUploading,
-    onClick: handleClick,
-    children: isUploading ? (
-        <>
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          処理中...
-        </>
-    ) : child.props.children
-  });
+    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
 
-  return (
-    <>
+      if (onFileSelected) {
+        onFileSelected(file);
+      } else if (onUploadSuccess) {
+        // Fallback to old behavior if onFileSelected is not provided
+        uploadFile(file).then(asset => {
+          if (asset) {
+            onUploadSuccess(asset);
+          }
+        });
+      }
+      
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    };
+
+    return (
       <input
         type="file"
         ref={fileInputRef}
         onChange={handleFileChange}
         accept={accept}
         style={{ display: 'none' }}
-        disabled={isUploading}
       />
-      {uploaderTrigger}
-    </>
-  );
-}
+    );
+  }
+);
+
+MediaUploader.displayName = 'MediaUploader';
