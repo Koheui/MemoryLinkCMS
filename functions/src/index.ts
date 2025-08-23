@@ -1,4 +1,3 @@
-
 /**
  * Import function triggers from their respective submodules:
  *
@@ -8,9 +7,9 @@
  * See a full list of supported triggers at https://firebase.google.com/docs/functions
  */
 
-import {setGlobalOptions} from "firebase-functions";
+import {setGlobalOptions} from "firebase-functions/v2";
 import * as logger from "firebase-functions/logger";
-import {storage} from "firebase-functions/v2";
+import {onObjectFinalized} from "firebase-functions/v2/storage";
 import * as admin from "firebase-admin";
 import * as path from "path";
 import * as os from "os";
@@ -20,12 +19,10 @@ import ffmpeg from "fluent-ffmpeg";
 
 admin.initializeApp();
 
-setGlobalOptions({maxInstances: 10});
+setGlobalOptions({maxInstances: 10, region: "asia-northeast1"});
 
-// Trigger on all object finalizations in the default bucket.
-// By not specifying a bucket, it defaults to the project's default bucket,
-// which is more reliable than using environment variables.
-export const generateThumbnail = storage.onObjectFinalized({
+// This is the correct signature for the onObjectFinalized trigger.
+export const generateThumbnail = onObjectFinalized({
   cpu: 1,
   memory: "512MiB",
   timeoutSeconds: 60,
@@ -33,20 +30,25 @@ export const generateThumbnail = storage.onObjectFinalized({
   const fileBucket = event.data.bucket;
   const filePath = event.data.name;
   const contentType = event.data.contentType;
-  const customMetadata = event.data.metadata;
 
-  // Read the assetId from the custom metadata
-  const assetId = customMetadata?.assetId;
-
-  // Exit if this is not a user asset (check path and required metadata)
-  if (!filePath || !filePath.startsWith("users/") || !assetId) {
-    logger.info(`Not a user asset with required metadata, skipping: ${filePath}`);
+  // Exit if this is not a user asset (check path)
+  if (!filePath || !filePath.startsWith("users/")) {
+    logger.info(`Not a user asset, skipping: ${filePath}`);
     return;
   }
 
   // Exit if this is not a video.
   if (!contentType?.startsWith("video/")) {
     logger.info(`Not a video, skipping: ${filePath} (${contentType})`);
+    return;
+  }
+
+  // Get the assetId from the custom metadata
+  const customMetadata = event.data.metadata;
+  const assetId = customMetadata?.assetId;
+
+  if (!assetId) {
+    logger.error(`assetId is missing in custom metadata for ${filePath}`);
     return;
   }
   
@@ -64,6 +66,7 @@ export const generateThumbnail = storage.onObjectFinalized({
   
   try {
     // 1. Download video from bucket
+    logger.info(`Starting download for: ${filePath}`);
     await bucket.file(filePath).download({destination: tempFilePath});
     logger.info("Video downloaded locally to", tempFilePath);
 
@@ -90,17 +93,22 @@ export const generateThumbnail = storage.onObjectFinalized({
     const thumbUploadPath = path.join(path.dirname(filePath), "thumbnails", thumbFileName);
     const [uploadedFile] = await bucket.upload(tempThumbPath, {
       destination: thumbUploadPath,
-      metadata: { contentType: "image/jpeg" },
+      metadata: {contentType: "image/jpeg"},
     });
     
-    // 4. Get a public URL for the thumbnail
-    const thumbnailUrl = uploadedFile.publicUrl();
+    logger.info(`Thumbnail uploaded to ${thumbUploadPath}`);
 
-    logger.info(`Thumbnail uploaded to ${thumbUploadPath}, URL: ${thumbnailUrl}`);
+    // 4. Get a Signed URL for the thumbnail, which is more reliable than a public URL.
+    const expires = new Date("2100-01-01"); // Set a very distant expiration date
+    const [thumbnailUrl] = await uploadedFile.getSignedUrl({
+        action: "read",
+        expires: expires,
+    });
+
+    logger.info("Generated signed URL:", thumbnailUrl);
 
     // 5. Update the corresponding document in Firestore using the assetId from metadata
     const db = admin.firestore();
-    // Directly target the document using the assetId, no search needed
     const assetRef = db.collection("assets").doc(assetId);
     
     await assetRef.update({
