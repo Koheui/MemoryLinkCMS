@@ -101,10 +101,8 @@ export default function MemoryEditorPage() {
 
   useEffect(() => {
     if (authLoading || !user || !memoryId) return;
-    if (loading) {
-       fetchAllData(memoryId, user.uid);
-    }
-  }, [memoryId, user, authLoading, fetchAllData, loading]);
+    fetchAllData(memoryId, user.uid);
+  }, [memoryId, user, authLoading, fetchAllData]);
   
   async function handleDragEnd(event: DragEndEvent) {
     const {active, over} = event;
@@ -139,7 +137,7 @@ export default function MemoryEditorPage() {
   };
 
   const handleAssetUpload = (asset: Asset) => {
-    setAssets(prevAssets => {
+     setAssets(prevAssets => {
       const newAssets = [asset, ...prevAssets.filter(a => a.id !== asset.id)];
       newAssets.sort((a, b) => {
         const dateA = a.createdAt instanceof Date ? a.createdAt.getTime() : 0;
@@ -205,11 +203,18 @@ export default function MemoryEditorPage() {
 
       try {
           const memoryRef = doc(db, 'memories', memoryId);
+          // For arrayRemove to work, you must pass an object that is an exact match.
+          // Firestore Timestamps need to be handled carefully. It's safer to just
+          // filter the array on the client and update the entire `blocks` field.
+          const newBlocks = blocks
+              .filter(b => b.id !== blockId)
+              .map((b, index) => ({ ...b, order: index })); // Re-order remaining blocks
+
           await updateDoc(memoryRef, {
-              blocks: arrayRemove(blockToDelete),
+              blocks: newBlocks,
               updatedAt: serverTimestamp()
           });
-          const newBlocks = blocks.filter(b => b.id !== blockId).map((b, index) => ({ ...b, order: index }));
+
           setMemory(prev => prev ? { ...prev, blocks: newBlocks } : null);
           toast({ title: "ブロックを削除しました" });
       } catch (error) {
