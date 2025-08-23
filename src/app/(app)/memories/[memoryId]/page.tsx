@@ -4,7 +4,7 @@
 import { Button } from '@/components/ui/button';
 import type { Memory, PublicPageBlock, Asset } from '@/lib/types';
 import { db } from '@/lib/firebase/client';
-import { doc, onSnapshot, collection, query, orderBy, writeBatch, deleteDoc, getDocs, Timestamp } from 'firebase/firestore';
+import { doc, onSnapshot, collection, query, orderBy, writeBatch, deleteDoc, getDocs, getDoc, Timestamp } from 'firebase/firestore';
 import { notFound, useParams } from 'next/navigation';
 import { useEffect, useState, useCallback } from 'react';
 import { Eye, Loader2, PlusCircle, Edit, Image as ImageIcon, Trash2 } from 'lucide-react';
@@ -53,8 +53,8 @@ export default function MemoryEditorPage() {
       const fetchedAssets: Asset[] = assetsSnapshot.docs.map(docSnap => ({ 
           id: docSnap.id, 
           ...docSnap.data(),
-          createdAt: (docSnap.data().createdAt as Timestamp).toDate(),
-          updatedAt: (docSnap.data().updatedAt as Timestamp).toDate(),
+          createdAt: (docSnap.data().createdAt as Timestamp)?.toDate() || new Date(),
+          updatedAt: (docSnap.data().updatedAt as Timestamp)?.toDate() || new Date(),
       } as Asset));
       setAssets(fetchedAssets);
     } catch (e) {
@@ -68,52 +68,40 @@ export default function MemoryEditorPage() {
   useEffect(() => {
     if (authLoading || !user || !memoryId) return;
 
-    let unsubMemory: () => void;
-    let unsubBlocks: () => void;
-    
-    setLoading(true);
-
     const fetchAllData = async () => {
+        setLoading(true);
         try {
-            // Listener for memory document
+            // Fetch memory document
             const memoryDocRef = doc(db, 'memories', memoryId);
-            unsubMemory = onSnapshot(memoryDocRef, (doc) => {
-                if (doc.exists() && doc.data()?.ownerUid === user.uid) {
-                     setMemory({ id: doc.id, ...doc.data() } as Memory);
-                     // Fetch or re-fetch assets when memory data is loaded/updated
-                     fetchAssetsForMemory(doc.id);
-                } else {
-                    console.error("Memory not found or access denied.");
-                    setMemory(null);
-                }
-            }, (error) => {
-              console.error("Error fetching memory:", error);
-              toast({ variant: 'destructive', title: "Error", description: "ページデータの読み込みに失敗しました。" });
-              setMemory(null);
-            });
+            const memoryDoc = await getDoc(memoryDocRef);
 
-            // Listener for blocks subcollection
-            const blocksQuery = query(collection(db, 'memories', memoryId, 'blocks'), orderBy('order', 'asc'));
-            unsubBlocks = onSnapshot(blocksQuery, (snapshot) => {
-                const fetchedBlocks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PublicPageBlock));
+            if (memoryDoc.exists() && memoryDoc.data()?.ownerUid === user.uid) {
+                const memoryData = { id: memoryDoc.id, ...memoryDoc.data() } as Memory;
+                setMemory(memoryData);
+                
+                // Fetch associated assets
+                await fetchAssetsForMemory(memoryDoc.id);
+
+                // Fetch blocks
+                const blocksQuery = query(collection(db, 'memories', memoryId, 'blocks'), orderBy('order', 'asc'));
+                const blocksSnapshot = await getDocs(blocksQuery);
+                const fetchedBlocks = blocksSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PublicPageBlock));
                 setBlocks(fetchedBlocks);
-            });
 
+            } else {
+                console.error("Memory not found or access denied.");
+                setMemory(null); // This will lead to a 404 page
+            }
         } catch (error) {
-            console.error("Error setting up page data listeners:", error);
-            toast({ variant: 'destructive', title: "Error", description: "ページのデータ読み込みに失敗しました。" });
+            console.error("Error fetching page data:", error);
+            toast({ variant: 'destructive', title: "Error", description: "ページデータの読み込みに失敗しました。" });
+            setMemory(null);
         } finally {
             setLoading(false);
         }
     }
     
     fetchAllData();
-
-
-    return () => {
-      if (unsubMemory) unsubMemory();
-      if (unsubBlocks) unsubBlocks();
-    }
 
   }, [memoryId, user, authLoading, toast, fetchAssetsForMemory]);
   
