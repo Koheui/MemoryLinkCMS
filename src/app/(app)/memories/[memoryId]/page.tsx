@@ -198,27 +198,27 @@ export default function MemoryEditorPage() {
   
    const handleDeleteBlock = async (blockId: string) => {
     if (!memory) return;
-    const blockToDelete = blocks.find((b) => b.id === blockId);
-    if (!blockToDelete) return;
 
     if (!window.confirm("このブロックを本当に削除しますか？")) return;
 
     try {
       const memoryRef = doc(db, 'memories', memoryId);
-      // To use arrayRemove, we must pass an object that is an exact match.
-      // Firestore Timestamps can be tricky. It's safer to find the exact object.
+      
+      // Create a new array of blocks without the one to be deleted
+      const updatedBlocks = memory.blocks
+        .filter((b) => b.id !== blockId)
+        .map((b, index) => ({ ...b, order: index })); // Re-order remaining blocks
+      
+      // Overwrite the blocks array in Firestore with the new array
       await updateDoc(memoryRef, {
-        blocks: arrayRemove(blockToDelete),
+        blocks: updatedBlocks,
         updatedAt: serverTimestamp(),
       });
 
-      // Also update client state
+      // Update local state
       setMemory((prev) => {
         if (!prev) return null;
-        const newBlocks = prev.blocks
-          .filter((b) => b.id !== blockId)
-          .map((b, index) => ({ ...b, order: index })); // Re-order remaining blocks
-        return { ...prev, blocks: newBlocks };
+        return { ...prev, blocks: updatedBlocks };
       });
       toast({ title: 'ブロックを削除しました' });
     } catch (error) {
