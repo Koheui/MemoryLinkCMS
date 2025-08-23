@@ -275,21 +275,25 @@ export default function PublicPage({ params }: { params: { pageId: string } }) {
                     sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                 />
             </div>
-            <div className="relative -mt-20 flex-shrink-0">
-                <div className="h-40 w-40 overflow-hidden rounded-full border-4 border-gray-900/50 shadow-lg backdrop-blur-sm">
-                    <Image 
-                        src={manifest.media.profile.url}
-                        alt="Profile"
-                        fill
-                        data-ai-hint="portrait person"
-                        className="object-cover"
-                        sizes="160px"
-                    />
+            
+            <div className="w-full text-center">
+                <div className="relative -mt-20 inline-block">
+                    <div className="h-40 w-40 overflow-hidden rounded-full border-4 border-gray-900/50 shadow-lg backdrop-blur-sm">
+                        <Image 
+                            src={manifest.media.profile.url}
+                            alt="Profile"
+                            fill
+                            data-ai-hint="portrait person"
+                            className="object-cover"
+                            sizes="160px"
+                        />
+                    </div>
                 </div>
-            </div>
-            <div className="pt-4 text-center">
-                <h1 className="text-3xl font-bold sm:text-4xl">{manifest.title}</h1>
-                <p className="mt-2 text-base text-gray-300 max-w-prose">{manifest.about.text}</p>
+
+                <div className="pt-4">
+                    <h1 className="text-3xl font-bold sm:text-4xl">{manifest.title}</h1>
+                    <p className="mt-2 text-base text-gray-300 max-w-prose mx-auto">{manifest.about.text}</p>
+                </div>
             </div>
         </header>
 
