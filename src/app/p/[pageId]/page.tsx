@@ -253,7 +253,7 @@ export default function PublicPage({ params }: { params: { pageId: string } }) {
                     sizes="160px"
                 />
           </div>
-          <div className="mt-6 text-center">
+          <div className="mt-4 text-center">
             <h1 className="text-3xl font-bold sm:text-4xl">{manifest.title}</h1>
             <p className="mt-2 text-base text-gray-300 max-w-prose">{manifest.about.text}</p>
           </div>
