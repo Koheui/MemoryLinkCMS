@@ -204,18 +204,15 @@ export default function MemoryEditorPage() {
     try {
       const memoryRef = doc(db, 'memories', memoryId);
       
-      // Create a new array of blocks without the one to be deleted
       const updatedBlocks = memory.blocks
         .filter((b) => b.id !== blockId)
-        .map((b, index) => ({ ...b, order: index })); // Re-order remaining blocks
+        .map((b, index) => ({ ...b, order: index }));
       
-      // Overwrite the blocks array in Firestore with the new array
       await updateDoc(memoryRef, {
         blocks: updatedBlocks,
         updatedAt: serverTimestamp(),
       });
 
-      // Update local state
       setMemory((prev) => {
         if (!prev) return null;
         return { ...prev, blocks: updatedBlocks };
@@ -510,3 +507,5 @@ function SortableBlockItem({ block, assets, onEdit, onDelete }: { block: PublicP
         </div>
     );
 }
+
+    
