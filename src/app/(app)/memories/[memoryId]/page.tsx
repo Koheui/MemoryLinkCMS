@@ -46,6 +46,7 @@ export default function MemoryEditorPage() {
   );
   
   const fetchAllData = useCallback(async (currentMemoryId: string, currentUid: string) => {
+    setLoading(true);
     try {
       const memoryDocRef = doc(db, 'memories', currentMemoryId);
       const memoryDocSnap = await getDoc(memoryDocRef);

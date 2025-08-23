@@ -120,9 +120,9 @@ const BlockRenderer = ({ block }: { block: PublicPageBlock }) => {
             return (
                  <Card className="overflow-hidden bg-white/5 border-white/10 shadow-lg group">
                     <div className="aspect-video relative w-full bg-black">
-                        {block.video?.src ? (
-                             <Image src={block.video.src} alt={block.title || "Video thumbnail"} fill className="object-cover opacity-80 group-hover:opacity-60 transition-opacity" />
-                        ) : <div className="w-full h-full bg-black" />}
+                        {block.video?.poster ? (
+                             <Image src={block.video.poster} alt={block.title || "Video thumbnail"} fill className="object-cover opacity-80 group-hover:opacity-60 transition-opacity" />
+                        ) : <div className="w-full h-full bg-black flex items-center justify-center"><Clapperboard className="h-16 w-16 text-white/70" /></div>}
                         <div className="absolute inset-0 flex items-center justify-center">
                             <Clapperboard className="h-16 w-16 text-white/70" />
                         </div>
