@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import { Badge } from '@/components/ui/badge';
 import { db } from '@/lib/firebase/client';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
 
 
 // This function fetches both the memory and its associated assets for a real public page
@@ -25,7 +25,7 @@ async function fetchPublicPageData(pageId: string): Promise<{ memory: Memory, as
 
         // Fetch all assets owned by the user. This is a simplification.
         // A better approach would be to query assets where memoryId matches.
-        const assetSnapshots = await getDoc(collection(db, "assets"), where("ownerUid", "==", memoryData.ownerUid));
+        const assetSnapshots = await getDocs(query(collection(db, "assets"), where("ownerUid", "==", memoryData.ownerUid)));
         const assets = assetSnapshots.docs.map(d => ({ id: d.id, ...d.data() } as Asset));
 
         return { memory: memoryData, assets };

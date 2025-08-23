@@ -137,13 +137,32 @@ export default function MemoryEditorPage() {
   };
 
   const handleAssetUpload = (asset: Asset) => {
-     // No need to manually update asset state, Firestore listener will catch it.
-     // This function can be used for showing immediate feedback if needed.
+     // This function is called when a new asset is uploaded or an existing one is updated (e.g. thumbnail change).
+     // We update the local state to ensure the UI reflects the change immediately, 
+     // even before the Firestore listener might fire.
+     setAssets(prevAssets => {
+        const existingAssetIndex = prevAssets.findIndex(a => a.id === asset.id);
+        if (existingAssetIndex > -1) {
+            // Update existing asset
+            const newAssets = [...prevAssets];
+            newAssets[existingAssetIndex] = asset;
+            return newAssets;
+        } else {
+            // Add new asset and re-sort
+            const newAssets = [...prevAssets, asset];
+            newAssets.sort((a, b) => {
+                const dateA = a.createdAt instanceof Date ? a.createdAt.getTime() : 0;
+                const dateB = b.createdAt instanceof Date ? b.createdAt.getTime() : 0;
+                return dateB - dateA;
+            });
+            return newAssets;
+        }
+    });
   };
   
   const handleSaveBlock = async (newBlockData: Omit<PublicPageBlock, 'id' | 'createdAt' | 'updatedAt' | 'order'>, blockToEdit?: PublicPageBlock | null) => {
       if (!memory) return;
-      const memoryRef = doc(db, 'memories', memoryId);
+      const memoryRef = doc(db, 'memories', memory.id);
 
       try {
         let updatedBlocks;
@@ -199,7 +218,7 @@ export default function MemoryEditorPage() {
         toast({
             variant: 'destructive',
             title: 'エラー',
-            description: `ブロックの削除中にエラーが発生しました: ${error.message}`,
+            description: `ブロックの削除中にエラーが発生しました: ${'' + error.message}`,
         });
     } finally {
         setBlockToDelete(null);
@@ -484,3 +503,4 @@ function SortableBlockItem({ block, assets, onEdit, onDelete }: { block: PublicP
         </div>
     );
 }
+
