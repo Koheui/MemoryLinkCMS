@@ -232,7 +232,6 @@ export default function PublicPage({ params }: { params: { pageId: string } }) {
      >
       <div className="container mx-auto max-w-2xl px-4 py-8 sm:px-6 lg:py-12">
         <header className="mb-12 flex flex-col items-center">
-          <div className="w-full">
             <div className="relative h-48 w-full overflow-hidden rounded-xl shadow-lg md:h-56">
                 <Image 
                     src={manifest.media.cover.url}
@@ -244,23 +243,20 @@ export default function PublicPage({ params }: { params: { pageId: string } }) {
                     sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                 />
             </div>
-          </div>
-          <div className="relative -mt-20 flex w-full flex-col items-center">
-            <div className="h-40 w-40 overflow-hidden rounded-full border-4 border-gray-900/50 shadow-lg backdrop-blur-sm">
-                    <Image 
-                        src={manifest.media.profile.url}
-                        alt="Profile"
-                        fill
-                        data-ai-hint="portrait person"
-                        className="object-cover"
-                        sizes="160px"
-                    />
+            <div className="relative -mt-20 h-40 w-40 overflow-hidden rounded-full border-4 border-gray-900/50 shadow-lg backdrop-blur-sm">
+                <Image 
+                    src={manifest.media.profile.url}
+                    alt="Profile"
+                    fill
+                    data-ai-hint="portrait person"
+                    className="object-cover"
+                    sizes="160px"
+                />
             </div>
             <div className="mt-4 text-center">
                 <h1 className="text-3xl font-bold sm:text-4xl">{manifest.title}</h1>
                 <p className="mt-2 text-base text-gray-300 max-w-prose">{manifest.about.text}</p>
             </div>
-          </div>
         </header>
 
         <main className="space-y-6 pb-12">
