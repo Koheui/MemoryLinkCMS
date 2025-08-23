@@ -28,6 +28,16 @@
           "order": "DESCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "assets",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        {
+          "fieldPath": "storagePath",
+          "order": "ASCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": []
