@@ -17,6 +17,17 @@ import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { AboutModal, CoverPhotoModal, BlockModal } from '@/components/edit-modals';
 import { v4 as uuidv4 } from 'uuid';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 
 // This is the new Visual Editor Page
@@ -35,6 +46,8 @@ export default function MemoryEditorPage() {
   const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
   const [isBlockModalOpen, setIsBlockModalOpen] = useState(false);
   const [editingBlock, setEditingBlock] = useState<PublicPageBlock | null>(null);
+  const [blockToDelete, setBlockToDelete] = useState<PublicPageBlock | null>(null);
+
 
   const blocks = useMemo(() => memory?.blocks || [], [memory]);
 
@@ -199,8 +212,6 @@ export default function MemoryEditorPage() {
    const handleDeleteBlock = async (blockIdToDelete: string) => {
     if (!memory) return;
 
-    if (!window.confirm("このブロックを本当に削除しますか？この操作は取り消せません。")) return;
-
     try {
         const memoryRef = doc(db, 'memories', memoryId);
         
@@ -228,6 +239,13 @@ export default function MemoryEditorPage() {
         });
     }
   };
+  
+  const confirmDeleteBlock = () => {
+    if (blockToDelete) {
+      handleDeleteBlock(blockToDelete.id);
+      setBlockToDelete(null);
+    }
+  }
 
   const handlePreview = () => {
     if (!memory) return;
@@ -315,6 +333,20 @@ export default function MemoryEditorPage() {
             onUploadSuccess={handleAssetUpload}
         />
        )}
+        <AlertDialog open={blockToDelete !== null} onOpenChange={(open) => !open && setBlockToDelete(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>ブロックを削除しますか？</AlertDialogTitle>
+              <AlertDialogDescription>
+                この操作は取り消せません。ブロック「{blockToDelete?.title || '無題'}」を完全に削除します。
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>キャンセル</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmDeleteBlock}>削除</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
       {/* Header */}
       <header className="flex h-16 shrink-0 items-center justify-between border-b bg-background px-4 sm:px-6">
@@ -397,7 +429,7 @@ export default function MemoryEditorPage() {
                                     block={block}
                                     assets={assets}
                                     onEdit={() => handleEditBlock(block)}
-                                    onDelete={() => handleDeleteBlock(block.id)}
+                                    onDelete={() => setBlockToDelete(block)}
                                 />
                             ))}
                         </SortableContext>
@@ -422,12 +454,6 @@ function SortableBlockItem({ block, assets, onEdit, onDelete }: { block: PublicP
     const style = {
         transform: CSS.Transform.toString(transform),
         transition,
-    };
-
-    const handleDeleteClick = (e: React.MouseEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        onDelete();
     };
 
     const blockIcons = {
@@ -457,7 +483,7 @@ function SortableBlockItem({ block, assets, onEdit, onDelete }: { block: PublicP
         if (block.type === 'video' && block.video?.assetId) {
             const asset = assets.find(a => a.id === block.video?.assetId);
             if (asset) {
-                const thumbnailUrl = asset.thumbnailUrl || `https://placehold.co/600x400.png`;
+                const thumbnailUrl = asset.thumbnailUrl || `https://placehold.co/600x400.png?text=サムネイル生成中...`;
                 return (
                     <div className="p-2 space-y-2">
                         <p className="font-semibold text-sm">{block.title || "無題の動画"}</p>
@@ -490,22 +516,22 @@ function SortableBlockItem({ block, assets, onEdit, onDelete }: { block: PublicP
     return (
         <div ref={setNodeRef} style={style} className="rounded-lg border bg-card shadow-sm flex items-center transition-shadow hover:shadow-md">
             {/* Drag Handle */}
-            <button {...attributes} {...listeners} className="cursor-grab p-4 touch-none self-stretch flex items-center">
+            <button {...attributes} {...listeners} className="cursor-grab p-4 touch-none self-stretch flex items-center border-r">
                 <GripVertical className="h-5 w-5 text-muted-foreground" />
             </button>
             
             {/* Content Preview */}
-            <div className="flex-grow">
+            <div className="flex-grow cursor-pointer" onClick={onEdit}>
                 {renderBlockContent()}
             </div>
 
             {/* Action Buttons */}
-            <div className="flex items-center gap-2 p-2">
-                <Button variant="outline" size="icon" onClick={onEdit}>
+            <div className="flex items-center gap-2 p-2 border-l">
+                <Button variant="ghost" size="icon" onClick={onEdit}>
                     <Edit className="h-4 w-4" />
                     <span className="sr-only">編集</span>
                 </Button>
-                <Button variant="destructive" size="icon" onClick={handleDeleteClick}>
+                <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={onDelete}>
                     <Trash2 className="h-4 w-4" />
                      <span className="sr-only">削除</span>
                 </Button>
