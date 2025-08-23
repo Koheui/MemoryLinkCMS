@@ -93,9 +93,7 @@ export interface PublicPage {
         text: string, 
         format: "md" | "plain" 
     };
-    design: Design & {
-      // Potentially other design props from the spec
-    };
+    design: Design;
     media: {
         cover: { url: string, width: number, height: number };
         profile: { url: string, width: number, height: number };
@@ -106,6 +104,8 @@ export interface PublicPage {
         status: "draft" | "published";
         publishedAt?: Timestamp;
     }
+    createdAt: Timestamp;
+    updatedAt: Timestamp;
 }
 
 

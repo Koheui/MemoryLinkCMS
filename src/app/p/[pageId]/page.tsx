@@ -1,45 +1,51 @@
 // src/app/p/[pageId]/page.tsx
 'use client';
 import { useState, useEffect } from 'react';
-import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Image from 'next/image';
-import type { PublicPage, PublicPageBlock, Memory, Design } from '@/lib/types';
+import type { PublicPage, PublicPageBlock, Memory, Asset } from '@/lib/types';
 import { Globe, Phone, Mail, Link as LinkIcon, Music, Clapperboard, Milestone, Camera, Loader2 } from 'lucide-react';
 import { FaXTwitter, FaInstagram, FaYoutube } from 'react-icons/fa6';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import { Badge } from '@/components/ui/badge';
+import { db } from '@/lib/firebase/client';
+import { doc, getDoc } from 'firebase/firestore';
 
 
-// This function now only fetches the static manifest for production builds.
-// For preview, we'll use localStorage.
-async function fetchPublicPageManifest(pageId: string): Promise<PublicPage | null> {
-  // In a real production environment, you might want to get the bucket name from an env var.
-  const bucketName = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
-  if (!bucketName) {
-      console.error("Firebase Storage bucket name is not configured.");
-      return null;
-  }
-  // Production fetch from Storage
-  try {
-    const res = await fetch(`https://storage.googleapis.com/${bucketName}/deliver/publicPages/${pageId}/manifest.json`, { next: { revalidate: 300 }});
-    if (!res.ok) {
-        console.error(`Failed to fetch manifest for ${pageId}: ${res.statusText}`);
+// This function fetches both the memory and its associated assets for a real public page
+async function fetchPublicPageData(pageId: string): Promise<{ memory: Memory, assets: Asset[] } | null> {
+    try {
+        const memoryDoc = await getDoc(doc(db, "memories", pageId));
+        if (!memoryDoc.exists()) {
+            console.error(`Memory with pageId ${pageId} not found.`);
+            return null;
+        }
+        const memoryData = { id: memoryDoc.id, ...memoryDoc.data() } as Memory;
+
+        // Fetch all assets owned by the user. This is a simplification.
+        // A better approach would be to query assets where memoryId matches.
+        const assetSnapshots = await getDoc(collection(db, "assets"), where("ownerUid", "==", memoryData.ownerUid));
+        const assets = assetSnapshots.docs.map(d => ({ id: d.id, ...d.data() } as Asset));
+
+        return { memory: memoryData, assets };
+
+    } catch (error) {
+        console.error(`Error fetching page data for ${pageId}:`, error);
         return null;
     }
-    const data = await res.json();
-    return data as PublicPage;
-  } catch(error) {
-     console.error(`Error fetching or parsing manifest for ${pageId}:`, error);
-     return null;
-  }
 }
 
-// Convert Memory to PublicPage for rendering. This is used for previewing.
-// It tries to construct a PublicPage object from a Memory object.
-function convertMemoryToPublicPage(memory: any): PublicPage {
-    const getAssetUrlById = (assetId: string) => memory.assets?.find((a: any) => a.id === assetId)?.url;
+// Convert Memory to PublicPage for rendering. This is used for previewing and for real pages.
+function convertMemoryToPublicPage(memory: Memory, assets: Asset[]): PublicPage {
+    const getAssetUrlById = (assetId: string | null): string | undefined => {
+        if (!assetId) return undefined;
+        return assets.find((a: Asset) => a.id === assetId)?.url;
+    }
+    const getAssetById = (assetId: string | null): Asset | undefined => {
+        if (!assetId) return undefined;
+        return assets.find((a: Asset) => a.id === assetId);
+    }
 
     return {
         id: memory.id,
@@ -55,13 +61,13 @@ function convertMemoryToPublicPage(memory: any): PublicPage {
             profile: { url: getAssetUrlById(memory.profileAssetId) || "https://placehold.co/400x400.png", width: 400, height: 400 },
         },
         ordering: 'custom',
-        blocks: memory.blocks.map((block: any) => {
+        blocks: (memory.blocks || []).map((block: PublicPageBlock) => {
             const newBlock = { ...block };
             if (newBlock.type === 'photo' && newBlock.photo?.assetId) {
                 newBlock.photo.src = getAssetUrlById(newBlock.photo.assetId);
             }
             if (newBlock.type === 'video' && newBlock.video?.assetId) {
-                const asset = memory.assets.find((a: any) => a.id === newBlock.video?.assetId);
+                const asset = getAssetById(newBlock.video.assetId);
                 newBlock.video.src = asset?.url;
                 newBlock.video.poster = asset?.thumbnailUrl;
             }
@@ -75,11 +81,11 @@ function convertMemoryToPublicPage(memory: any): PublicPage {
         }),
         publish: {
             status: 'published',
-            publishedAt: new Date(memory.publishedAt),
+            publishedAt: memory.updatedAt, // Use updatedAt for simplicity
         },
-        createdAt: new Date(memory.createdAt),
-        updatedAt: new Date(memory.updatedAt),
-    } as PublicPage;
+        createdAt: memory.createdAt,
+        updatedAt: memory.updatedAt,
+    };
 }
 
 
@@ -201,13 +207,20 @@ export default function PublicPage({ params }: { params: { pageId: string } }) {
             if (storedPreviewData) {
                 try {
                     const parsedData = JSON.parse(storedPreviewData);
-                    pageData = convertMemoryToPublicPage(parsedData);
+                    // The stored data now includes assets, so pass them to the converter
+                    pageData = convertMemoryToPublicPage(parsedData, parsedData.assets);
                 } catch(e) {
                     console.error("Failed to parse preview data from localStorage", e);
                 }
             }
         } else {
-            pageData = await fetchPublicPageManifest(params.pageId);
+            // This is a live page, fetch from Firestore.
+            // Note: This is a client-side fetch, which is not ideal for SEO.
+            // A production app might use SSR/ISR with this logic.
+            const data = await fetchPublicPageData(params.pageId);
+            if (data) {
+                pageData = convertMemoryToPublicPage(data.memory, data.assets);
+            }
         }
 
         if (pageData) {
@@ -241,10 +254,11 @@ export default function PublicPage({ params }: { params: { pageId: string } }) {
     );
   }
 
+  const design = manifest.design || {};
   return (
     <div style={{ 
-        backgroundColor: manifest.design.bgColor || '#111827', 
-        fontFamily: manifest.design.fontFamily || 'sans-serif',
+        backgroundColor: design.bgColor || '#111827', 
+        fontFamily: design.fontFamily || 'sans-serif',
      } as React.CSSProperties}
      className="min-h-screen text-white"
      >
@@ -273,7 +287,7 @@ export default function PublicPage({ params }: { params: { pageId: string } }) {
                     />
                 </div>
             </div>
-            <div className="mt-4 text-center">
+            <div className="pt-4 text-center">
                 <h1 className="text-3xl font-bold sm:text-4xl">{manifest.title}</h1>
                 <p className="mt-2 text-base text-gray-300 max-w-prose">{manifest.about.text}</p>
             </div>

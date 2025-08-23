@@ -240,8 +240,7 @@ export default function MemoryEditorPage() {
   const handlePreview = () => {
     if (!memory) return;
     
-    // Create a serializable version of the memory data
-    // Firestore Timestamps are objects and cannot be directly stringified.
+    // Create a serializable version of the memory data including assets
     const serializableMemory = {
       ...memory,
       createdAt: (memory.createdAt as Timestamp)?.toDate().toISOString(),
@@ -250,6 +249,11 @@ export default function MemoryEditorPage() {
         ...block,
         createdAt: (block.createdAt as Timestamp)?.toDate().toISOString(),
         updatedAt: (block.updatedAt as Timestamp)?.toDate().toISOString(),
+      })),
+      assets: assets.map(asset => ({
+        ...asset,
+        createdAt: (asset.createdAt as any)?.toDate ? (asset.createdAt as Timestamp).toDate().toISOString() : asset.createdAt,
+        updatedAt: (asset.updatedAt as any)?.toDate ? (asset.updatedAt as Timestamp).toDate().toISOString() : asset.updatedAt,
       }))
     };
     
