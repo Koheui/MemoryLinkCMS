@@ -416,7 +416,7 @@ export default function MemoryEditorPage() {
 }
 
 
-function SortableBlockItem({ block, assets, onEdit, onDelete }: { block: PublicPageBlock; assets: Asset[]; onEdit: () => void; onDelete: (e: React.MouseEvent) => void; }) {
+function SortableBlockItem({ block, assets, onEdit, onDelete }: { block: PublicPageBlock; assets: Asset[]; onEdit: () => void; onDelete: () => void; }) {
     const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: block.id });
 
     const style = {
@@ -427,7 +427,7 @@ function SortableBlockItem({ block, assets, onEdit, onDelete }: { block: PublicP
     const handleDeleteClick = (e: React.MouseEvent) => {
         e.preventDefault();
         e.stopPropagation();
-        onDelete(e);
+        onDelete();
     };
 
     const blockIcons = {
@@ -457,7 +457,7 @@ function SortableBlockItem({ block, assets, onEdit, onDelete }: { block: PublicP
         if (block.type === 'video' && block.video?.assetId) {
             const asset = assets.find(a => a.id === block.video?.assetId);
             if (asset) {
-                const thumbnailUrl = asset.thumbnailUrl || `https://placehold.co/600x400.png?text=サムネイル生成中...`;
+                const thumbnailUrl = asset.thumbnailUrl || `https://placehold.co/600x400.png`;
                 return (
                     <div className="p-2 space-y-2">
                         <p className="font-semibold text-sm">{block.title || "無題の動画"}</p>
@@ -488,9 +488,9 @@ function SortableBlockItem({ block, assets, onEdit, onDelete }: { block: PublicP
     };
 
     return (
-        <div ref={setNodeRef} style={style} className="rounded-lg border bg-card shadow-sm flex items-center transition-shadow hover:shadow-md" {...attributes}>
+        <div ref={setNodeRef} style={style} className="rounded-lg border bg-card shadow-sm flex items-center transition-shadow hover:shadow-md">
             {/* Drag Handle */}
-            <button {...listeners} className="cursor-grab p-4 touch-none self-stretch flex items-center">
+            <button {...attributes} {...listeners} className="cursor-grab p-4 touch-none self-stretch flex items-center">
                 <GripVertical className="h-5 w-5 text-muted-foreground" />
             </button>
             
