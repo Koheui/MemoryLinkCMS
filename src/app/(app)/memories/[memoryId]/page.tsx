@@ -26,8 +26,8 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import { apiClient } from '@/lib/api-client';
 
 
 // This is the new Visual Editor Page
@@ -75,7 +75,7 @@ export default function MemoryEditorPage() {
       const memoryData = { 
         id: memoryDocSnap.id, 
         ...memoryDocSnap.data(),
-        blocks: memoryDocSnap.data().blocks || []
+        blocks: (memoryDocSnap.data().blocks || []).sort((a: PublicPageBlock, b: PublicPageBlock) => a.order - b.order)
       } as Memory;
       
       setMemory(memoryData);
@@ -168,13 +168,11 @@ export default function MemoryEditorPage() {
       const memoryRef = doc(db, 'memories', memoryId);
 
       try {
+        let updatedBlocks;
         if (blockToEdit) { 
-            const updatedBlocks = blocks.map(b => 
+            updatedBlocks = blocks.map(b => 
                 b.id === blockToEdit.id ? { ...b, ...newBlockData, updatedAt: Timestamp.now() } : b
             );
-            await updateDoc(memoryRef, { blocks: updatedBlocks, updatedAt: serverTimestamp() });
-            setMemory(prev => prev ? { ...prev, blocks: updatedBlocks } : null);
-            toast({ title: "成功", description: "ブロックを更新しました。" });
         } else { 
             const newBlock: PublicPageBlock = {
                 ...newBlockData,
@@ -183,10 +181,16 @@ export default function MemoryEditorPage() {
                 createdAt: Timestamp.now(),
                 updatedAt: Timestamp.now(),
             };
-            await updateDoc(memoryRef, { blocks: [...blocks, newBlock], updatedAt: serverTimestamp() });
-            setMemory(prev => prev ? { ...prev, blocks: [...prev.blocks, newBlock] } : null);
-            toast({ title: "成功", description: "新しいブロックを追加しました。" });
+            updatedBlocks = [...blocks, newBlock];
         }
+        
+        // Re-order just in case
+        const reorderedBlocks = updatedBlocks.map((block, index) => ({ ...block, order: index }));
+
+        await updateDoc(memoryRef, { blocks: reorderedBlocks, updatedAt: serverTimestamp() });
+        setMemory(prev => prev ? { ...prev, blocks: reorderedBlocks } : null);
+        toast({ title: "成功", description: blockToEdit ? "ブロックを更新しました。" : "新しいブロックを追加しました。" });
+
       } catch (error) {
         console.error('Error saving block:', error);
         toast({ variant: 'destructive', title: 'エラー', description: 'ブロックの保存に失敗しました。' });
@@ -209,43 +213,42 @@ export default function MemoryEditorPage() {
       } : null);
   }
   
-   const handleDeleteBlock = async (blockIdToDelete: string) => {
-    if (!memory) return;
+  const handleDeleteBlockConfirmed = async () => {
+    if (!blockToDelete || !memory) return;
 
     try {
-        const memoryRef = doc(db, 'memories', memoryId);
+        const res = await apiClient.fetch('/api/blocks/delete', {
+            method: 'POST',
+            body: JSON.stringify({
+                memoryId: memory.id,
+                blockId: blockToDelete.id,
+            })
+        });
+
+        if (!res.ok) {
+            const errorData = await res.json();
+            throw new Error(errorData.error || 'サーバーで削除に失敗しました。');
+        }
+
+        const { updatedBlocks, deletedAssetId } = await res.json();
         
-        const updatedBlocks = memory.blocks
-            .filter((b) => b.id !== blockIdToDelete)
-            .map((b, index) => ({ ...b, order: index })); 
-
-        await updateDoc(memoryRef, {
-            blocks: updatedBlocks,
-            updatedAt: serverTimestamp(),
-        });
-
-        setMemory((prev) => {
-            if (!prev) return null;
-            return { ...prev, blocks: updatedBlocks };
-        });
+        setMemory(prev => prev ? { ...prev, blocks: updatedBlocks } : null);
+        if (deletedAssetId) {
+            setAssets(prev => prev.filter(a => a.id !== deletedAssetId));
+        }
 
         toast({ title: '成功', description: 'ブロックを削除しました。' });
-    } catch (error) {
+    } catch (error: any) {
         console.error('Failed to delete block:', error);
         toast({
             variant: 'destructive',
             title: 'エラー',
-            description: 'ブロックの削除中にエラーが発生しました。',
+            description: `ブロックの削除中にエラーが発生しました: ${error.message}`,
         });
+    } finally {
+        setBlockToDelete(null);
     }
   };
-  
-  const confirmDeleteBlock = () => {
-    if (blockToDelete) {
-      handleDeleteBlock(blockToDelete.id);
-      setBlockToDelete(null);
-    }
-  }
 
   const handlePreview = () => {
     if (!memory) return;
@@ -338,12 +341,12 @@ export default function MemoryEditorPage() {
             <AlertDialogHeader>
               <AlertDialogTitle>ブロックを削除しますか？</AlertDialogTitle>
               <AlertDialogDescription>
-                この操作は取り消せません。ブロック「{blockToDelete?.title || '無題'}」を完全に削除します。
+                この操作は取り消せません。ブロック「{blockToDelete?.title || '無題'}」を完全に削除します。関連するメディアがある場合、それもライブラリから削除されます。
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>キャンセル</AlertDialogCancel>
-              <AlertDialogAction onClick={confirmDeleteBlock}>削除</AlertDialogAction>
+              <AlertDialogAction onClick={handleDeleteBlockConfirmed}>削除</AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
@@ -515,19 +518,16 @@ function SortableBlockItem({ block, assets, onEdit, onDelete }: { block: PublicP
 
     return (
         <div ref={setNodeRef} style={style} className="rounded-lg border bg-card shadow-sm flex items-center transition-shadow hover:shadow-md">
-            {/* Drag Handle */}
-            <button {...attributes} {...listeners} className="cursor-grab p-4 touch-none self-stretch flex items-center border-r">
+             <button {...attributes} {...listeners} className="cursor-grab p-4 touch-none self-stretch flex items-center border-r">
                 <GripVertical className="h-5 w-5 text-muted-foreground" />
             </button>
             
-            {/* Content Preview */}
-            <div className="flex-grow cursor-pointer" onClick={onEdit}>
+            <div className="flex-grow" >
                 {renderBlockContent()}
             </div>
 
-            {/* Action Buttons */}
             <div className="flex items-center gap-2 p-2 border-l">
-                <Button variant="ghost" size="icon" onClick={onEdit}>
+                 <Button variant="ghost" size="icon" onClick={onEdit}>
                     <Edit className="h-4 w-4" />
                     <span className="sr-only">編集</span>
                 </Button>
