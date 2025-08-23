@@ -47,6 +47,7 @@ export default function MemoryEditorPage() {
   );
   
   const fetchAllData = useCallback(async (currentMemoryId: string, currentUid: string) => {
+    // Keep loading until all data is fetched
     setLoading(true);
     try {
       const memoryDocRef = doc(db, 'memories', currentMemoryId);
@@ -55,7 +56,7 @@ export default function MemoryEditorPage() {
       if (!memoryDocSnap.exists() || memoryDocSnap.data()?.ownerUid !== currentUid) {
         console.error("Memory not found or access denied.");
         setMemory(null);
-        setLoading(false);
+        setLoading(false); // Stop loading if memory not found
         return;
       }
       
@@ -65,6 +66,7 @@ export default function MemoryEditorPage() {
         blocks: memoryDocSnap.data().blocks || []
       } as Memory;
       
+      // Set memory first
       setMemory(memoryData);
 
       const assetsQuery = query(
@@ -95,6 +97,7 @@ export default function MemoryEditorPage() {
       toast({ variant: 'destructive', title: "Error", description: "ページデータの読み込みに失敗しました。" });
       setMemory(null);
     } finally {
+        // Only stop loading after all fetches are complete
         setLoading(false);
     }
   }, [toast]);
