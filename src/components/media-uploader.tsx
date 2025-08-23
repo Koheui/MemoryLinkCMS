@@ -1,3 +1,4 @@
+
 // src/components/media-uploader.tsx
 'use client';
 import * as React from 'react';
@@ -36,8 +37,6 @@ export function MediaUploader({ assetType, accept, children, onUploadSuccess, me
     setIsUploading(true);
     if (fileInputRef.current) fileInputRef.current.value = "";
     
-    // Media library uploads (memoryId is undefined) should be stored in a general path.
-    // Editor uploads (memoryId is defined) are stored within the memory's folder.
     const storagePath = memoryId
       ? `users/${user.uid}/memories/${memoryId}/assets/${Date.now()}_${file.name}`
       : `users/${user.uid}/library/${Date.now()}_${file.name}`;
@@ -45,7 +44,7 @@ export function MediaUploader({ assetType, accept, children, onUploadSuccess, me
     const assetCollectionRef = collection(db, 'assets');
     
     try {
-      // 1. Create a document in the root 'assets' collection
+      // 1. Create a document in the root 'assets' collection to get an ID
       const assetData: Omit<Asset, 'id' | 'createdAt' | 'updatedAt' | 'url'> = {
         ownerUid: user.uid,
         memoryId: memoryId || null,
@@ -57,29 +56,28 @@ export function MediaUploader({ assetType, accept, children, onUploadSuccess, me
 
       const docRef = await addDoc(assetCollectionRef, {
         ...assetData,
-        url: '', // URL is not available yet
+        url: '',
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
       
-      // 2. Start the upload to Firebase Storage with custom metadata
+      // 2. Start the upload to Firebase Storage with the assetId in metadata
       const storageRef = ref(storage, storagePath);
       const metadata = { 
         contentType: file.type,
         customMetadata: {
-            assetId: docRef.id
+            assetId: docRef.id // Embed the asset ID here
         }
       };
       const uploadTask = uploadBytesResumable(storageRef, file, metadata);
 
       uploadTask.on('state_changed',
         (snapshot) => {
-          // Can be used to show progress
+          // Progress reporting can be implemented here
         },
         (error) => {
           console.error("Upload failed:", error);
           toast({ variant: 'destructive', title: 'アップロード失敗', description: error.message });
-          // Optionally, delete the Firestore document if upload fails
           setIsUploading(false);
         },
         async () => {
@@ -98,7 +96,6 @@ export function MediaUploader({ assetType, accept, children, onUploadSuccess, me
           const finalAsset: Asset = { 
             id: finalAssetSnapshot.id,
             ...finalDocData,
-            // Convert Timestamps to Dates for client-side use
             createdAt: (finalDocData?.createdAt as Timestamp)?.toDate(),
             updatedAt: (finalDocData?.updatedAt as Timestamp)?.toDate(),
           } as Asset;
