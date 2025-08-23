@@ -267,7 +267,7 @@ export default function PublicPage() {
      className="min-h-screen text-white"
      >
       <div className="container mx-auto max-w-2xl px-4 py-8 sm:px-6 lg:py-12">
-        <header className="mb-12">
+        <header className="mb-12 flex flex-col items-center">
             <div className="relative h-48 w-full overflow-hidden rounded-xl shadow-lg md:h-56">
                 <Image 
                     src={manifest.media.cover.url}
@@ -280,22 +280,20 @@ export default function PublicPage() {
                 />
             </div>
             
-            <div className="relative z-10 -mt-20 flex flex-col items-center">
-                <div className="h-40 w-40 flex-shrink-0 overflow-hidden rounded-full border-4 border-gray-900/50 shadow-lg backdrop-blur-sm">
-                    <Image 
-                        src={manifest.media.profile.url}
-                        alt="Profile"
-                        fill
-                        data-ai-hint="portrait person"
-                        className="object-cover"
-                        sizes="160px"
-                    />
-                </div>
+            <div className="relative z-10 -mt-20 h-40 w-40 flex-shrink-0 overflow-hidden rounded-full border-4 border-gray-900/50 shadow-lg backdrop-blur-sm">
+                <Image 
+                    src={manifest.media.profile.url}
+                    alt="Profile"
+                    fill
+                    data-ai-hint="portrait person"
+                    className="object-cover"
+                    sizes="160px"
+                />
+            </div>
 
-                <div className="mt-4 text-center">
-                    <h1 className="text-3xl font-bold sm:text-4xl">{manifest.title}</h1>
-                    <p className="mt-2 text-base text-gray-300 max-w-prose mx-auto">{manifest.about.text}</p>
-                </div>
+            <div className="mt-4 text-center">
+                <h1 className="text-3xl font-bold sm:text-4xl">{manifest.title}</h1>
+                <p className="mt-2 text-base text-gray-300 max-w-prose mx-auto">{manifest.about.text}</p>
             </div>
         </header>
 
