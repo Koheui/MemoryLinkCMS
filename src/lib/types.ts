@@ -18,35 +18,7 @@ export interface Design {
   headlineFontFamily?: string;
 }
 
-export interface Memory {
-  id: string;
-  ownerUid: string | null; // Can be null until claimed by a user
-  title: string;
-  type: "pet" | "birth" | "memorial" | "other";
-  status: 'draft' | 'active' | 'archived';
-  publicPageId: string | null;
-  coverAssetId: string | null;
-  profileAssetId: string | null;
-  description: string;
-  design: Design;
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
-  publicUrl?: string;
-}
-
-export interface Asset {
-  id: string;
-  ownerUid: string;
-  memoryId: string | null; 
-  name: string;
-  type: 'image' | 'video' | 'audio';
-  storagePath: string;
-  url: string;
-  size: number;
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
-}
-
+// Block is now part of the Memory document itself to simplify rules and fetching.
 export interface PublicPageBlock {
   id: string;
   type: 'album' | 'video' | 'audio' | 'text' | 'photo';
@@ -80,6 +52,37 @@ export interface PublicPageBlock {
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
+
+export interface Memory {
+  id: string;
+  ownerUid: string | null; // Can be null until claimed by a user
+  title: string;
+  type: "pet" | "birth" | "memorial" | "other";
+  status: 'draft' | 'active' | 'archived';
+  publicPageId: string | null;
+  coverAssetId: string | null;
+  profileAssetId: string | null;
+  description: string;
+  design: Design;
+  blocks: PublicPageBlock[]; // <-- Blocks are now an array field
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+  publicUrl?: string;
+}
+
+export interface Asset {
+  id: string;
+  ownerUid: string;
+  memoryId: string | null; 
+  name: string;
+  type: 'image' | 'video' | 'audio';
+  storagePath: string;
+  url: string;
+  size: number;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
 
 export interface PublicPage {
     id: string;

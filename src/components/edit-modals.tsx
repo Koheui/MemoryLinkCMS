@@ -5,7 +5,7 @@ import * as React from 'react';
 import { useState, useEffect, useMemo } from 'react';
 import type { Memory, Asset, PublicPageBlock } from '@/lib/types';
 import { db } from '@/lib/firebase/client';
-import { doc, updateDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -13,8 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, Save, Image as ImageIcon, Video, Mic, Type, Link, Square, Album, Upload, Clapperboard, Music } from 'lucide-react';
+import { Loader2, Save, Image as ImageIcon, Video, Mic, Type, Album, Upload, Clapperboard, Music } from 'lucide-react';
 import Image from 'next/image';
 import { MediaUploader } from './media-uploader';
 
@@ -211,7 +210,7 @@ export function AboutModal({ isOpen, setIsOpen, memory }: { isOpen: boolean, set
 }
 
 // Block Modal (Create or Edit Block)
-export function BlockModal({ isOpen, setIsOpen, memory, assets, block, blockCount, onUploadSuccess }: { isOpen: boolean, setIsOpen: (open: boolean) => void, memory: Memory, assets: Asset[], block: PublicPageBlock | null, blockCount: number, onUploadSuccess: (asset: Asset) => void }) {
+export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, onUploadSuccess }: { isOpen: boolean, setIsOpen: (open: boolean) => void, memory: Memory, assets: Asset[], block: PublicPageBlock | null, onSave: (data: Omit<PublicPageBlock, 'id'|'order'|'createdAt'|'updatedAt'>, block?: PublicPageBlock | null) => void, onUploadSuccess: (asset: Asset) => void }) {
     const [blockType, setBlockType] = useState<PublicPageBlock['type'] | null>(null);
     const [title, setTitle] = useState('');
     const [selectedAssetId, setSelectedAssetId] = useState<string | undefined>(undefined);
@@ -263,32 +262,14 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, blockCoun
         try {
             const getAssetUrl = (id?: string) => assets.find(a => a.id === id)?.url || null;
 
-            if (isEditing && block) {
-                const blockRef = doc(db, 'memories', memory.id, 'blocks', block.id);
-                const updateData: any = { title, updatedAt: serverTimestamp(), type: blockType };
-                if (blockType === 'text') updateData.text = { content: textContent };
-                if (blockType === 'photo') updateData.photo = { assetId: selectedAssetId, caption: photoCaption, src: getAssetUrl(selectedAssetId) };
-                if (blockType === 'video') updateData.video = { assetId: selectedAssetId, src: getAssetUrl(selectedAssetId) };
-                if (blockType === 'audio') updateData.audio = { assetId: selectedAssetId, src: getAssetUrl(selectedAssetId) };
-                await updateDoc(blockRef, updateData);
-                toast({ title: '成功', description: 'ブロックを更新しました。' });
-            } else {
-                const newBlockData: any = {
-                    type: blockType,
-                    title,
-                    order: blockCount,
-                    visibility: 'show',
-                    createdAt: serverTimestamp(),
-                    updatedAt: serverTimestamp(),
-                };
-                if (blockType === 'text') newBlockData.text = { content: textContent };
-                if (blockType === 'photo') newBlockData.photo = { assetId: selectedAssetId, caption: photoCaption, src: getAssetUrl(selectedAssetId) };
-                if (blockType === 'video') newBlockData.video = { assetId: selectedAssetId, src: getAssetUrl(selectedAssetId) };
-                if (blockType === 'audio') newBlockData.audio = { assetId: selectedAssetId, src: getAssetUrl(selectedAssetId) };
-                
-                await addDoc(collection(db, 'memories', memory.id, 'blocks'), newBlockData);
-                toast({ title: '成功', description: '新しいブロックを追加しました。' });
-            }
+            const newBlockData: any = { type: blockType, title, visibility: 'show' };
+            if (blockType === 'text') newBlockData.text = { content: textContent };
+            if (blockType === 'photo') newBlockData.photo = { assetId: selectedAssetId, caption: photoCaption, src: getAssetUrl(selectedAssetId) };
+            if (blockType === 'video') newBlockData.video = { assetId: selectedAssetId, src: getAssetUrl(selectedAssetId) };
+            if (blockType === 'audio') newBlockData.audio = { assetId: selectedAssetId, src: getAssetUrl(selectedAssetId) };
+
+            await onSave(newBlockData, block);
+            
             setIsOpen(false);
         } catch (error) {
             console.error("Failed to save block:", error);

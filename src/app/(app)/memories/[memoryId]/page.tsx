@@ -4,7 +4,7 @@
 import { Button } from '@/components/ui/button';
 import type { Memory, PublicPageBlock, Asset } from '@/lib/types';
 import { db } from '@/lib/firebase/client';
-import { doc, onSnapshot, collection, query, orderBy, writeBatch, deleteDoc, getDocs, getDoc, Timestamp } from 'firebase/firestore';
+import { doc, onSnapshot, collection, query, orderBy, writeBatch, deleteDoc, getDocs, getDoc, Timestamp, updateDoc, arrayUnion, arrayRemove, serverTimestamp } from 'firebase/firestore';
 import { notFound, useParams } from 'next/navigation';
 import { useEffect, useState, useCallback } from 'react';
 import { Eye, Loader2, PlusCircle, Edit, Image as ImageIcon, Trash2 } from 'lucide-react';
@@ -16,6 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { AboutModal, DesignModal, BlockModal } from '@/components/edit-modals';
 import { GripVertical } from 'lucide-react';
+import { v4 as uuidv4 } from 'uuid';
 
 
 // This is the new Visual Editor Page
@@ -25,7 +26,6 @@ export default function MemoryEditorPage() {
   const { user, loading: authLoading } = useAuth();
   
   const [memory, setMemory] = useState<Memory | null>(null);
-  const [blocks, setBlocks] = useState<PublicPageBlock[]>([]);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
@@ -36,6 +36,7 @@ export default function MemoryEditorPage() {
   const [isBlockModalOpen, setIsBlockModalOpen] = useState(false);
   const [editingBlock, setEditingBlock] = useState<PublicPageBlock | null>(null);
 
+  const blocks = useMemo(() => memory?.blocks || [], [memory]);
 
   // DND sensors
    const sensors = useSensors(
@@ -44,10 +45,9 @@ export default function MemoryEditorPage() {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
-
+  
   const fetchAssetsForMemory = useCallback(async (currentMemoryId: string) => {
     try {
-      // Efficiently query only the assets belonging to this specific memory page.
       const assetsQuery = query(collection(db, 'memories', currentMemoryId, 'assets'), orderBy('createdAt', 'desc'));
       const assetsSnapshot = await getDocs(assetsQuery);
       const fetchedAssets: Asset[] = assetsSnapshot.docs.map(docSnap => ({ 
@@ -64,70 +64,62 @@ export default function MemoryEditorPage() {
   }, [toast]);
 
 
-  // Fetch all required data
+  // Fetch all required data using a single snapshot listener on the memory document
   useEffect(() => {
     if (authLoading || !user || !memoryId) return;
 
-    const fetchAllData = async () => {
-        setLoading(true);
-        try {
-            // Fetch memory document
-            const memoryDocRef = doc(db, 'memories', memoryId);
-            const memoryDoc = await getDoc(memoryDocRef);
-
-            if (memoryDoc.exists() && memoryDoc.data()?.ownerUid === user.uid) {
-                const memoryData = { id: memoryDoc.id, ...memoryDoc.data() } as Memory;
-                setMemory(memoryData);
-                
-                // Fetch associated assets
-                await fetchAssetsForMemory(memoryDoc.id);
-
-                // Fetch blocks
-                const blocksQuery = query(collection(db, 'memories', memoryId, 'blocks'), orderBy('order', 'asc'));
-                const blocksSnapshot = await getDocs(blocksQuery);
-                const fetchedBlocks = blocksSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PublicPageBlock));
-                setBlocks(fetchedBlocks);
-
-            } else {
-                console.error("Memory not found or access denied.");
-                setMemory(null); // This will lead to a 404 page
-            }
-        } catch (error) {
-            console.error("Error fetching page data:", error);
-            toast({ variant: 'destructive', title: "Error", description: "ページデータの読み込みに失敗しました。" });
+    setLoading(true);
+    const memoryDocRef = doc(db, 'memories', memoryId);
+    
+    const unsubscribe = onSnapshot(memoryDocRef, async (docSnap) => {
+        if (docSnap.exists() && docSnap.data()?.ownerUid === user.uid) {
+            const memoryData = { 
+              id: docSnap.id, 
+              ...docSnap.data(),
+              // ensure blocks is an array
+              blocks: docSnap.data().blocks || [] 
+            } as Memory;
+            setMemory(memoryData);
+            
+            // Assets can still be fetched separately if they are numerous
+            await fetchAssetsForMemory(docSnap.id);
+            setLoading(false);
+        } else {
+            console.error("Memory not found or access denied.");
             setMemory(null);
-        } finally {
             setLoading(false);
         }
-    }
-    
-    fetchAllData();
+    }, (error) => {
+        console.error("Error fetching page data:", error);
+        toast({ variant: 'destructive', title: "Error", description: "ページデータの読み込みに失敗しました。" });
+        setMemory(null);
+        setLoading(false);
+    });
+
+    return () => unsubscribe();
 
   }, [memoryId, user, authLoading, toast, fetchAssetsForMemory]);
   
   async function handleDragEnd(event: DragEndEvent) {
     const {active, over} = event;
     if (over && active.id !== over.id) {
-      setBlocks((items) => {
-        const oldIndex = items.findIndex((item) => item.id === active.id);
-        const newIndex = items.findIndex((item) => item.id === over.id);
-        const newItems = arrayMove(items, oldIndex, newIndex);
-
-        const batch = writeBatch(db);
-        newItems.forEach((item, index) => {
-            const blockRef = doc(db, 'memories', memoryId, 'blocks', item.id);
-            batch.update(blockRef, { order: index });
-        });
+        if (!memory) return;
         
-        batch.commit().catch(error => {
-            console.error("Failed to reorder blocks:", error);
-            toast({ variant: 'destructive', title: 'エラー', description: 'ブロックの並び替えに失敗しました。' });
-            // Revert state on failure
-            setBlocks(items);
-        });
+        const oldIndex = blocks.findIndex((item) => item.id === active.id);
+        const newIndex = blocks.findIndex((item) => item.id === over.id);
+        const newBlocks = arrayMove(blocks, oldIndex, newIndex);
 
-        return newItems;
-      });
+        // Update the order property for each block
+        const reorderedBlocks = newBlocks.map((block, index) => ({ ...block, order: index }));
+
+        try {
+            const memoryRef = doc(db, 'memories', memoryId);
+            await updateDoc(memoryRef, { blocks: reorderedBlocks, updatedAt: serverTimestamp() });
+            // The onSnapshot listener will update the local state automatically.
+        } catch (error) {
+             console.error("Failed to reorder blocks:", error);
+            toast({ variant: 'destructive', title: 'エラー', description: 'ブロックの並び替えに失敗しました。' });
+        }
     }
   }
 
@@ -142,9 +134,51 @@ export default function MemoryEditorPage() {
   };
 
   const handleAssetUpload = (asset: Asset) => {
-     // Add the new asset to the top of the list for immediate UI feedback.
     setAssets(prevAssets => [asset, ...prevAssets]);
   }
+  
+  const handleSaveBlock = async (newBlockData: Omit<PublicPageBlock, 'id' | 'createdAt' | 'updatedAt' | 'order'>, blockToEdit?: PublicPageBlock | null) => {
+      if (!memory) return;
+      const memoryRef = doc(db, 'memories', memoryId);
+
+      if (blockToEdit) { // Editing existing block
+          const updatedBlocks = blocks.map(b => 
+              b.id === blockToEdit.id ? { ...b, ...newBlockData, updatedAt: Timestamp.now() } : b
+          );
+          await updateDoc(memoryRef, { blocks: updatedBlocks, updatedAt: serverTimestamp() });
+          toast({ title: "成功", description: "ブロックを更新しました。" });
+      } else { // Adding new block
+          const newBlock: PublicPageBlock = {
+              ...newBlockData,
+              id: uuidv4(),
+              order: blocks.length,
+              createdAt: Timestamp.now(),
+              updatedAt: Timestamp.now(),
+          };
+          await updateDoc(memoryRef, { blocks: arrayUnion(newBlock), updatedAt: serverTimestamp() });
+          toast({ title: "成功", description: "新しいブロックを追加しました。" });
+      }
+  };
+  
+   const handleDeleteBlock = async (blockId: string) => {
+      if (!memory) return;
+      const blockToDelete = blocks.find(b => b.id === blockId);
+      if (!blockToDelete) return;
+
+      if (!window.confirm("このブロックを本当に削除しますか？")) return;
+
+      try {
+          const memoryRef = doc(db, 'memories', memoryId);
+          await updateDoc(memoryRef, {
+              blocks: arrayRemove(blockToDelete),
+              updatedAt: serverTimestamp()
+          });
+          toast({ title: "ブロックを削除しました" });
+      } catch (error) {
+          console.error("Failed to delete block:", error);
+          toast({ variant: 'destructive', title: "エラー", description: "ブロックの削除に失敗しました。" });
+      }
+  };
 
 
   if (loading || authLoading) {
@@ -188,7 +222,7 @@ export default function MemoryEditorPage() {
             memory={memory}
             assets={assets}
             block={editingBlock}
-            blockCount={blocks.length}
+            onSave={handleSaveBlock}
             onUploadSuccess={handleAssetUpload}
         />
        )}
@@ -272,6 +306,7 @@ export default function MemoryEditorPage() {
                                     key={block.id} 
                                     block={block}
                                     onEdit={() => handleEditBlock(block)}
+                                    onDelete={() => handleDeleteBlock(block.id)}
                                 />
                             ))}
                         </SortableContext>
@@ -290,27 +325,17 @@ export default function MemoryEditorPage() {
 }
 
 
-function SortableBlockItem({ block, onEdit }: { block: PublicPageBlock; onEdit: () => void }) {
+function SortableBlockItem({ block, onEdit, onDelete }: { block: PublicPageBlock; onEdit: () => void; onDelete: () => void; }) {
     const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: block.id });
-    const { toast } = useToast();
-    const params = useParams();
-    const memoryId = params.memoryId as string;
 
     const style = {
         transform: CSS.Transform.toString(transform),
         transition,
     };
 
-    const handleDelete = async (e: React.MouseEvent) => {
+    const handleDeleteClick = (e: React.MouseEvent) => {
         e.stopPropagation();
-        if (!window.confirm("このブロックを本当に削除しますか？")) return;
-        try {
-            await deleteDoc(doc(db, 'memories', memoryId, 'blocks', block.id));
-            toast({ title: "ブロックを削除しました" });
-        } catch (error) {
-            console.error("Failed to delete block:", error);
-            toast({ variant: 'destructive', title: "エラー", description: "ブロックの削除に失敗しました。" });
-        }
+        onDelete();
     };
 
     return (
@@ -318,7 +343,7 @@ function SortableBlockItem({ block, onEdit }: { block: PublicPageBlock; onEdit: 
              <button {...attributes} {...listeners} className="cursor-grab p-2 touch-none">
                 <GripVertical className="h-5 w-5 text-muted-foreground" />
             </button>
-            <div className="flex-grow" onClick={onEdit}>
+            <div className="flex-grow cursor-pointer" onClick={onEdit}>
                 <p className="font-semibold">{block.title || "無題のブロック"}</p>
                 <p className="text-sm text-muted-foreground capitalize">{block.type}</p>
             </div>
@@ -327,7 +352,7 @@ function SortableBlockItem({ block, onEdit }: { block: PublicPageBlock; onEdit: 
                     <Edit className="h-4 w-4" />
                     <span className="sr-only">編集</span>
                 </Button>
-                <Button variant="destructive" size="icon" onClick={handleDelete}>
+                <Button variant="destructive" size="icon" onClick={handleDeleteClick}>
                     <Trash2 className="h-4 w-4" />
                      <span className="sr-only">削除</span>
                 </Button>
