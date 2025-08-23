@@ -12,15 +12,26 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { PlusCircle, Loader2, Image as ImageIcon, Video, Mic, Trash2, Upload } from 'lucide-react';
 import type { Asset } from '@/lib/types';
 import { useAuth } from '@/hooks/use-auth';
 import { useState, useEffect, useCallback } from 'react';
 import { db } from '@/lib/firebase/client';
-import { collection, query, where, orderBy, getDocs, Timestamp } from 'firebase/firestore';
+import { collection, query, where, orderBy, getDocs, Timestamp, doc, writeBatch, deleteDoc } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { MediaUploader } from '@/components/media-uploader';
+import { apiClient } from '@/lib/api-client';
 
 export default function MediaLibraryPage() {
   const { user, loading: authLoading } = useAuth();
@@ -28,6 +39,8 @@ export default function MediaLibraryPage() {
   const [loading, setLoading] = useState(true);
   const [totalSize, setTotalSize] = useState(0);
   const [storagePercentage, setStoragePercentage] = useState(0);
+  const [assetToDelete, setAssetToDelete] = useState<Asset | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const { toast } = useToast();
 
   const TOTAL_STORAGE_LIMIT_MB = 200;
@@ -81,6 +94,38 @@ export default function MediaLibraryPage() {
     fetchAssets(user.uid);
   }, [user, authLoading, fetchAssets]);
 
+  const handleDeleteAsset = async () => {
+    if (!assetToDelete || !user) return;
+
+    setIsDeleting(true);
+    try {
+        // This asset is not part of a block, so it's a simpler delete.
+        // We still use a server-side endpoint for security and atomicity.
+        const res = await apiClient.fetch('/api/assets/delete', {
+            method: 'POST',
+            body: JSON.stringify({ assetId: assetToDelete.id }),
+        });
+
+        if (!res.ok) {
+            const errorData = await res.json();
+            throw new Error(errorData.error || 'サーバーでアセットの削除に失敗しました。');
+        }
+        
+        // Optimistically update UI
+        setAssets(prev => prev.filter(a => a.id !== assetToDelete.id));
+        setTotalSize(prev => prev - (assetToDelete.size || 0));
+        setStoragePercentage(((totalSize - (assetToDelete.size || 0)) / TOTAL_STORAGE_LIMIT_BYTES) * 100);
+
+        toast({ title: "成功", description: `${assetToDelete.name}を削除しました。` });
+    } catch (error: any) {
+        console.error("Failed to delete asset:", error);
+        toast({ variant: 'destructive', title: "削除失敗", description: error.message });
+    } finally {
+        setIsDeleting(false);
+        setAssetToDelete(null);
+    }
+  };
+
   function formatBytes(bytes: number, decimals = 2) {
       if (!bytes || bytes === 0) return '0 Bytes';
       const k = 1024;
@@ -118,7 +163,7 @@ export default function MediaLibraryPage() {
                         <TableCell>{format(new Date(asset.createdAt as any), 'yyyy/MM/dd')}</TableCell>
                         <TableCell>{formatBytes(asset.size || 0)}</TableCell>
                         <TableCell className="text-right">
-                            <Button variant="ghost" size="icon">
+                            <Button variant="ghost" size="icon" onClick={() => setAssetToDelete(asset)}>
                                 <Trash2 className="h-4 w-4 text-destructive"/>
                             </Button>
                         </TableCell>
@@ -144,6 +189,25 @@ export default function MediaLibraryPage() {
   }
 
   return (
+    <>
+     <AlertDialog open={assetToDelete !== null} onOpenChange={(open) => !open && setAssetToDelete(null)}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>アセットを削除しますか？</AlertDialogTitle>
+                <AlertDialogDescription>
+                この操作は取り消せません。アセット「{assetToDelete?.name}」をライブラリから完全に削除します。このアセットを使用しているページからも削除されます。
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel>キャンセル</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDeleteAsset} disabled={isDeleting}>
+                    {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    削除
+                </AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
+
     <div className="space-y-6 p-4 sm:p-6 lg:p-8">
        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <div>
@@ -154,7 +218,9 @@ export default function MediaLibraryPage() {
                  <MediaUploader
                     assetType="image" // Default, can be any as it's just a trigger
                     accept="image/*,video/*,audio/*"
-                    onUploadSuccess={() => fetchAssets(user.uid)}
+                    onUploadSuccess={(newAsset) => {
+                      fetchAssets(user.uid); // Re-fetch all assets to reflect the new upload
+                    }}
                   >
                     <Button>
                         <Upload className="mr-2 h-4 w-4" />
@@ -202,5 +268,6 @@ export default function MediaLibraryPage() {
         </CardContent>
       </Card>
     </div>
+    </>
   );
 }

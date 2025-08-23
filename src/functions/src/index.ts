@@ -1,3 +1,4 @@
+
 /**
  * Import function triggers from their respective submodules:
  *
@@ -31,11 +32,13 @@ export const generateThumbnail = storage.onObjectFinalized({
   const fileBucket = event.data.bucket;
   const filePath = event.data.name;
   const contentType = event.data.contentType;
+  const customMetadata = event.data.metadata;
 
-  // This is the path pattern where media-uploader.tsx uploads files.
-  // Exit if the file is not in a user's asset folder.
-  if (!filePath || !filePath.startsWith("users/")) {
-    logger.info(`Not a user asset, skipping: ${filePath}`);
+  const assetId = customMetadata?.assetId;
+
+  // Exit if this is not a user asset (check path and metadata)
+  if (!filePath || !filePath.startsWith("users/") || !assetId) {
+    logger.info(`Not a user asset with required metadata, skipping: ${filePath}`);
     return;
   }
 
@@ -54,19 +57,15 @@ export const generateThumbnail = storage.onObjectFinalized({
 
   const bucket = admin.storage().bucket(fileBucket);
   const tempFilePath = path.join(os.tmpdir(), fileName);
-  const metadata = {
-    contentType: "image/jpeg",
-  };
-
+  const thumbFileName = `thumb_${path.parse(fileName).name}.jpg`;
+  const tempThumbPath = path.join(os.tmpdir(), thumbFileName);
+  
   try {
     // 1. Download video from bucket
     await bucket.file(filePath).download({destination: tempFilePath});
     logger.info("Video downloaded locally to", tempFilePath);
 
-    // 2. Generate a thumbnail using ffmpeg
-    const thumbFileName = `thumb_${path.parse(fileName).name}.jpg`;
-    const tempThumbPath = path.join(os.tmpdir(), thumbFileName);
-
+    // 2. Generate a thumbnail using ffmpeg, wrapped in a promise
     await new Promise<void>((resolve, reject) => {
       ffmpeg(tempFilePath)
           .on("end", () => {
@@ -85,51 +84,40 @@ export const generateThumbnail = storage.onObjectFinalized({
           });
     });
 
-    // 3. Upload the thumbnail to a dedicated 'thumbnails' subfolder
+    // 3. Upload the thumbnail
     const thumbUploadPath = path.join(path.dirname(filePath), "thumbnails", thumbFileName);
     const [uploadedFile] = await bucket.upload(tempThumbPath, {
       destination: thumbUploadPath,
-      metadata: metadata,
+      metadata: { contentType: "image/jpeg" },
     });
     
     // 4. Get a Signed URL for the thumbnail
     const expires = new Date();
     expires.setFullYear(expires.getFullYear() + 100); // Set expiration 100 years from now
-    
     const [thumbnailUrl] = await uploadedFile.getSignedUrl({
-        action: 'read',
+        action: "read",
         expires: expires,
     });
 
     logger.info(`Thumbnail uploaded to ${thumbUploadPath}, URL: ${thumbnailUrl}`);
 
-    // 5. Update the corresponding document in Firestore
+    // 5. Update the corresponding document in Firestore using the assetId from metadata
     const db = admin.firestore();
-    const assetsRef = db.collection("assets");
-    // Query for the asset document based on the original video's storage path
-    const q = assetsRef.where("storagePath", "==", filePath).limit(1);
-    const snapshot = await q.get();
-
-    if (snapshot.empty) {
-      logger.error("No matching asset found in Firestore for storagePath:", filePath);
-      // Clean up temp files even on error
-      fs.unlinkSync(tempFilePath);
-      fs.unlinkSync(tempThumbPath);
-      return;
-    }
-
-    const assetDoc = snapshot.docs[0];
-    await assetDoc.ref.update({
-      thumbnailUrl: thumbnailUrl, // Store the public URL
+    const assetRef = db.collection("assets").doc(assetId);
+    
+    await assetRef.update({
+      thumbnailUrl: thumbnailUrl,
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
-    logger.info("Firestore document updated for asset:", assetDoc.id);
+    logger.info("Firestore document updated for asset:", assetId);
 
-    // 6. Clean up temporary files
-    fs.unlinkSync(tempFilePath);
-    fs.unlinkSync(tempThumbPath);
   } catch (error) {
     logger.error("Function failed:", error);
+  } finally {
+    // 6. Clean up temporary files
+    if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
+    if (fs.existsSync(tempThumbPath)) fs.unlinkSync(tempThumbPath);
+    logger.info("Cleaned up temporary files.");
   }
 });
