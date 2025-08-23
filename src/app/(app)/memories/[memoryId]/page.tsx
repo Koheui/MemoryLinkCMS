@@ -119,7 +119,7 @@ export default function MemoryEditorPage() {
     fetchAllData(memoryId, user.uid);
   }, [memoryId, user, authLoading, fetchAllData]);
   
-  async function handleDragEnd(event: DragEvent) {
+  async function handleDragEnd(event: DragEndEvent) {
     const {active, over} = event;
     if (over && active.id !== over.id) {
         if (!memory) return;
@@ -240,38 +240,20 @@ export default function MemoryEditorPage() {
   const handlePreview = () => {
     if (!memory) return;
     
-    const getAssetUrl = (assetId: string | null): string | undefined => {
-      if (!assetId) return undefined;
-      return assets.find(a => a.id === assetId)?.url;
-    };
-    
-    const previewData = {
+    // Create a serializable version of the memory data
+    // Firestore Timestamps are objects and cannot be directly stringified.
+    const serializableMemory = {
       ...memory,
-      media: {
-        cover: { url: getAssetUrl(memory.coverAssetId) || "https://placehold.co/1200x480.png" },
-        profile: { url: getAssetUrl(memory.profileAssetId) || "https://placehold.co/400x400.png" },
-      },
-      blocks: memory.blocks.map(block => {
-        const newBlock = { ...block };
-        if (newBlock.type === 'photo' && newBlock.photo?.assetId) {
-            newBlock.photo.src = getAssetUrl(newBlock.photo.assetId);
-        }
-        if (newBlock.type === 'video' && newBlock.video?.assetId) {
-            const asset = assets.find(a => a.id === newBlock.video?.assetId);
-            newBlock.video.src = asset?.url;
-            newBlock.video.poster = asset?.thumbnailUrl;
-        }
-        if (newBlock.type === 'audio' && newBlock.audio?.assetId) {
-            newBlock.audio.src = getAssetUrl(newBlock.audio.assetId);
-        }
-        if (newBlock.type === 'album' && newBlock.album?.assetIds) {
-            newBlock.album.items = newBlock.album.assetIds.map(id => ({ src: getAssetUrl(id) || '' }));
-        }
-        return newBlock;
-      })
+      createdAt: (memory.createdAt as Timestamp)?.toDate().toISOString(),
+      updatedAt: (memory.updatedAt as Timestamp)?.toDate().toISOString(),
+      blocks: memory.blocks.map(block => ({
+        ...block,
+        createdAt: (block.createdAt as Timestamp)?.toDate().toISOString(),
+        updatedAt: (block.updatedAt as Timestamp)?.toDate().toISOString(),
+      }))
     };
     
-    localStorage.setItem('memory-preview', JSON.stringify(previewData));
+    localStorage.setItem('memory-preview', JSON.stringify(serializableMemory));
     window.open(`/p/preview`, '_blank');
   };
 
@@ -390,7 +372,7 @@ export default function MemoryEditorPage() {
                 
                 {/* About Section */}
                 <div 
-                    className="group relative mt-24 sm:mt-28 text-center px-4 cursor-pointer"
+                    className="group relative pt-24 sm:pt-28 text-center px-4 cursor-pointer"
                     onClick={() => setIsAboutModalOpen(true)}
                 >
                      <div className="inline-block relative">

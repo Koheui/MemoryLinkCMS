@@ -38,7 +38,9 @@ async function fetchPublicPageManifest(pageId: string): Promise<PublicPage | nul
 
 // Convert Memory to PublicPage for rendering. This is used for previewing.
 // It tries to construct a PublicPage object from a Memory object.
-function convertMemoryToPublicPage(memory: Memory): PublicPage {
+function convertMemoryToPublicPage(memory: any): PublicPage {
+    const getAssetUrlById = (assetId: string) => memory.assets?.find((a: any) => a.id === assetId)?.url;
+
     return {
         id: memory.id,
         memoryId: memory.id,
@@ -49,18 +51,35 @@ function convertMemoryToPublicPage(memory: Memory): PublicPage {
         },
         design: memory.design,
         media: {
-            // @ts-ignore - these are added dynamically from editor in handlePreview
-            cover: { url: memory.media?.cover?.url || "https://placehold.co/1200x480.png" },
-             // @ts-ignore
-            profile: { url: memory.media?.profile?.url || "https://placehold.co/400x400.png" },
+            cover: { url: getAssetUrlById(memory.coverAssetId) || "https://placehold.co/1200x480.png", width: 1200, height: 480 },
+            profile: { url: getAssetUrlById(memory.profileAssetId) || "https://placehold.co/400x400.png", width: 400, height: 400 },
         },
         ordering: 'custom',
-        blocks: memory.blocks,
+        blocks: memory.blocks.map((block: any) => {
+            const newBlock = { ...block };
+            if (newBlock.type === 'photo' && newBlock.photo?.assetId) {
+                newBlock.photo.src = getAssetUrlById(newBlock.photo.assetId);
+            }
+            if (newBlock.type === 'video' && newBlock.video?.assetId) {
+                const asset = memory.assets.find((a: any) => a.id === newBlock.video?.assetId);
+                newBlock.video.src = asset?.url;
+                newBlock.video.poster = asset?.thumbnailUrl;
+            }
+            if (newBlock.type === 'audio' && newBlock.audio?.assetId) {
+                newBlock.audio.src = getAssetUrlById(newBlock.audio.assetId);
+            }
+            if (newBlock.type === 'album' && newBlock.album?.assetIds) {
+                newBlock.album.items = newBlock.album.assetIds.map((id: string) => ({ src: getAssetUrlById(id) || '' }));
+            }
+            return newBlock;
+        }),
         publish: {
             status: 'published',
-            publishedAt: new Date(),
+            publishedAt: new Date(memory.publishedAt),
         },
-    };
+        createdAt: new Date(memory.createdAt),
+        updatedAt: new Date(memory.updatedAt),
+    } as PublicPage;
 }
 
 
@@ -181,7 +200,6 @@ export default function PublicPage({ params }: { params: { pageId: string } }) {
             const storedPreviewData = localStorage.getItem('memory-preview');
             if (storedPreviewData) {
                 try {
-                    // The data in localStorage is already in the final `PublicPage` shape.
                     const parsedData = JSON.parse(storedPreviewData);
                     pageData = convertMemoryToPublicPage(parsedData);
                 } catch(e) {
