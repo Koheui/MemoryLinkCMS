@@ -19,7 +19,8 @@ import ffmpeg from "fluent-ffmpeg";
 
 admin.initializeApp();
 
-setGlobalOptions({maxInstances: 10, region: "asia-northeast1"});
+// Set the region to match the project's region (e.g., asia-northeast1)
+setGlobalOptions({region: "asia-northeast1"});
 
 // This is the correct signature for the onObjectFinalized trigger.
 export const generateThumbnail = onObjectFinalized({
