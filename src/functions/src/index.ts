@@ -78,7 +78,7 @@ export const generateThumbnail = storage.onObjectFinalized({
             reject(err);
           })
           .screenshots({
-            timestamps: [1], // Take screenshot at 1 second
+            timestamps: ["1%"],
             filename: thumbFileName,
             folder: os.tmpdir(),
             size: "320x240",
