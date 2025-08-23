@@ -15,9 +15,15 @@ import { Badge } from '@/components/ui/badge';
 // This function now only fetches the static manifest for production builds.
 // For preview, we'll use localStorage.
 async function fetchPublicPageManifest(pageId: string): Promise<PublicPage | null> {
+  // In a real production environment, you might want to get the bucket name from an env var.
+  const bucketName = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
+  if (!bucketName) {
+      console.error("Firebase Storage bucket name is not configured.");
+      return null;
+  }
   // Production fetch from Storage
   try {
-    const res = await fetch(`https://storage.googleapis.com/${process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET}/deliver/publicPages/${pageId}/manifest.json`, { next: { revalidate: 300 }});
+    const res = await fetch(`https://storage.googleapis.com/${bucketName}/deliver/publicPages/${pageId}/manifest.json`, { next: { revalidate: 300 }});
     if (!res.ok) {
         console.error(`Failed to fetch manifest for ${pageId}: ${res.statusText}`);
         return null;
@@ -30,40 +36,33 @@ async function fetchPublicPageManifest(pageId: string): Promise<PublicPage | nul
   }
 }
 
-// MOCK DATA for local development and previewing if localStorage is empty
-const mockData: PublicPage = {
-    id: "preview",
-    memoryId: "mockMemoryId",
-    title: "岡 浩平 (プレビュー)",
-    about: {
-        text: "FutureStudio株式会社 代表取締役。大切な人との想い出を、永遠の形に残すお手伝いをします。NFCタグに想い出を込めて、いつでもどこでも、スマートフォンをかざすだけで、大切な記憶が鮮やかに蘇ります。",
-        format: "plain",
-    },
-    design: {
-        theme: "dark",
-        accentColor: "#3B82F6",
-        bgColor: "#111827",
-        fontScale: 1.0,
-        fontFamily: "sans-serif",
-        headlineFontFamily: "sans-serif",
-    },
-    media: {
-        cover: { url: "https://placehold.co/1200x480.png", width: 1200, height: 480 },
-        profile: { url: "https://placehold.co/400x400.png", width: 400, height: 400 },
-    },
-    ordering: "custom",
-    blocks: [
-      { id: '1', type: 'text', title: 'ウェブサイト', icon: 'globe', visibility: 'show', order: 0, createdAt: new Date(), updatedAt: new Date() } as any,
-      { id: '2', type: 'text', title: 'YouTubeチャンネル', icon: 'youtube', visibility: 'show', order: 1, createdAt: new Date(), updatedAt: new Date() } as any,
-      { id: '7', type: 'album', title: '新婚旅行アルバム', order: 2, visibility: 'show', createdAt: new Date(), updatedAt: new Date(), album: { layout: 'carousel', assetIds: ['a1','a2','a3'], items: [
-        { src: 'https://placehold.co/600x400.png' }, { src: 'https://placehold.co/600x400.png' }, { src: 'https://placehold.co/600x400.png' }
-      ]}} as any,
-    ],
-    publish: {
-        status: "published",
-        publishedAt: new Date().toISOString() as any,
-    }
-};
+// Convert Memory to PublicPage for rendering. This is used for previewing.
+// It tries to construct a PublicPage object from a Memory object.
+function convertMemoryToPublicPage(memory: Memory): PublicPage {
+    return {
+        id: memory.id,
+        memoryId: memory.id,
+        title: memory.title,
+        about: {
+            text: memory.description,
+            format: 'plain'
+        },
+        design: memory.design,
+        media: {
+            // @ts-ignore - these are added dynamically from editor in handlePreview
+            cover: { url: memory.media?.cover?.url || "https://placehold.co/1200x480.png" },
+             // @ts-ignore
+            profile: { url: memory.media?.profile?.url || "https://placehold.co/400x400.png" },
+        },
+        ordering: 'custom',
+        blocks: memory.blocks,
+        publish: {
+            status: 'published',
+            publishedAt: new Date(),
+        },
+    };
+}
+
 
 const blockIcons: { [key: string]: React.ReactNode } = {
   globe: <Globe className="h-6 w-6" />,
@@ -168,32 +167,6 @@ const BlockRenderer = ({ block }: { block: PublicPageBlock }) => {
     }
 }
 
-// Convert Memory to PublicPage for rendering
-function convertMemoryToPublicPage(memory: Memory): PublicPage {
-    return {
-        id: memory.id,
-        memoryId: memory.id,
-        title: memory.title,
-        about: {
-            text: memory.description,
-            format: 'plain'
-        },
-        design: memory.design,
-        media: {
-            // @ts-ignore - these are added dynamically from editor
-            cover: { url: memory.media?.cover?.url || "https://placehold.co/1200x480.png" },
-             // @ts-ignore
-            profile: { url: memory.media?.profile?.url || "https://placehold.co/400x400.png" },
-        },
-        ordering: 'custom',
-        blocks: memory.blocks,
-        publish: {
-            status: 'published',
-            publishedAt: new Date(),
-        },
-    };
-}
-
 
 export default function PublicPage({ params }: { params: { pageId: string } }) {
   const [manifest, setManifest] = useState<PublicPage | null>(null);
@@ -208,14 +181,12 @@ export default function PublicPage({ params }: { params: { pageId: string } }) {
             const storedPreviewData = localStorage.getItem('memory-preview');
             if (storedPreviewData) {
                 try {
-                    const memoryData = JSON.parse(storedPreviewData) as Memory;
-                    pageData = convertMemoryToPublicPage(memoryData);
+                    // The data in localStorage is already in the final `PublicPage` shape.
+                    const parsedData = JSON.parse(storedPreviewData);
+                    pageData = convertMemoryToPublicPage(parsedData);
                 } catch(e) {
                     console.error("Failed to parse preview data from localStorage", e);
-                    pageData = mockData; // fallback
                 }
-            } else {
-                pageData = mockData; // fallback
             }
         } else {
             pageData = await fetchPublicPageManifest(params.pageId);
@@ -240,7 +211,16 @@ export default function PublicPage({ params }: { params: { pageId: string } }) {
   }
 
   if (!manifest) {
-    notFound();
+    return (
+        <div className="flex min-h-screen flex-col items-center justify-center bg-gray-900 text-white text-center p-4">
+            <h1 className="text-2xl font-bold">ページが見つかりません</h1>
+            <p className="mt-2 text-gray-300">
+                {params.pageId === 'preview' 
+                    ? 'プレビューデータが見つかりませんでした。編集画面から再度プレビューボタンを押してください。'
+                    : 'この想い出ページは存在しないか、まだ公開されていません。'}
+            </p>
+        </div>
+    );
   }
 
   return (
@@ -260,6 +240,7 @@ export default function PublicPage({ params }: { params: { pageId: string } }) {
                 priority
                 data-ai-hint="background scenery"
                 className="object-cover"
+                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             />
           </div>
           <div className="relative h-36 w-36 overflow-hidden rounded-full border-4 border-gray-900/50 shadow-lg backdrop-blur-sm md:h-40 md:w-40">
@@ -269,6 +250,7 @@ export default function PublicPage({ params }: { params: { pageId: string } }) {
                     fill
                     data-ai-hint="portrait person"
                     className="object-cover"
+                    sizes="160px"
                 />
           </div>
           <div className="mt-5 text-center">

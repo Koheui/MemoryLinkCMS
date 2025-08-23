@@ -46,14 +46,14 @@ export default function MemoryEditorPage() {
   );
   
   const fetchAllData = useCallback(async (currentMemoryId: string, currentUid: string) => {
-    setLoading(true);
+    // setLoading(true) is not set here to avoid re-showing loader on block updates
     try {
       const memoryDocRef = doc(db, 'memories', currentMemoryId);
       const memoryDocSnap = await getDoc(memoryDocRef);
 
       if (!memoryDocSnap.exists() || memoryDocSnap.data()?.ownerUid !== currentUid) {
         console.error("Memory not found or access denied.");
-        setMemory(null);
+        setMemory(null); // This will trigger notFound()
         setLoading(false);
         return;
       }
@@ -66,7 +66,7 @@ export default function MemoryEditorPage() {
       
       setMemory(memoryData);
 
-      // Fetch assets after memory data is fetched
+      // Fetch assets associated with the user
       const assetsQuery = query(
         collection(db, 'assets'),
         where('ownerUid', '==', currentUid)
@@ -81,6 +81,7 @@ export default function MemoryEditorPage() {
           } as Asset
       });
 
+      // Client-side sort
       fetchedAssets.sort((a, b) => {
         const dateA = a.createdAt instanceof Date ? a.createdAt.getTime() : 0;
         const dateB = b.createdAt instanceof Date ? b.createdAt.getTime() : 0;
@@ -92,7 +93,7 @@ export default function MemoryEditorPage() {
     } catch (e) {
       console.error("Error fetching page data:", e);
       toast({ variant: 'destructive', title: "Error", description: "ページデータの読み込みに失敗しました。" });
-      setMemory(null);
+      setMemory(null); // This will trigger notFound()
     } finally {
         setLoading(false);
     }
@@ -101,6 +102,7 @@ export default function MemoryEditorPage() {
 
   useEffect(() => {
     if (authLoading || !user || !memoryId) return;
+    setLoading(true);
     fetchAllData(memoryId, user.uid);
   }, [memoryId, user, authLoading, fetchAllData]);
   
@@ -138,6 +140,7 @@ export default function MemoryEditorPage() {
 
   const handleAssetUpload = (asset: Asset) => {
     setAssets(prevAssets => {
+      // Avoid duplicates and add new asset to the top
       if (prevAssets.some(a => a.id === asset.id)) {
         return prevAssets;
       }
@@ -255,7 +258,7 @@ export default function MemoryEditorPage() {
     window.open(`/p/preview`, '_blank');
   };
 
-  if (loading || authLoading || !memory || !assets) {
+  if (loading || authLoading) {
      return (
         <div className="flex h-screen items-center justify-center bg-background">
             <Loader2 className="h-10 w-10 animate-spin text-primary" />
@@ -331,7 +334,7 @@ export default function MemoryEditorPage() {
                         onClick={() => setIsCoverPhotoModalOpen(true)}
                     >
                         {coverImageUrl ? (
-                            <Image src={coverImageUrl} alt="カバー画像" fill className="object-cover" sizes="(max-width: 768px) 100vw, 896px" />
+                            <Image src={coverImageUrl} alt="カバー画像" fill sizes="(max-width: 768px) 100vw, 896px" className="object-cover" />
                         ) : (
                              <ImageIcon className="h-12 w-12 text-muted-foreground" />
                         )}
@@ -344,7 +347,7 @@ export default function MemoryEditorPage() {
                         onClick={() => setIsAboutModalOpen(true)}
                      >
                         {profileImageUrl ? (
-                             <Image src={profileImageUrl} alt="プロフィール画像" fill className="object-cover" sizes="160px" />
+                             <Image src={profileImageUrl} alt="プロフィール画像" fill sizes="160px" className="object-cover" />
                         ) : (
                             <ImageIcon className="h-10 w-10 text-muted-foreground" />
                         )}
