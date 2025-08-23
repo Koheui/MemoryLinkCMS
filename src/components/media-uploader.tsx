@@ -6,7 +6,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { storage, db, serverTimestamp } from '@/lib/firebase/client';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { collection, addDoc, doc, updateDoc, getDoc } from 'firebase/firestore';
+import { collection, addDoc, doc, updateDoc, getDoc, Timestamp } from 'firebase/firestore';
 import type { Asset } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
 
@@ -15,7 +15,7 @@ interface MediaUploaderProps {
   accept: string;
   children: ReactNode;
   onUploadSuccess?: (asset: Asset) => void;
-  memoryId?: string; // Make optional for library-wide uploads
+  memoryId?: string; // If provided, asset is associated with a memory
 }
 
 export function MediaUploader({ assetType, accept, children, onUploadSuccess, memoryId }: MediaUploaderProps) {
@@ -36,17 +36,22 @@ export function MediaUploader({ assetType, accept, children, onUploadSuccess, me
     setIsUploading(true);
     if (fileInputRef.current) fileInputRef.current.value = "";
     
-    // Path now depends on whether memoryId is provided
-    const storagePath = memoryId 
-      ? `users/${user.uid}/memories/${memoryId}/${assetType}/${Date.now()}_${file.name}`
-      : `users/${user.uid}/library/${assetType}/${Date.now()}_${file.name}`;
+    // All assets uploaded from the editor are stored within the memory's subcollection path.
+    // Library uploads (memoryId is undefined) are not implemented yet.
+    if (!memoryId) {
+        toast({ variant: 'destructive', title: 'エラー', description: 'アップロード先となるページが指定されていません。' });
+        setIsUploading(false);
+        return;
+    }
+
+    const storagePath = `users/${user.uid}/memories/${memoryId}/assets/${Date.now()}_${file.name}`;
+    const assetCollectionRef = collection(db, 'memories', memoryId, 'assets');
     
     try {
-      // 1. Create a document in the root 'assets' collection
-      const assetCollectionRef = collection(db, 'assets');
+      // 1. Create a document in the 'memories/{memoryId}/assets' subcollection
       const assetData: Omit<Asset, 'id' | 'createdAt' | 'updatedAt' | 'url'> = {
         ownerUid: user.uid,
-        memoryId: memoryId || null,
+        memoryId: memoryId, // Associate with the current memory
         name: file.name,
         type: assetType,
         size: file.size,
@@ -78,14 +83,22 @@ export function MediaUploader({ assetType, accept, children, onUploadSuccess, me
           // 3. Once upload is complete, get the URL and update the Firestore document
           const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
           
-          const finalAssetDoc = doc(db, 'assets', docRef.id);
+          const finalAssetDoc = doc(db, 'memories', memoryId, 'assets', docRef.id);
           await updateDoc(finalAssetDoc, {
             url: downloadURL,
             updatedAt: serverTimestamp(),
           });
           
           const finalAssetSnapshot = await getDoc(finalAssetDoc);
-          const finalAsset = { id: finalAssetSnapshot.id, ...finalAssetSnapshot.data() } as Asset;
+          const finalDocData = finalAssetSnapshot.data();
+
+          const finalAsset: Asset = { 
+            id: finalAssetSnapshot.id,
+            ...finalDocData,
+            // Convert Timestamps to Dates for client-side use
+            createdAt: (finalDocData?.createdAt as Timestamp).toDate(),
+            updatedAt: (finalDocData?.updatedAt as Timestamp).toDate(),
+          } as Asset;
 
           onUploadSuccess?.(finalAsset);
 

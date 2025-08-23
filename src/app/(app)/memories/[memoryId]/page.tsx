@@ -4,9 +4,9 @@
 import { Button } from '@/components/ui/button';
 import type { Memory, PublicPageBlock, Asset } from '@/lib/types';
 import { db } from '@/lib/firebase/client';
-import { doc, onSnapshot, collection, query, orderBy, writeBatch, deleteDoc, where, getDocs, Timestamp } from 'firebase/firestore';
+import { doc, onSnapshot, collection, query, orderBy, writeBatch, deleteDoc, getDocs, Timestamp } from 'firebase/firestore';
 import { notFound, useParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Eye, Loader2, PlusCircle, Edit, Image as ImageIcon, Trash2 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
@@ -45,6 +45,25 @@ export default function MemoryEditorPage() {
     })
   );
 
+  const fetchAssetsForMemory = useCallback(async (currentMemoryId: string) => {
+    try {
+      // Efficiently query only the assets belonging to this specific memory page.
+      const assetsQuery = query(collection(db, 'memories', currentMemoryId, 'assets'), orderBy('createdAt', 'desc'));
+      const assetsSnapshot = await getDocs(assetsQuery);
+      const fetchedAssets: Asset[] = assetsSnapshot.docs.map(docSnap => ({ 
+          id: docSnap.id, 
+          ...docSnap.data(),
+          createdAt: (docSnap.data().createdAt as Timestamp).toDate(),
+          updatedAt: (docSnap.data().updatedAt as Timestamp).toDate(),
+      } as Asset));
+      setAssets(fetchedAssets);
+    } catch (e) {
+        console.error("Failed to fetch assets for memory:", e);
+        toast({ variant: 'destructive', title: "アセット読み込みエラー", description: "このページのメディアファイルの読み込みに失敗しました。" });
+    }
+  }, [toast]);
+
+
   // Fetch all required data
   useEffect(() => {
     if (authLoading || !user || !memoryId) return;
@@ -61,12 +80,15 @@ export default function MemoryEditorPage() {
             unsubMemory = onSnapshot(memoryDocRef, (doc) => {
                 if (doc.exists() && doc.data()?.ownerUid === user.uid) {
                      setMemory({ id: doc.id, ...doc.data() } as Memory);
+                     // Fetch or re-fetch assets when memory data is loaded/updated
+                     fetchAssetsForMemory(doc.id);
                 } else {
                     console.error("Memory not found or access denied.");
                     setMemory(null);
                 }
             }, (error) => {
               console.error("Error fetching memory:", error);
+              toast({ variant: 'destructive', title: "Error", description: "ページデータの読み込みに失敗しました。" });
               setMemory(null);
             });
 
@@ -77,19 +99,8 @@ export default function MemoryEditorPage() {
                 setBlocks(fetchedBlocks);
             });
 
-            // One-time fetch for assets
-            const assetsQuery = query(collection(db, 'assets'), where('ownerUid', '==', user.uid), orderBy('createdAt', 'desc'));
-            const assetsSnapshot = await getDocs(assetsQuery);
-            const fetchedAssets: Asset[] = assetsSnapshot.docs.map(docSnap => ({ 
-                id: docSnap.id, 
-                ...docSnap.data(),
-                createdAt: (docSnap.data().createdAt as Timestamp).toDate(),
-                updatedAt: (docSnap.data().updatedAt as Timestamp).toDate(),
-            } as Asset));
-            setAssets(fetchedAssets);
-
         } catch (error) {
-            console.error("Error fetching page data:", error);
+            console.error("Error setting up page data listeners:", error);
             toast({ variant: 'destructive', title: "Error", description: "ページのデータ読み込みに失敗しました。" });
         } finally {
             setLoading(false);
@@ -104,7 +115,7 @@ export default function MemoryEditorPage() {
       if (unsubBlocks) unsubBlocks();
     }
 
-  }, [memoryId, user, authLoading, toast]);
+  }, [memoryId, user, authLoading, toast, fetchAssetsForMemory]);
   
   async function handleDragEnd(event: DragEndEvent) {
     const {active, over} = event;
@@ -142,6 +153,11 @@ export default function MemoryEditorPage() {
     setIsBlockModalOpen(true);
   };
 
+  const handleAssetUpload = (asset: Asset) => {
+     // Add the new asset to the top of the list for immediate UI feedback.
+    setAssets(prevAssets => [asset, ...prevAssets]);
+  }
+
 
   if (loading || authLoading) {
      return (
@@ -167,6 +183,7 @@ export default function MemoryEditorPage() {
             setIsOpen={setIsDesignModalOpen}
             memory={memory}
             assets={assets}
+            onUploadSuccess={handleAssetUpload}
         />
        )}
        {isAboutModalOpen && memory && (
@@ -184,6 +201,7 @@ export default function MemoryEditorPage() {
             assets={assets}
             block={editingBlock}
             blockCount={blocks.length}
+            onUploadSuccess={handleAssetUpload}
         />
        )}
 

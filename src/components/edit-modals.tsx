@@ -19,7 +19,7 @@ import Image from 'next/image';
 import { MediaUploader } from './media-uploader';
 
 // Design Modal (Cover & Profile Image)
-export function DesignModal({ isOpen, setIsOpen, memory, assets }: { isOpen: boolean, setIsOpen: (open: boolean) => void, memory: Memory, assets: Asset[] }) {
+export function DesignModal({ isOpen, setIsOpen, memory, assets, onUploadSuccess }: { isOpen: boolean, setIsOpen: (open: boolean) => void, memory: Memory, assets: Asset[], onUploadSuccess: (asset: Asset) => void }) {
     const [coverAssetId, setCoverAssetId] = useState(memory.coverAssetId);
     const [profileAssetId, setProfileAssetId] = useState(memory.profileAssetId);
     const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null);
@@ -62,13 +62,19 @@ export function DesignModal({ isOpen, setIsOpen, memory, assets }: { isOpen: boo
             setIsSaving(false);
         }
     }
-
-    const handleUploadSuccess = (asset: Asset) => {
-        // This function might be too generic if both uploaders use it.
-        // Let's defer deciding which state to update based on some context,
-        // but for now, I'll just set both, which is not ideal. A better approach is needed if this becomes an issue.
-         toast({ title: "アップロード完了", description: `'${asset.name}'をアップロードしました。`})
+    
+    const handleCoverUploadSuccess = (asset: Asset) => {
+        onUploadSuccess(asset); // Propagate to parent to update main asset list
+        setCoverAssetId(asset.id);
+        toast({ title: "アップロード完了", description: "カバー画像に設定しました。"});
     }
+
+    const handleProfileUploadSuccess = (asset: Asset) => {
+        onUploadSuccess(asset); // Propagate to parent to update main asset list
+        setProfileAssetId(asset.id);
+        toast({ title: "アップロード完了", description: "プロフィール画像に設定しました。"});
+    }
+
 
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -81,7 +87,7 @@ export function DesignModal({ isOpen, setIsOpen, memory, assets }: { isOpen: boo
                     <div>
                         <Label>カバー画像</Label>
                         <div className="flex gap-2">
-                             <Select onValueChange={(value) => setCoverAssetId(value || undefined)} value={coverAssetId ?? undefined}>
+                             <Select onValueChange={(value) => setCoverAssetId(value !== 'no-selection' ? value : undefined)} value={coverAssetId ?? 'no-selection'}>
                                 <SelectTrigger><SelectValue placeholder="カバー画像を選択..." /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="no-selection">なし</SelectItem>
@@ -92,10 +98,7 @@ export function DesignModal({ isOpen, setIsOpen, memory, assets }: { isOpen: boo
                                 assetType="image"
                                 accept="image/*"
                                 memoryId={memory.id}
-                                onUploadSuccess={(asset) => {
-                                    setCoverAssetId(asset.id);
-                                    toast({ title: "アップロード完了", description: "カバー画像に設定しました。"})
-                                }}
+                                onUploadSuccess={handleCoverUploadSuccess}
                             >
                                 <Button type="button" variant="outline" size="icon"><Upload className="h-4 w-4"/></Button>
                             </MediaUploader>
@@ -107,7 +110,7 @@ export function DesignModal({ isOpen, setIsOpen, memory, assets }: { isOpen: boo
                      <div>
                         <Label>プロフィール画像</Label>
                         <div className="flex gap-2">
-                            <Select onValueChange={(value) => setProfileAssetId(value || undefined)} value={profileAssetId ?? undefined}>
+                            <Select onValueChange={(value) => setProfileAssetId(value !== 'no-selection' ? value : undefined)} value={profileAssetId ?? 'no-selection'}>
                                 <SelectTrigger><SelectValue placeholder="プロフィール画像を選択..." /></SelectTrigger>
                                 <SelectContent>
                                 <SelectItem value="no-selection">なし</SelectItem>
@@ -118,10 +121,7 @@ export function DesignModal({ isOpen, setIsOpen, memory, assets }: { isOpen: boo
                                 assetType="image"
                                 accept="image/*"
                                 memoryId={memory.id}
-                                onUploadSuccess={(asset) => {
-                                    setProfileAssetId(asset.id);
-                                    toast({ title: "アップロード完了", description: "プロフィール画像に設定しました。"})
-                                }}
+                                onUploadSuccess={handleProfileUploadSuccess}
                             >
                                 <Button type="button" variant="outline" size="icon"><Upload className="h-4 w-4"/></Button>
                             </MediaUploader>
@@ -211,7 +211,7 @@ export function AboutModal({ isOpen, setIsOpen, memory }: { isOpen: boolean, set
 }
 
 // Block Modal (Create or Edit Block)
-export function BlockModal({ isOpen, setIsOpen, memory, assets, block, blockCount }: { isOpen: boolean, setIsOpen: (open: boolean) => void, memory: Memory, assets: Asset[], block: PublicPageBlock | null, blockCount: number }) {
+export function BlockModal({ isOpen, setIsOpen, memory, assets, block, blockCount, onUploadSuccess }: { isOpen: boolean, setIsOpen: (open: boolean) => void, memory: Memory, assets: Asset[], block: PublicPageBlock | null, blockCount: number, onUploadSuccess: (asset: Asset) => void }) {
     const [blockType, setBlockType] = useState<PublicPageBlock['type'] | null>(null);
     const [title, setTitle] = useState('');
     const [selectedAssetId, setSelectedAssetId] = useState<string | undefined>(undefined);
@@ -298,9 +298,10 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, blockCoun
         }
     };
     
-    const handleUploadSuccess = (asset: Asset) => {
+    const handleUploadAndSelect = (asset: Asset) => {
+        onUploadSuccess(asset); // Propagate to parent to update main asset list
         setSelectedAssetId(asset.id);
-        toast({ title: "アップロード完了", description: `'${asset.name}'のアップロードが完了しました。`});
+        toast({ title: "アップロード完了", description: `'${asset.name}'をアップロードし、選択しました。`});
     }
 
     const renderAssetSelector = (
@@ -321,7 +322,7 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, blockCoun
                     assetType={type}
                     accept={`${type}/*`}
                     memoryId={memory.id}
-                    onUploadSuccess={handleUploadSuccess}
+                    onUploadSuccess={handleUploadAndSelect}
                 >
                     <Button type="button" variant="outline" size="icon"><Upload className="h-4 w-4"/></Button>
                 </MediaUploader>
