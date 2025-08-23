@@ -66,6 +66,7 @@ export default function MemoryEditorPage() {
       
       setMemory(memoryData);
 
+      // Fetch assets after memory data is fetched
       const assetsQuery = query(
         collection(db, 'assets'),
         where('ownerUid', '==', currentUid)
@@ -247,7 +248,7 @@ export default function MemoryEditorPage() {
     window.open(`/p/preview`, '_blank');
   };
 
-  if (loading || authLoading) {
+  if (loading || authLoading || !memory || !assets) {
      return (
         <div className="flex h-screen items-center justify-center bg-background">
             <Loader2 className="h-10 w-10 animate-spin text-primary" />
@@ -416,14 +417,12 @@ function SortableBlockItem({ block, assets, onEdit, onDelete }: { block: PublicP
             const asset = assets.find(a => a.id === block.photo?.assetId);
             if (asset?.url) {
                 return (
-                    <div className='flex items-center gap-3'>
-                        <div className="w-10 h-10 bg-muted rounded-md overflow-hidden relative flex-shrink-0">
-                             <Image src={asset.url} alt={block.title || 'Photo thumbnail'} fill className="object-cover" sizes="40px" />
+                    <div className="w-full p-2">
+                        <p className="font-semibold text-sm mb-2">{block.title || "無題の写真"}</p>
+                        <div className="relative aspect-video w-full overflow-hidden rounded-lg">
+                           <Image src={asset.url} alt={block.title || 'Photo content'} fill sizes="(max-width: 768px) 100vw, 80vw" className="object-cover" />
                         </div>
-                        <div>
-                             <p className="font-semibold">{block.title || "無題の写真"}</p>
-                             <p className="text-sm text-muted-foreground truncate max-w-xs">{asset.name}</p>
-                        </div>
+                        {block.photo.caption && <p className="text-sm text-muted-foreground mt-2">{block.photo.caption}</p>}
                     </div>
                 )
             }
@@ -431,7 +430,7 @@ function SortableBlockItem({ block, assets, onEdit, onDelete }: { block: PublicP
 
         // Fallback for other types or if photo asset not found
         return (
-             <div className="flex items-center gap-3">
+             <div className="flex flex-grow items-center gap-3 p-3">
                 <div className="w-10 h-10 bg-muted rounded-md flex items-center justify-center flex-shrink-0">
                     {blockIcons[block.type] || <GripVertical className="w-5 h-5" />}
                 </div>
@@ -449,10 +448,10 @@ function SortableBlockItem({ block, assets, onEdit, onDelete }: { block: PublicP
              <button {...attributes} {...listeners} className="cursor-grab p-4 touch-none self-stretch flex items-center">
                 <GripVertical className="h-5 w-5 text-muted-foreground" />
             </button>
-            <div className="flex-grow cursor-pointer py-3 pr-2" onClick={onEdit}>
+            <div className="flex-grow cursor-pointer" onClick={onEdit}>
                 {renderBlockContent()}
             </div>
-            <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2 absolute right-4 top-1/2 -translate-y-1/2 bg-card">
+            <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2 absolute right-4 top-4 bg-card/50 backdrop-blur-sm rounded-md p-1">
                 <Button variant="outline" size="icon" onClick={onEdit}>
                     <Edit className="h-4 w-4" />
                     <span className="sr-only">編集</span>
