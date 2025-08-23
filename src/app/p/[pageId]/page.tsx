@@ -243,7 +243,7 @@ export default function PublicPage({ params }: { params: { pageId: string } }) {
                 sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             />
           </div>
-          <div className="relative -mt-[72px] mb-4 h-36 w-36 overflow-hidden rounded-full border-4 border-gray-900/50 shadow-lg backdrop-blur-sm md:-mt-20 md:h-40 md:w-40">
+          <div className="relative -mt-20 h-40 w-40 overflow-hidden rounded-full border-4 border-gray-900/50 shadow-lg backdrop-blur-sm">
                  <Image 
                     src={manifest.media.profile.url}
                     alt="Profile"
@@ -253,7 +253,7 @@ export default function PublicPage({ params }: { params: { pageId: string } }) {
                     sizes="160px"
                 />
           </div>
-          <div className="mt-4 text-center">
+          <div className="mt-6 text-center">
             <h1 className="text-3xl font-bold sm:text-4xl">{manifest.title}</h1>
             <p className="mt-2 text-base text-gray-300 max-w-prose">{manifest.about.text}</p>
           </div>
