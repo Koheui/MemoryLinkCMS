@@ -243,15 +243,17 @@ export default function PublicPage({ params }: { params: { pageId: string } }) {
                     sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                 />
             </div>
-            <div className="relative -mt-20 h-40 w-40 overflow-hidden rounded-full border-4 border-gray-900/50 shadow-lg backdrop-blur-sm">
-                <Image 
-                    src={manifest.media.profile.url}
-                    alt="Profile"
-                    fill
-                    data-ai-hint="portrait person"
-                    className="object-cover"
-                    sizes="160px"
-                />
+            <div className="relative -mt-20 flex-shrink-0">
+                <div className="h-40 w-40 overflow-hidden rounded-full border-4 border-gray-900/50 shadow-lg backdrop-blur-sm">
+                    <Image 
+                        src={manifest.media.profile.url}
+                        alt="Profile"
+                        fill
+                        data-ai-hint="portrait person"
+                        className="object-cover"
+                        sizes="160px"
+                    />
+                </div>
             </div>
             <div className="mt-4 text-center">
                 <h1 className="text-3xl font-bold sm:text-4xl">{manifest.title}</h1>
