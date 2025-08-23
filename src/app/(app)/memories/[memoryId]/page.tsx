@@ -196,35 +196,39 @@ export default function MemoryEditorPage() {
       } : null);
   }
   
-   const handleDeleteBlock = async (blockId: string) => {
+   const handleDeleteBlock = async (blockIdToDelete: string) => {
     if (!memory) return;
 
-    if (!window.confirm("このブロックを本当に削除しますか？")) return;
+    if (!window.confirm("このブロックを本当に削除しますか？この操作は取り消せません。")) return;
 
     try {
-      const memoryRef = doc(db, 'memories', memoryId);
-      
-      const updatedBlocks = memory.blocks
-        .filter((b) => b.id !== blockId)
-        .map((b, index) => ({ ...b, order: index }));
-      
-      await updateDoc(memoryRef, {
-        blocks: updatedBlocks,
-        updatedAt: serverTimestamp(),
-      });
+        const memoryRef = doc(db, 'memories', memoryId);
 
-      setMemory((prev) => {
-        if (!prev) return null;
-        return { ...prev, blocks: updatedBlocks };
-      });
-      toast({ title: 'ブロックを削除しました' });
+        // Filter out the block to be deleted
+        const updatedBlocks = memory.blocks
+            .filter((b) => b.id !== blockIdToDelete)
+            .map((b, index) => ({ ...b, order: index })); // Re-order the remaining blocks
+
+        // Update the document with the new blocks array
+        await updateDoc(memoryRef, {
+            blocks: updatedBlocks,
+            updatedAt: serverTimestamp(),
+        });
+
+        // Update local state
+        setMemory((prev) => {
+            if (!prev) return null;
+            return { ...prev, blocks: updatedBlocks };
+        });
+
+        toast({ title: '成功', description: 'ブロックを削除しました。' });
     } catch (error) {
-      console.error('Failed to delete block:', error);
-      toast({
-        variant: 'destructive',
-        title: 'エラー',
-        description: 'ブロックの削除に失敗しました。',
-      });
+        console.error('Failed to delete block:', error);
+        toast({
+            variant: 'destructive',
+            title: 'エラー',
+            description: 'ブロックの削除中にエラーが発生しました。',
+        });
     }
   };
 
@@ -424,6 +428,8 @@ function SortableBlockItem({ block, assets, onEdit, onDelete }: { block: PublicP
     };
 
     const handleDeleteClick = (e: React.MouseEvent) => {
+        // Prevent the click from triggering other events like drag start or edit.
+        e.preventDefault();
         e.stopPropagation();
         onDelete();
     };
@@ -507,5 +513,3 @@ function SortableBlockItem({ block, assets, onEdit, onDelete }: { block: PublicP
         </div>
     );
 }
-
-    
