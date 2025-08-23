@@ -5,7 +5,7 @@
 import { Button } from '@/components/ui/button';
 import type { Memory, PublicPageBlock, Asset } from '@/lib/types';
 import { db } from '@/lib/firebase/client';
-import { doc, getDoc, Timestamp, updateDoc, serverTimestamp, collection, getDocs, query, where, arrayRemove } from 'firebase/firestore';
+import { doc, getDoc, Timestamp, updateDoc, serverTimestamp, collection, getDocs, query, where, onSnapshot } from 'firebase/firestore';
 import { notFound, useParams } from 'next/navigation';
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Eye, Loader2, PlusCircle, Edit, Image as ImageIcon, Trash2, GripVertical, Type as TypeIcon, Video as VideoIcon, Mic, Album, Clapperboard } from 'lucide-react';
@@ -59,65 +59,50 @@ export default function MemoryEditorPage() {
     })
   );
   
-  const fetchAllData = useCallback(async (currentMemoryId: string, currentUid: string) => {
-    setLoading(true);
-    try {
-      const memoryDocRef = doc(db, 'memories', currentMemoryId);
-      const memoryDocSnap = await getDoc(memoryDocRef);
-
-      if (!memoryDocSnap.exists() || memoryDocSnap.data()?.ownerUid !== currentUid) {
-        console.error("Memory not found or access denied.");
-        setMemory(null);
-        setLoading(false);
-        return;
-      }
-      
-      const memoryData = { 
-        id: memoryDocSnap.id, 
-        ...memoryDocSnap.data(),
-        blocks: (memoryDocSnap.data().blocks || []).sort((a: PublicPageBlock, b: PublicPageBlock) => a.order - b.order)
-      } as Memory;
-      
-      setMemory(memoryData);
-
-      // Fetch assets associated with the user
-      const assetsQuery = query(
-        collection(db, 'assets'),
-        where('ownerUid', '==', currentUid)
-      );
-      const assetsSnap = await getDocs(assetsQuery);
-      const fetchedAssets = assetsSnap.docs.map(d => {
-          const data = d.data();
-          return {
-            id: d.id,
-            ...data,
-            createdAt: (data.createdAt as Timestamp)?.toDate() || new Date()
-          } as Asset
-      });
-
-      // Client-side sort
-      fetchedAssets.sort((a, b) => {
-        const dateA = a.createdAt instanceof Date ? a.createdAt.getTime() : 0;
-        const dateB = b.createdAt instanceof Date ? b.createdAt.getTime() : 0;
-        return dateB - dateA;
-      });
-      
-      setAssets(fetchedAssets);
-      
-    } catch (e) {
-      console.error("Error fetching page data:", e);
-      toast({ variant: 'destructive', title: "Error", description: "ページデータの読み込みに失敗しました。" });
-      setMemory(null);
-    } finally {
-        setLoading(false);
-    }
-  }, [toast]);
-
-
   useEffect(() => {
     if (authLoading || !user || !memoryId) return;
-    fetchAllData(memoryId, user.uid);
-  }, [memoryId, user, authLoading, fetchAllData]);
+
+    const memoryDocRef = doc(db, 'memories', memoryId);
+    const unsubscribeMemory = onSnapshot(memoryDocRef, (memoryDocSnap) => {
+        if (memoryDocSnap.exists() && memoryDocSnap.data()?.ownerUid === user.uid) {
+            const memoryData = { 
+                id: memoryDocSnap.id, 
+                ...memoryDocSnap.data(),
+                blocks: (memoryDocSnap.data().blocks || []).sort((a: PublicPageBlock, b: PublicPageBlock) => a.order - b.order)
+            } as Memory;
+            setMemory(memoryData);
+        } else {
+            console.error("Memory not found or access denied.");
+            setMemory(null);
+        }
+        setLoading(false);
+    });
+
+    const assetsQuery = query(collection(db, 'assets'), where('ownerUid', '==', user.uid));
+    const unsubscribeAssets = onSnapshot(assetsQuery, (assetsSnap) => {
+        const fetchedAssets = assetsSnap.docs.map(d => {
+            const data = d.data();
+            return {
+                id: d.id,
+                ...data,
+                createdAt: (data.createdAt as Timestamp)?.toDate() || new Date()
+            } as Asset;
+        });
+
+        fetchedAssets.sort((a, b) => {
+            const dateA = a.createdAt instanceof Date ? a.createdAt.getTime() : 0;
+            const dateB = b.createdAt instanceof Date ? b.createdAt.getTime() : 0;
+            return dateB - dateA;
+        });
+        setAssets(fetchedAssets);
+    });
+    
+    return () => {
+        unsubscribeMemory();
+        unsubscribeAssets();
+    };
+
+  }, [memoryId, user, authLoading]);
   
   async function handleDragEnd(event: DragEndEvent) {
     const {active, over} = event;
@@ -133,7 +118,7 @@ export default function MemoryEditorPage() {
         try {
             const memoryRef = doc(db, 'memories', memoryId);
             await updateDoc(memoryRef, { blocks: reorderedBlocks, updatedAt: serverTimestamp() });
-            setMemory(prev => prev ? { ...prev, blocks: reorderedBlocks } : null);
+            // No need for local state update, Firestore listener will handle it
         } catch (error) {
              console.error("Failed to reorder blocks:", error);
             toast({ variant: 'destructive', title: 'エラー', description: 'ブロックの並び替えに失敗しました。' });
@@ -152,15 +137,8 @@ export default function MemoryEditorPage() {
   };
 
   const handleAssetUpload = (asset: Asset) => {
-     setAssets(prevAssets => {
-      const newAssets = [asset, ...prevAssets.filter(a => a.id !== asset.id)];
-      newAssets.sort((a, b) => {
-        const dateA = a.createdAt instanceof Date ? a.createdAt.getTime() : 0;
-        const dateB = b.createdAt instanceof Date ? b.createdAt.getTime() : 0;
-        return dateB - dateA;
-      });
-      return newAssets;
-    });
+     // No need to manually update asset state, Firestore listener will catch it.
+     // This function can be used for showing immediate feedback if needed.
   };
   
   const handleSaveBlock = async (newBlockData: Omit<PublicPageBlock, 'id' | 'createdAt' | 'updatedAt' | 'order'>, blockToEdit?: PublicPageBlock | null) => {
@@ -184,11 +162,9 @@ export default function MemoryEditorPage() {
             updatedBlocks = [...blocks, newBlock];
         }
         
-        // Re-order just in case
         const reorderedBlocks = updatedBlocks.map((block, index) => ({ ...block, order: index }));
 
         await updateDoc(memoryRef, { blocks: reorderedBlocks, updatedAt: serverTimestamp() });
-        setMemory(prev => prev ? { ...prev, blocks: reorderedBlocks } : null);
         toast({ title: "成功", description: blockToEdit ? "ブロックを更新しました。" : "新しいブロックを追加しました。" });
 
       } catch (error) {
@@ -199,18 +175,12 @@ export default function MemoryEditorPage() {
 
   const handleAboutSave = (data: { title: string, description: string, profileAssetId: string | null }) => {
     if (!memory) return;
-    setMemory(prev => prev ? {
-        ...prev,
-        ...data,
-    } : null);
+    // Local update is handled by Firestore listener
   };
   
   const handleCoverPhotoSave = (data: { coverAssetId: string | null }) => {
       if(!memory) return;
-      setMemory(prev => prev ? {
-        ...prev,
-        ...data,
-      } : null);
+       // Local update is handled by Firestore listener
   }
   
   const handleDeleteBlockConfirmed = async () => {
@@ -223,7 +193,6 @@ export default function MemoryEditorPage() {
 
         await updateDoc(memoryRef, { blocks: updatedBlocks, updatedAt: serverTimestamp() });
 
-        setMemory(prev => prev ? { ...prev, blocks: updatedBlocks } : null);
         toast({ title: '成功', description: 'ブロックを削除しました。' });
     } catch (error: any) {
         console.error('Failed to delete block:', error);
@@ -459,7 +428,7 @@ function SortableBlockItem({ block, assets, onEdit, onDelete }: { block: PublicP
         if (block.type === 'video' && block.video?.assetId) {
             const asset = assets.find(a => a.id === block.video?.assetId);
             if (asset) {
-                const thumbnailUrl = asset.thumbnailUrl || `https://placehold.co/600x400.png?text=サムネイル生成中...`;
+                const thumbnailUrl = asset.thumbnailUrl || "https://placehold.co/600x400.png?text=サムネイル...";
                 return (
                     <div className="p-2 space-y-2">
                         <p className="font-semibold text-sm truncate">{block.title || "無題の動画"}</p>

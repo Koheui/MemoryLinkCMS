@@ -82,6 +82,7 @@ export interface Asset {
   createdAt: Timestamp;
   updatedAt: Timestamp;
   thumbnailUrl?: string;
+  thumbnailCandidates?: string[];
 }
 
 

@@ -13,10 +13,11 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Save, Image as ImageIcon, Video, Mic, Type, Album, Upload, Clapperboard, Music } from 'lucide-react';
+import { Loader2, Save, Image as ImageIcon, Video, Mic, Type, Album, Upload, Clapperboard, Music, CheckCircle } from 'lucide-react';
 import Image from 'next/image';
 import { MediaUploader } from './media-uploader';
 import { v4 as uuidv4 } from 'uuid';
+import { cn } from '@/lib/utils';
 
 // CoverPhoto Modal
 export function CoverPhotoModal({ isOpen, setIsOpen, memory, assets, onUploadSuccess, onSave }: { isOpen: boolean, setIsOpen: (open: boolean) => void, memory: Memory, assets: Asset[], onUploadSuccess: (asset: Asset) => void, onSave: (data: { coverAssetId: string | null }) => void }) {
@@ -224,6 +225,7 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
     const [selectedAssetId, setSelectedAssetId] = useState<string | undefined>(undefined);
     const [textContent, setTextContent] = useState(''); // For text block
     const [photoCaption, setPhotoCaption] = useState(''); // For photo block
+    const [selectedThumbnail, setSelectedThumbnail] = useState<string | undefined>(undefined);
     
     const [isSaving, setIsSaving] = useState(false);
     const { toast } = useToast();
@@ -245,7 +247,14 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
                     setSelectedAssetId(block.photo?.assetId);
                     setPhotoCaption(block.photo?.caption || '');
                 }
-                if (block.type === 'video') setSelectedAssetId(block.video?.assetId);
+                if (block.type === 'video') {
+                    const videoAssetId = block.video?.assetId;
+                    setSelectedAssetId(videoAssetId);
+                    if (videoAssetId) {
+                        const asset = assets.find(a => a.id === videoAssetId);
+                        setSelectedThumbnail(asset?.thumbnailUrl);
+                    }
+                }
                 if (block.type === 'audio') setSelectedAssetId(block.audio?.assetId);
                 if (block.type === 'album') setSelectedAssetId(undefined); // Reset for album
             } else {
@@ -255,10 +264,17 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
                 setTextContent('');
                 setPhotoCaption('');
                 setSelectedAssetId(undefined);
+                setSelectedThumbnail(undefined);
             }
         }
-    }, [block, isOpen, isEditing]);
+    }, [block, isOpen, isEditing, assets]);
     
+    useEffect(() => {
+        // When a new video asset is selected, reset the chosen thumbnail
+        if (selectedAsset?.type === 'video') {
+            setSelectedThumbnail(selectedAsset.thumbnailUrl);
+        }
+    }, [selectedAsset]);
 
     const handleSave = async () => {
         if (!blockType) {
@@ -266,7 +282,6 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
             return;
         }
 
-        // Validate that an asset is selected for media blocks
         if (['photo', 'video', 'audio'].includes(blockType) && !selectedAssetId) {
              toast({ variant: 'destructive', title: 'エラー', description: 'メディアファイルを選択またはアップロードしてください。' });
             return;
@@ -280,19 +295,26 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
             if (blockType === 'video') newBlockData.video = { assetId: selectedAssetId };
             if (blockType === 'audio') newBlockData.audio = { assetId: selectedAssetId };
             
+            // If a thumbnail was manually selected, update the asset document
+            if (blockType === 'video' && selectedAssetId && selectedThumbnail && selectedAsset?.thumbnailUrl !== selectedThumbnail) {
+                const assetRef = doc(db, 'assets', selectedAssetId);
+                await updateDoc(assetRef, { thumbnailUrl: selectedThumbnail });
+                
+                // Immediately update the local assets state for instant feedback
+                onUploadSuccess({...selectedAsset, thumbnailUrl: selectedThumbnail} as Asset);
+            }
+
             await onSave(newBlockData, block);
             
             setIsOpen(false);
         } catch (error) {
             console.error("Failed to save block:", error);
-            // onSave should toast on its own, but as a fallback:
             toast({ variant: 'destructive', title: 'エラー', description: 'ブロックの保存に失敗しました。' });
         } finally {
             setIsSaving(false);
         }
     };
     
-    // Callback for when a new file is uploaded
     const handleUploadComplete = (asset: Asset) => {
         onUploadSuccess(asset); 
         setSelectedAssetId(asset.id);
@@ -359,17 +381,24 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
                  <div className="space-y-4">
                     {renderAssetSelector('video', videoAssets, '動画を選択...')}
                     {selectedAsset && (
-                         <div className="mt-2 rounded-md overflow-hidden aspect-video relative bg-slate-800 flex items-center justify-center text-white">
-                             {selectedAsset.thumbnailUrl ? (
-                                <Image src={selectedAsset.thumbnailUrl} alt="Video thumbnail" fill sizes="(max-width: 768px) 100vw, 50vw" className="object-cover" />
-                             ) : (
-                                <div className="flex flex-col items-center gap-2">
-                                    <Clapperboard className="w-12 h-12" />
-                                    <span className="text-xs">サムネイル生成中...</span>
-                                </div>
-                             )}
-                            <p className="absolute bottom-2 left-2 text-xs bg-black/50 px-1 py-0.5 rounded">{selectedAsset.name}</p>
-                        </div>
+                         <div className="space-y-2">
+                             <Label>サムネイル選択</Label>
+                             <div className="flex gap-2 items-center">
+                                 {(selectedAsset.thumbnailCandidates && selectedAsset.thumbnailCandidates.length > 0) ? (
+                                    selectedAsset.thumbnailCandidates.map((url, index) => (
+                                        <div key={index} className="relative cursor-pointer" onClick={() => setSelectedThumbnail(url)}>
+                                            <Image src={url} alt={`サムネイル候補 ${index + 1}`} width={128} height={72} className={cn("rounded-md border-2 transition-all", selectedThumbnail === url ? 'border-primary ring-2 ring-primary' : 'border-transparent')}/>
+                                            {selectedThumbnail === url && <CheckCircle className="absolute top-1 right-1 h-5 w-5 text-white bg-primary rounded-full"/>}
+                                        </div>
+                                    ))
+                                 ) : (
+                                    <div className="w-full text-center py-4 text-sm text-muted-foreground bg-muted rounded-md flex items-center justify-center gap-2">
+                                        <Loader2 className="h-4 w-4 animate-spin"/>
+                                        サムネイル候補を生成中...
+                                    </div>
+                                 )}
+                             </div>
+                         </div>
                     )}
                  </div>
             )

@@ -23,30 +23,26 @@ export const generateThumbnail = onObjectFinalized({
   region: "asia-northeast1", // Set the region here as per v2 SDK spec
   cpu: 1,
   memory: "512MiB",
-  timeoutSeconds: 60,
+  timeoutSeconds: 120, // Increased timeout for multiple screenshots
 }, async (event) => {
   const fileBucket = event.data.bucket;
   const filePath = event.data.name;
   const contentType = event.data.contentType;
   const customMetadata = event.data.metadata;
   
-  // Get the assetId from the custom metadata
   const assetId = customMetadata?.assetId;
 
-  // Exit if this is not a user asset (check path and required metadata)
   if (!filePath || !filePath.startsWith("users/") || !assetId) {
     logger.info(`Not a user asset with required metadata, skipping: ${filePath}`);
     return;
   }
 
-  // Exit if this is not a video.
   if (!contentType?.startsWith("video/")) {
     logger.info(`Not a video, skipping: ${filePath} (${contentType})`);
     return;
   }
   
   const fileName = path.basename(filePath);
-  // Exit if the image is already a thumbnail.
   if (fileName.startsWith("thumb_")) {
     logger.info(`Already a thumbnail, skipping: ${filePath}`);
     return;
@@ -54,58 +50,71 @@ export const generateThumbnail = onObjectFinalized({
 
   const bucket = admin.storage().bucket(fileBucket);
   const tempFilePath = path.join(os.tmpdir(), fileName);
-  const thumbFileName = `thumb_${path.parse(fileName).name}.jpg`;
-  const tempThumbPath = path.join(os.tmpdir(), thumbFileName);
-  
+  const tempThumbDir = path.join(os.tmpdir(), `thumbs_${assetId}`);
+  fs.mkdirSync(tempThumbDir, {recursive: true});
+
+  const timestamps = ["1%", "50%", "90%"];
+  const screenshotFileNames: string[] = [];
+
   try {
-    // 1. Download video from bucket
     logger.info(`Starting download for: ${filePath}`);
     await bucket.file(filePath).download({destination: tempFilePath});
     logger.info("Video downloaded locally to", tempFilePath);
 
-    // 2. Generate a thumbnail using ffmpeg, wrapped in a promise for async/await
     await new Promise<void>((resolve, reject) => {
       ffmpeg(tempFilePath)
-          .on("end", () => {
-            logger.info("Thumbnail generation finished.");
-            resolve();
-          })
-          .on("error", (err) => {
-            logger.error("Error generating thumbnail:", err);
-            reject(err);
-          })
-          .screenshots({
-            timestamps: ["1%"],
-            filename: thumbFileName,
-            folder: os.tmpdir(),
-            size: "320x240",
-          });
-    });
-
-    // 3. Upload the thumbnail to a 'thumbnails' subfolder
-    const thumbUploadPath = path.join(path.dirname(filePath), "thumbnails", thumbFileName);
-    const [uploadedFile] = await bucket.upload(tempThumbPath, {
-      destination: thumbUploadPath,
-      metadata: {contentType: "image/jpeg"},
+        .on("filenames", (filenames) => {
+          logger.info("Generated filenames:", filenames);
+          screenshotFileNames.push(...filenames);
+        })
+        .on("end", () => {
+          logger.info("Thumbnail generation finished.");
+          resolve();
+        })
+        .on("error", (err) => {
+          logger.error("Error generating thumbnails:", err);
+          reject(err);
+        })
+        .screenshots({
+          timestamps: timestamps,
+          filename: "thumb-%s.jpg",
+          folder: tempThumbDir,
+          size: "320x240",
+        });
     });
     
-    logger.info(`Thumbnail uploaded to ${thumbUploadPath}`);
+    logger.info("Successfully generated screenshots:", screenshotFileNames);
 
-    // 4. Get a Signed URL for the thumbnail, which is more reliable than a public URL.
-    const expires = new Date("2100-01-01"); // Set a very distant expiration date
-    const [thumbnailUrl] = await uploadedFile.getSignedUrl({
-        action: "read",
-        expires: expires,
+    const uploadPromises = screenshotFileNames.map((thumbFileName) => {
+        const tempThumbPath = path.join(tempThumbDir, thumbFileName);
+        const thumbUploadPath = path.join(path.dirname(filePath), "thumbnails", `${assetId}_${thumbFileName}`);
+        return bucket.upload(tempThumbPath, {
+            destination: thumbUploadPath,
+            metadata: { contentType: "image/jpeg" },
+        });
     });
+    
+    const uploadedFiles = await Promise.all(uploadPromises);
+    logger.info("All thumbnails uploaded successfully.");
+    
+    const expires = new Date("2100-01-01");
+    const urlPromises = uploadedFiles.map(([uploadedFile]) => 
+        uploadedFile.getSignedUrl({
+            action: "read",
+            expires: expires,
+        })
+    );
 
-    logger.info("Generated signed URL:", thumbnailUrl);
+    const thumbnailUrls = (await Promise.all(urlPromises)).flat();
+    logger.info("Generated signed URLs:", thumbnailUrls);
 
-    // 5. Update the corresponding document in Firestore using the assetId from metadata
     const db = admin.firestore();
     const assetRef = db.collection("assets").doc(assetId);
     
+    // The first thumbnail is set as the default, user can change it.
     await assetRef.update({
-      thumbnailUrl: thumbnailUrl,
+      thumbnailUrl: thumbnailUrls[0] || null, 
+      thumbnailCandidates: thumbnailUrls,
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
@@ -114,9 +123,8 @@ export const generateThumbnail = onObjectFinalized({
   } catch (error) {
     logger.error("Function failed:", error);
   } finally {
-    // 6. Clean up temporary files regardless of success or failure
     if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
-    if (fs.existsSync(tempThumbPath)) fs.unlinkSync(tempThumbPath);
+    if (fs.existsSync(tempThumbDir)) fs.rmSync(tempThumbDir, {recursive: true, force: true});
     logger.info("Cleaned up temporary files.");
   }
 });
