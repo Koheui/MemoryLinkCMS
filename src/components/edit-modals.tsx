@@ -52,7 +52,9 @@ export function DesignModal({ isOpen, setIsOpen, memory, assets, onUploadSuccess
             });
             toast({ title: '成功', description: 'カバーとプロフィール画像を更新しました。' });
             setIsOpen(false);
-            onUploadSuccess({} as Asset); // Trigger a re-fetch in parent
+            // After saving, we don't need to call onUploadSuccess,
+            // but we might need a way to tell the parent to re-fetch memory.
+            // For now, parent state updates on its own.
         } catch (error) {
             console.error("Failed to save design:", error);
             toast({ variant: 'destructive', title: 'エラー', description: '画像の更新に失敗しました。' });
@@ -102,7 +104,7 @@ export function DesignModal({ isOpen, setIsOpen, memory, assets, onUploadSuccess
                             </MediaUploader>
                         </div>
                         <div className="mt-2 rounded-md overflow-hidden aspect-video relative bg-muted flex items-center justify-center">
-                            {coverImageUrl ? <Image src={coverImageUrl} alt="Cover preview" fill className="object-cover" /> : <ImageIcon className="text-muted-foreground" />}
+                            {coverImageUrl ? <Image src={coverImageUrl} alt="Cover preview" fill className="object-cover" sizes="(max-width: 768px) 100vw, 50vw" /> : <ImageIcon className="text-muted-foreground" />}
                         </div>
                     </div>
                      <div>
@@ -125,7 +127,7 @@ export function DesignModal({ isOpen, setIsOpen, memory, assets, onUploadSuccess
                             </MediaUploader>
                         </div>
                          <div className="mt-2 rounded-full overflow-hidden relative w-24 h-24 bg-muted flex items-center justify-center">
-                            {profileImageUrl ? <Image src={profileImageUrl} alt="Profile preview" fill className="object-cover" /> : <ImageIcon className="text-muted-foreground" />}
+                            {profileImageUrl ? <Image src={profileImageUrl} alt="Profile preview" fill className="object-cover" sizes="96px" /> : <ImageIcon className="text-muted-foreground" />}
                          </div>
                     </div>
                 </div>
@@ -330,7 +332,7 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
                     {renderAssetSelector('image', imageAssets, '写真を選択...')}
                     {selectedAsset?.url && (
                          <div className="mt-2 rounded-md overflow-hidden aspect-video relative bg-muted flex items-center justify-center">
-                            <Image src={selectedAsset.url} alt="Preview" fill className="object-cover" />
+                            <Image src={selectedAsset.url} alt="Preview" fill className="object-cover" sizes="(max-width: 768px) 100vw, 50vw" />
                         </div>
                     )}
                      <div>

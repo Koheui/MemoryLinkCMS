@@ -143,6 +143,10 @@ export default function MemoryEditorPage() {
 
   const handleAssetUpload = (asset: Asset) => {
     setAssets(prevAssets => {
+      // Avoid adding duplicates
+      if (prevAssets.some(a => a.id === asset.id)) {
+        return prevAssets;
+      }
       const newAssets = [asset, ...prevAssets];
       newAssets.sort((a, b) => {
         const dateA = a.createdAt instanceof Date ? a.createdAt.getTime() : 0;
@@ -151,7 +155,7 @@ export default function MemoryEditorPage() {
       });
       return newAssets;
     });
-  }
+  };
   
   const handleSaveBlock = async (newBlockData: Omit<PublicPageBlock, 'id' | 'createdAt' | 'updatedAt' | 'order'>, blockToEdit?: PublicPageBlock | null) => {
       if (!memory) return;
@@ -314,7 +318,7 @@ export default function MemoryEditorPage() {
                         onClick={() => setIsDesignModalOpen(true)}
                     >
                         {coverImageUrl ? (
-                            <Image src={coverImageUrl} alt="カバー画像" fill className="object-cover" />
+                            <Image src={coverImageUrl} alt="カバー画像" fill className="object-cover" sizes="(max-width: 768px) 100vw, 896px" />
                         ) : (
                              <ImageIcon className="h-12 w-12 text-muted-foreground" />
                         )}
@@ -327,7 +331,7 @@ export default function MemoryEditorPage() {
                         onClick={() => setIsDesignModalOpen(true)}
                      >
                         {profileImageUrl ? (
-                             <Image src={profileImageUrl} alt="プロフィール画像" fill className="object-cover" />
+                             <Image src={profileImageUrl} alt="プロフィール画像" fill className="object-cover" sizes="160px" />
                         ) : (
                             <ImageIcon className="h-10 w-10 text-muted-foreground" />
                         )}
