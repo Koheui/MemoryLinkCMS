@@ -1,3 +1,4 @@
+
 /**
  * Import function triggers from their respective submodules:
  *
@@ -97,7 +98,7 @@ export const generateThumbnail = storage.onObjectFinalized({
     expires.setFullYear(expires.getFullYear() + 100); // Set expiration 100 years from now
     
     const [thumbnailUrl] = await uploadedFile.getSignedUrl({
-        action: 'read',
+        action: "read",
         expires: expires,
     });
 
@@ -131,5 +132,10 @@ export const generateThumbnail = storage.onObjectFinalized({
     fs.unlinkSync(tempThumbPath);
   } catch (error) {
     logger.error("Function failed:", error);
+    // Clean up temp files in case of failure during upload or DB update
+    if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
+    if (fs.existsSync(path.join(os.tmpdir(), `thumb_${path.parse(fileName).name}.jpg`))) {
+        fs.unlinkSync(path.join(os.tmpdir(), `thumb_${path.parse(fileName).name}.jpg`));
+    }
   }
 });
