@@ -5,7 +5,7 @@ import * as React from 'react';
 import { useState, useEffect, useMemo } from 'react';
 import type { Memory, Asset, PublicPageBlock } from '@/lib/types';
 import { db } from '@/lib/firebase/client';
-import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, updateDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -17,27 +17,21 @@ import { Loader2, Save, Image as ImageIcon, Video, Mic, Type, Album, Upload, Cla
 import Image from 'next/image';
 import { MediaUploader } from './media-uploader';
 
-// Design Modal (Cover & Profile Image)
-export function DesignModal({ isOpen, setIsOpen, memory, assets, onUploadSuccess, onSave }: { isOpen: boolean, setIsOpen: (open: boolean) => void, memory: Memory, assets: Asset[], onUploadSuccess: (asset: Asset) => void, onSave: (data: { coverAssetId: string | null, profileAssetId: string | null }) => void }) {
+// CoverPhoto Modal
+export function CoverPhotoModal({ isOpen, setIsOpen, memory, assets, onUploadSuccess, onSave }: { isOpen: boolean, setIsOpen: (open: boolean) => void, memory: Memory, assets: Asset[], onUploadSuccess: (asset: Asset) => void, onSave: (data: { coverAssetId: string | null }) => void }) {
     const [coverAssetId, setCoverAssetId] = useState(memory.coverAssetId);
-    const [profileAssetId, setProfileAssetId] = useState(memory.profileAssetId);
     const [isSaving, setIsSaving] = useState(false);
     const { toast } = useToast();
 
     useEffect(() => {
         if (isOpen) {
             setCoverAssetId(memory.coverAssetId);
-            setProfileAssetId(memory.profileAssetId);
         }
     }, [memory, isOpen]);
 
     const coverImageUrl = useMemo(() => {
         return assets.find(a => a.id === coverAssetId)?.url || null;
     }, [coverAssetId, assets]);
-
-    const profileImageUrl = useMemo(() => {
-        return assets.find(a => a.id === profileAssetId)?.url || null;
-    }, [profileAssetId, assets]);
 
     const imageAssets = useMemo(() => assets.filter(a => a.type === 'image'), [assets]);
     
@@ -47,17 +41,16 @@ export function DesignModal({ isOpen, setIsOpen, memory, assets, onUploadSuccess
             const memoryRef = doc(db, 'memories', memory.id);
             const saveData = {
                 coverAssetId: coverAssetId || null,
-                profileAssetId: profileAssetId || null,
             };
             await updateDoc(memoryRef, {
                 ...saveData,
                 updatedAt: serverTimestamp()
             });
-            toast({ title: '成功', description: 'カバーとプロフィール画像を更新しました。' });
-            onSave(saveData); // Notify parent component of the change
+            toast({ title: '成功', description: 'カバー画像を更新しました。' });
+            onSave(saveData);
             setIsOpen(false);
         } catch (error) {
-            console.error("Failed to save design:", error);
+            console.error("Failed to save cover photo:", error);
             toast({ variant: 'destructive', title: 'エラー', description: '画像の更新に失敗しました。' });
         } finally {
             setIsSaving(false);
@@ -70,19 +63,12 @@ export function DesignModal({ isOpen, setIsOpen, memory, assets, onUploadSuccess
         toast({ title: "アップロード完了", description: "カバー画像に設定しました。"});
     }
 
-    const handleProfileUploadSuccess = (asset: Asset) => {
-        onUploadSuccess(asset); 
-        setProfileAssetId(asset.id);
-        toast({ title: "アップロード完了", description: "プロフィール画像に設定しました。"});
-    }
-
-
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>デザインを編集</DialogTitle>
-                    <DialogDescription>カバー画像とプロフィール画像を変更します。</DialogDescription>
+                    <DialogTitle>カバー画像を編集</DialogTitle>
+                    <DialogDescription>ページのヘッダーに表示される画像を編集します。</DialogDescription>
                 </DialogHeader>
                 <div className="space-y-6 py-4">
                     <div>
@@ -105,10 +91,96 @@ export function DesignModal({ isOpen, setIsOpen, memory, assets, onUploadSuccess
                             </MediaUploader>
                         </div>
                         <div className="mt-2 rounded-md overflow-hidden aspect-video relative bg-muted flex items-center justify-center">
-                            {coverImageUrl ? <Image src={coverImageUrl} alt="Cover preview" fill className="object-cover" sizes="(max-width: 768px) 100vw, 50vw" /> : <ImageIcon className="text-muted-foreground" />}
+                            {coverImageUrl ? <Image src={coverImageUrl} alt="Cover preview" fill sizes="(max-width: 768px) 100vw, 50vw" className="object-cover" /> : <ImageIcon className="text-muted-foreground" />}
                         </div>
                     </div>
-                     <div>
+                </div>
+                <DialogFooter>
+                    <DialogClose asChild><Button variant="outline">キャンセル</Button></DialogClose>
+                    <Button onClick={handleSave} disabled={isSaving}>
+                        {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                        保存
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+
+// About Modal (Title, Description, Profile Image)
+export function AboutModal({ isOpen, setIsOpen, memory, assets, onUploadSuccess, onSave }: { isOpen: boolean, setIsOpen: (open: boolean) => void, memory: Memory, assets: Asset[], onUploadSuccess: (asset: Asset) => void, onSave: (data: { title: string, description: string, profileAssetId: string | null }) => void }) {
+    const [title, setTitle] = useState(memory.title);
+    const [description, setDescription] = useState(memory.description);
+    const [profileAssetId, setProfileAssetId] = useState(memory.profileAssetId);
+    const [isSaving, setIsSaving] = useState(false);
+    const { toast } = useToast();
+
+    useEffect(() => {
+       if (isOpen) {
+            setTitle(memory.title);
+            setDescription(memory.description || '');
+            setProfileAssetId(memory.profileAssetId);
+       }
+    }, [memory, isOpen]);
+
+    const profileImageUrl = useMemo(() => {
+        return assets.find(a => a.id === profileAssetId)?.url || null;
+    }, [profileAssetId, assets]);
+
+    const imageAssets = useMemo(() => assets.filter(a => a.type === 'image'), [assets]);
+
+    const handleProfileUploadSuccess = (asset: Asset) => {
+        onUploadSuccess(asset); 
+        setProfileAssetId(asset.id);
+        toast({ title: "アップロード完了", description: "プロフィール画像に設定しました。"});
+    }
+
+    const handleSave = async () => {
+        if (!title.trim()) {
+            toast({ variant: 'destructive', title: 'エラー', description: 'タイトルは必須です。' });
+            return;
+        }
+        setIsSaving(true);
+        try {
+            const memoryRef = doc(db, 'memories', memory.id);
+            const saveData = {
+                title,
+                description,
+                profileAssetId: profileAssetId || null,
+            };
+            await updateDoc(memoryRef, {
+                ...saveData,
+                updatedAt: serverTimestamp()
+            });
+            toast({ title: '成功', description: '概要を更新しました。' });
+            onSave(saveData);
+            setIsOpen(false);
+        } catch (error) {
+            console.error("Failed to save about info:", error);
+            toast({ variant: 'destructive', title: 'エラー', description: '概要の更新に失敗しました。' });
+        } finally {
+            setIsSaving(false);
+        }
+    }
+
+     return (
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>アバウト情報を編集</DialogTitle>
+                    <DialogDescription>タイトル、紹介文、プロフィール画像を編集します。</DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                    <div>
+                        <Label htmlFor="title">タイトル</Label>
+                        <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} />
+                    </div>
+                    <div>
+                        <Label htmlFor="description">紹介文</Label>
+                        <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} className="min-h-[120px]" />
+                    </div>
+                    <div>
                         <Label>プロフィール画像</Label>
                         <div className="flex gap-2">
                             <Select onValueChange={(value) => setProfileAssetId(value !== 'no-selection' ? value : null)} value={profileAssetId ?? 'no-selection'}>
@@ -130,73 +202,6 @@ export function DesignModal({ isOpen, setIsOpen, memory, assets, onUploadSuccess
                          <div className="mt-2 rounded-full overflow-hidden relative w-24 h-24 bg-muted flex items-center justify-center">
                             {profileImageUrl ? <Image src={profileImageUrl} alt="Profile preview" fill className="object-cover" sizes="96px" /> : <ImageIcon className="text-muted-foreground" />}
                          </div>
-                    </div>
-                </div>
-                <DialogFooter>
-                    <DialogClose asChild><Button variant="outline">キャンセル</Button></DialogClose>
-                    <Button onClick={handleSave} disabled={isSaving}>
-                        {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                        保存
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-    );
-}
-
-
-// About Modal (Title & Description)
-export function AboutModal({ isOpen, setIsOpen, memory }: { isOpen: boolean, setIsOpen: (open: boolean) => void, memory: Memory }) {
-    const [title, setTitle] = useState(memory.title);
-    const [description, setDescription] = useState(memory.description);
-    const [isSaving, setIsSaving] = useState(false);
-    const { toast } = useToast();
-
-    useEffect(() => {
-       if (isOpen) {
-            setTitle(memory.title);
-            setDescription(memory.description || '');
-       }
-    }, [memory, isOpen]);
-
-    const handleSave = async () => {
-        if (!title.trim()) {
-            toast({ variant: 'destructive', title: 'エラー', description: 'タイトルは必須です。' });
-            return;
-        }
-        setIsSaving(true);
-        try {
-            const memoryRef = doc(db, 'memories', memory.id);
-            await updateDoc(memoryRef, {
-                title,
-                description,
-                updatedAt: serverTimestamp()
-            });
-            toast({ title: '成功', description: '概要を更新しました。' });
-            setIsOpen(false);
-        } catch (error) {
-            console.error("Failed to save about info:", error);
-            toast({ variant: 'destructive', title: 'エラー', description: '概要の更新に失敗しました。' });
-        } finally {
-            setIsSaving(false);
-        }
-    }
-
-     return (
-        <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>概要を編集</DialogTitle>
-                    <DialogDescription>ページに表示されるタイトルと紹介文を編集します。</DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4 py-4">
-                    <div>
-                        <Label htmlFor="title">タイトル</Label>
-                        <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} />
-                    </div>
-                    <div>
-                        <Label htmlFor="description">紹介文</Label>
-                        <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} className="min-h-[120px]" />
                     </div>
                 </div>
                 <DialogFooter>
@@ -333,7 +338,7 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
                     {renderAssetSelector('image', imageAssets, '写真を選択...')}
                     {selectedAsset?.url && (
                          <div className="mt-2 rounded-md overflow-hidden aspect-video relative bg-muted flex items-center justify-center">
-                            <Image src={selectedAsset.url} alt="Preview" fill className="object-cover" sizes="(max-width: 768px) 100vw, 50vw" />
+                            <Image src={selectedAsset.url} alt="Preview" fill sizes="(max-width: 768px) 100vw, 50vw" className="object-cover" />
                         </div>
                     )}
                      <div>

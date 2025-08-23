@@ -14,7 +14,7 @@ import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSo
 import { CSS } from '@dnd-kit/utilities';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
-import { AboutModal, DesignModal, BlockModal } from '@/components/edit-modals';
+import { AboutModal, CoverPhotoModal, BlockModal } from '@/components/edit-modals';
 import { v4 as uuidv4 } from 'uuid';
 
 
@@ -30,7 +30,7 @@ export default function MemoryEditorPage() {
   const { toast } = useToast();
 
   // --- Modal States ---
-  const [isDesignModalOpen, setIsDesignModalOpen] = useState(false);
+  const [isCoverPhotoModalOpen, setIsCoverPhotoModalOpen] = useState(false);
   const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
   const [isBlockModalOpen, setIsBlockModalOpen] = useState(false);
   const [editingBlock, setEditingBlock] = useState<PublicPageBlock | null>(null);
@@ -181,14 +181,21 @@ export default function MemoryEditorPage() {
       }
   };
 
-  const handleDesignSave = (data: { coverAssetId: string | null, profileAssetId: string | null }) => {
+  const handleAboutSave = (data: { title: string, description: string, profileAssetId: string | null }) => {
     if (!memory) return;
     setMemory({
         ...memory,
-        coverAssetId: data.coverAssetId,
-        profileAssetId: data.profileAssetId,
+        ...data,
     });
   };
+  
+  const handleCoverPhotoSave = (data: { coverAssetId: string | null }) => {
+      if(!memory) return;
+      setMemory({
+        ...memory,
+        ...data,
+      });
+  }
   
    const handleDeleteBlock = async (blockId: string) => {
       if (!memory) return;
@@ -265,14 +272,14 @@ export default function MemoryEditorPage() {
 
   return (
     <div className="flex h-full flex-col bg-muted/30">
-       {isDesignModalOpen && memory && (
-        <DesignModal 
-            isOpen={isDesignModalOpen}
-            setIsOpen={setIsDesignModalOpen}
+       {isCoverPhotoModalOpen && memory && (
+        <CoverPhotoModal
+            isOpen={isCoverPhotoModalOpen}
+            setIsOpen={setIsCoverPhotoModalOpen}
             memory={memory}
             assets={assets}
             onUploadSuccess={handleAssetUpload}
-            onSave={handleDesignSave}
+            onSave={handleCoverPhotoSave}
         />
        )}
        {isAboutModalOpen && memory && (
@@ -280,6 +287,9 @@ export default function MemoryEditorPage() {
             isOpen={isAboutModalOpen}
             setIsOpen={setIsAboutModalOpen}
             memory={memory}
+            assets={assets}
+            onUploadSuccess={handleAssetUpload}
+            onSave={handleAboutSave}
         />
        )}
        {isBlockModalOpen && memory && (
@@ -318,7 +328,7 @@ export default function MemoryEditorPage() {
                  <div className="relative mb-[-72px] sm:mb-[-80px]">
                     <div 
                         className="group relative aspect-[21/9] w-full overflow-hidden bg-muted flex items-center justify-center cursor-pointer transition-all duration-300 hover:shadow-inner"
-                        onClick={() => setIsDesignModalOpen(true)}
+                        onClick={() => setIsCoverPhotoModalOpen(true)}
                     >
                         {coverImageUrl ? (
                             <Image src={coverImageUrl} alt="カバー画像" fill className="object-cover" sizes="(max-width: 768px) 100vw, 896px" />
@@ -331,7 +341,7 @@ export default function MemoryEditorPage() {
                     </div>
                      <div 
                         className="group absolute -bottom-16 sm:-bottom-20 left-1/2 -translate-x-1/2 h-32 w-32 sm:h-40 sm:w-40 overflow-hidden rounded-full border-4 border-background bg-muted flex items-center justify-center cursor-pointer shadow-lg hover:shadow-xl transition-shadow"
-                        onClick={() => setIsDesignModalOpen(true)}
+                        onClick={() => setIsAboutModalOpen(true)}
                      >
                         {profileImageUrl ? (
                              <Image src={profileImageUrl} alt="プロフィール画像" fill className="object-cover" sizes="160px" />
@@ -345,11 +355,14 @@ export default function MemoryEditorPage() {
                 </div>
                 
                 {/* About Section */}
-                <div className="mt-24 sm:mt-28 text-center px-4">
-                     <div className="group relative inline-block">
+                <div 
+                    className="group relative mt-24 sm:mt-28 text-center px-4 cursor-pointer"
+                    onClick={() => setIsAboutModalOpen(true)}
+                >
+                     <div className="inline-block relative">
                         <h1 className="text-3xl font-bold sm:text-4xl">{memory.title}</h1>
                         <p className="mt-2 text-base text-muted-foreground max-w-prose">{memory.description || "紹介文を編集..."}</p>
-                         <Button variant="outline" size="sm" className="absolute -top-2 -right-12 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setIsAboutModalOpen(true)}>
+                         <Button variant="outline" size="sm" className="absolute -top-2 -right-12 opacity-0 group-hover:opacity-100 transition-opacity">
                             <Edit className="h-4 w-4"/>
                         </Button>
                     </div>
@@ -417,8 +430,8 @@ function SortableBlockItem({ block, assets, onEdit, onDelete }: { block: PublicP
             const asset = assets.find(a => a.id === block.photo?.assetId);
             if (asset?.url) {
                 return (
-                    <div className="w-full p-2">
-                        <p className="font-semibold text-sm mb-2">{block.title || "無題の写真"}</p>
+                    <div className="p-2 space-y-2">
+                        <p className="font-semibold text-sm">{block.title || "無題の写真"}</p>
                         <div className="relative aspect-video w-full overflow-hidden rounded-lg">
                            <Image src={asset.url} alt={block.title || 'Photo content'} fill sizes="(max-width: 768px) 100vw, 80vw" className="object-cover" />
                         </div>
