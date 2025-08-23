@@ -7,7 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 import { storage, db, serverTimestamp } from '@/lib/firebase/client';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { collection, addDoc, doc, updateDoc, getDoc, Timestamp } from 'firebase/firestore';
-import type { Asset, PublicPageBlock } from '@/lib/types';
+import type { Asset } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
 
 interface MediaUploaderProps {
@@ -15,11 +15,10 @@ interface MediaUploaderProps {
   accept: string;
   children: ReactNode;
   onUploadSuccess?: (asset: Asset) => void;
-  onSaveBlock?: (newBlockData: Omit<PublicPageBlock, 'id'|'order'|'createdAt'|'updatedAt'>) => void; // 自動保存用
   memoryId?: string; // If provided, asset is associated with a memory
 }
 
-export function MediaUploader({ assetType, accept, children, onUploadSuccess, onSaveBlock, memoryId }: MediaUploaderProps) {
+export function MediaUploader({ assetType, accept, children, onUploadSuccess, memoryId }: MediaUploaderProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -56,7 +55,8 @@ export function MediaUploader({ assetType, accept, children, onUploadSuccess, on
 
       const docRef = await addDoc(assetCollectionRef, {
         ...assetData,
-        url: '',
+        url: '', // Initialize with empty URL
+        thumbnailUrl: '', // Initialize with empty thumbnail URL
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
@@ -66,7 +66,7 @@ export function MediaUploader({ assetType, accept, children, onUploadSuccess, on
       const metadata = { 
         contentType: file.type,
         customMetadata: {
-            assetId: docRef.id // Embed the asset ID here
+            assetId: docRef.id // Embed the asset ID here for the Cloud Function
         }
       };
       const uploadTask = uploadBytesResumable(storageRef, file, metadata);
@@ -102,17 +102,8 @@ export function MediaUploader({ assetType, accept, children, onUploadSuccess, on
 
           onUploadSuccess?.(finalAsset);
 
-          toast({ title: '成功', description: `${file.name} のアップロードが完了しました。` });
-          
-          // 4. Automatically create and save a new block if onSaveBlock is provided
-          if (onSaveBlock) {
-             const newBlockData: any = { type: assetType, title: file.name, visibility: 'show' };
-             if (assetType === 'photo') newBlockData.photo = { assetId: finalAsset.id, caption: '', src: finalAsset.url };
-             if (assetType === 'video') newBlockData.video = { assetId: finalAsset.id, src: finalAsset.url, poster: finalAsset.thumbnailUrl };
-             if (assetType === 'audio') newBlockData.audio = { assetId: finalAsset.id, src: finalAsset.url };
-             onSaveBlock(newBlockData);
-          }
-
+          // We no longer show a generic success toast here,
+          // the parent component will handle user feedback.
           setIsUploading(false);
         }
       );
@@ -137,7 +128,7 @@ export function MediaUploader({ assetType, accept, children, onUploadSuccess, on
     children: isUploading ? (
         <>
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          処理中
+          処理中...
         </>
     ) : child.props.children
   });

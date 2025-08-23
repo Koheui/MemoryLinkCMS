@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Loader2, Save, Image as ImageIcon, Video, Mic, Type, Album, Upload, Clapperboard, Music } from 'lucide-react';
 import Image from 'next/image';
 import { MediaUploader } from './media-uploader';
+import { v4 as uuidv4 } from 'uuid';
 
 // CoverPhoto Modal
 export function CoverPhotoModal({ isOpen, setIsOpen, memory, assets, onUploadSuccess, onSave }: { isOpen: boolean, setIsOpen: (open: boolean) => void, memory: Memory, assets: Asset[], onUploadSuccess: (asset: Asset) => void, onSave: (data: { coverAssetId: string | null }) => void }) {
@@ -265,43 +266,38 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
             return;
         }
 
+        // Validate that an asset is selected for media blocks
+        if (['photo', 'video', 'audio'].includes(blockType) && !selectedAssetId) {
+             toast({ variant: 'destructive', title: 'エラー', description: 'メディアファイルを選択またはアップロードしてください。' });
+            return;
+        }
+
         setIsSaving(true);
         try {
-            const getAssetUrl = (id?: string) => assets.find(a => a.id === id)?.url || null;
-
             const newBlockData: any = { type: blockType, title, visibility: 'show' };
             if (blockType === 'text') newBlockData.text = { content: textContent };
-            if (blockType === 'photo') newBlockData.photo = { assetId: selectedAssetId, caption: photoCaption, src: getAssetUrl(selectedAssetId) };
-            if (blockType === 'video') newBlockData.video = { assetId: selectedAssetId, src: getAssetUrl(selectedAssetId) };
-            if (blockType === 'audio') newBlockData.audio = { assetId: selectedAssetId, src: getAssetUrl(selectedAssetId) };
-
+            if (blockType === 'photo') newBlockData.photo = { assetId: selectedAssetId, caption: photoCaption };
+            if (blockType === 'video') newBlockData.video = { assetId: selectedAssetId };
+            if (blockType === 'audio') newBlockData.audio = { assetId: selectedAssetId };
+            
             await onSave(newBlockData, block);
             
             setIsOpen(false);
         } catch (error) {
             console.error("Failed to save block:", error);
+            // onSave should toast on its own, but as a fallback:
             toast({ variant: 'destructive', title: 'エラー', description: 'ブロックの保存に失敗しました。' });
         } finally {
             setIsSaving(false);
         }
     };
     
-    // This function is for selecting an existing asset from the library
-    const handleUploadAndSelect = (asset: Asset) => {
+    // Callback for when a new file is uploaded
+    const handleUploadComplete = (asset: Asset) => {
         onUploadSuccess(asset); 
         setSelectedAssetId(asset.id);
-        toast({ title: "アップロード完了", description: `'${asset.name}'をアップロードし、選択しました。`});
+        toast({ title: "アップロード完了", description: `'${asset.name}'を選択しました。保存ボタンを押して確定してください。`});
     }
-    
-    // This function is for uploading a new asset AND creating a block in one go
-    const handleUploadAndSaveBlock = async (newBlockData: Omit<PublicPageBlock, 'id'|'order'|'createdAt'|'updatedAt'>) => {
-        try {
-            await onSave(newBlockData, null); // Always creates a new block
-            setIsOpen(false);
-        } catch (error) {
-            // Error is already toasted in onSave
-        }
-    };
 
     const renderAssetSelector = (
         type: 'image' | 'video' | 'audio',
@@ -321,8 +317,7 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
                     assetType={type}
                     accept={`${type}/*`}
                     memoryId={memory.id}
-                    onUploadSuccess={onUploadSuccess}
-                    onSaveBlock={handleUploadAndSaveBlock}
+                    onUploadSuccess={handleUploadComplete}
                 >
                     <Button type="button" variant="outline" size="icon"><Upload className="h-4 w-4"/></Button>
                 </MediaUploader>
@@ -364,9 +359,16 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
                  <div className="space-y-4">
                     {renderAssetSelector('video', videoAssets, '動画を選択...')}
                     {selectedAsset && (
-                         <div className="mt-2 rounded-md overflow-hidden aspect-video relative bg-muted flex items-center justify-center text-muted-foreground">
-                            <Clapperboard className="w-12 h-12" />
-                            <p className="absolute bottom-2 left-2 text-xs bg-black/50 text-white px-1 py-0.5 rounded">{selectedAsset.name}</p>
+                         <div className="mt-2 rounded-md overflow-hidden aspect-video relative bg-slate-800 flex items-center justify-center text-white">
+                             {selectedAsset.thumbnailUrl ? (
+                                <Image src={selectedAsset.thumbnailUrl} alt="Video thumbnail" fill sizes="(max-width: 768px) 100vw, 50vw" className="object-cover" />
+                             ) : (
+                                <div className="flex flex-col items-center gap-2">
+                                    <Clapperboard className="w-12 h-12" />
+                                    <span className="text-xs">サムネイル生成中...</span>
+                                </div>
+                             )}
+                            <p className="absolute bottom-2 left-2 text-xs bg-black/50 px-1 py-0.5 rounded">{selectedAsset.name}</p>
                         </div>
                     )}
                  </div>
@@ -416,18 +418,9 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
                 <div className="py-4">
                     {renderContent()}
                 </div>
-                {blockType && !isEditing && ( // Only show save for manual block creation/editing
+                {blockType && ( 
                     <DialogFooter>
-                        <Button variant="ghost" onClick={() => setBlockType(null)} disabled={isEditing}>戻る</Button>
-                        <DialogClose asChild><Button variant="outline">キャンセル</Button></DialogClose>
-                        <Button onClick={handleSave} disabled={isSaving}>
-                            {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                            保存
-                        </Button>
-                    </DialogFooter>
-                )}
-                 {blockType && isEditing && ( // Only show save for manual block creation/editing
-                    <DialogFooter>
+                        {!isEditing && <Button variant="ghost" onClick={() => setBlockType(null)}>戻る</Button>}
                         <DialogClose asChild><Button variant="outline">キャンセル</Button></DialogClose>
                         <Button onClick={handleSave} disabled={isSaving}>
                             {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}

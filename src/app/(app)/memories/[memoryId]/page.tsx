@@ -446,7 +446,7 @@ function SortableBlockItem({ block, assets, onEdit, onDelete }: { block: PublicP
             if (asset?.url) {
                 return (
                     <div className="p-2 space-y-2">
-                        <p className="font-semibold text-sm">{block.title || "無題の写真"}</p>
+                        <p className="font-semibold text-sm truncate">{block.title || "無題の写真"}</p>
                         <div className="relative w-full overflow-hidden rounded-lg" style={{ aspectRatio: '16/9' }}>
                            <Image src={asset.url} alt={block.title || 'Photo content'} fill sizes="(max-width: 768px) 100vw, 80vw" className="object-cover" />
                         </div>
@@ -462,7 +462,7 @@ function SortableBlockItem({ block, assets, onEdit, onDelete }: { block: PublicP
                 const thumbnailUrl = asset.thumbnailUrl || `https://placehold.co/600x400.png?text=サムネイル生成中...`;
                 return (
                     <div className="p-2 space-y-2">
-                        <p className="font-semibold text-sm">{block.title || "無題の動画"}</p>
+                        <p className="font-semibold text-sm truncate">{block.title || "無題の動画"}</p>
                         <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-slate-800">
                            <Image src={thumbnailUrl} alt={block.title || 'Video content'} fill sizes="(max-width: 768px) 100vw, 80vw" className="object-cover opacity-80" data-ai-hint="video placeholder" />
                            <div className="absolute inset-0 flex flex-col items-center justify-center text-white bg-black/20">
