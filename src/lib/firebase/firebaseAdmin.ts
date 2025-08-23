@@ -15,12 +15,14 @@ export function getAdminApp() {
   try {
     const cred = JSON.parse(raw);
 
-    // 初期化は一度だけ
     // The [DEFAULT] app instance is returned if no name is provided.
     app = admin.apps.length
       ? admin.app()
       : admin.initializeApp({
           credential: admin.credential.cert(cred),
+          // Add storageBucket to the config to avoid "Bucket not specified" errors
+          // when interacting with Storage from the Admin SDK.
+          storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
         });
 
     return app;
