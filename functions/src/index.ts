@@ -33,7 +33,6 @@ export const generateThumbnail = storage.onObjectFinalized({
   const filePath = event.data.name;
   const contentType = event.data.contentType;
 
-  // This is the path pattern where media-uploader.tsx uploads files.
   // Exit if the file is not in a user's asset folder.
   if (!filePath || !filePath.startsWith("users/")) {
     logger.info(`Not a user asset, skipping: ${filePath}`);
@@ -55,6 +54,8 @@ export const generateThumbnail = storage.onObjectFinalized({
 
   const bucket = admin.storage().bucket(fileBucket);
   const tempFilePath = path.join(os.tmpdir(), fileName);
+  const thumbFileName = `thumb_${path.parse(fileName).name}.jpg`;
+  const tempThumbPath = path.join(os.tmpdir(), thumbFileName);
   const metadata = {
     contentType: "image/jpeg",
   };
@@ -65,9 +66,6 @@ export const generateThumbnail = storage.onObjectFinalized({
     logger.info("Video downloaded locally to", tempFilePath);
 
     // 2. Generate a thumbnail using ffmpeg
-    const thumbFileName = `thumb_${path.parse(fileName).name}.jpg`;
-    const tempThumbPath = path.join(os.tmpdir(), thumbFileName);
-
     await new Promise<void>((resolve, reject) => {
       ffmpeg(tempFilePath)
           .on("end", () => {
@@ -107,35 +105,28 @@ export const generateThumbnail = storage.onObjectFinalized({
     // 5. Update the corresponding document in Firestore
     const db = admin.firestore();
     const assetsRef = db.collection("assets");
-    // Query for the asset document based on the original video's storage path
     const q = assetsRef.where("storagePath", "==", filePath).limit(1);
     const snapshot = await q.get();
 
     if (snapshot.empty) {
       logger.error("No matching asset found in Firestore for storagePath:", filePath);
-      // Clean up temp files even on error
-      fs.unlinkSync(tempFilePath);
-      fs.unlinkSync(tempThumbPath);
-      return;
+      return; // Exit if no document found
     }
 
     const assetDoc = snapshot.docs[0];
     await assetDoc.ref.update({
-      thumbnailUrl: thumbnailUrl, // Store the public URL
+      thumbnailUrl: thumbnailUrl,
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
     logger.info("Firestore document updated for asset:", assetDoc.id);
 
-    // 6. Clean up temporary files
-    fs.unlinkSync(tempFilePath);
-    fs.unlinkSync(tempThumbPath);
   } catch (error) {
     logger.error("Function failed:", error);
-    // Clean up temp files in case of failure during upload or DB update
+  } finally {
+    // 6. Clean up temporary files
     if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
-    if (fs.existsSync(path.join(os.tmpdir(), `thumb_${path.parse(fileName).name}.jpg`))) {
-        fs.unlinkSync(path.join(os.tmpdir(), `thumb_${path.parse(fileName).name}.jpg`));
-    }
+    if (fs.existsSync(tempThumbPath)) fs.unlinkSync(tempThumbPath);
+    logger.info("Cleaned up temporary files.");
   }
 });
