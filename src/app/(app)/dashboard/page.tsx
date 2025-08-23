@@ -10,7 +10,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useCallback } from "react";
 import { db } from "@/lib/firebase/client";
-import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, Timestamp } from 'firebase/firestore';
 import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
 import { apiClient } from "@/lib/api-client";
@@ -26,13 +26,29 @@ export default function DashboardPage() {
     const fetchMemories = useCallback(async (uid: string) => {
         setLoading(true);
         try {
+            // FirestoreクエリからorderByを削除
             const q = query(
                 collection(db, 'memories'),
-                where('ownerUid', '==', uid),
-                orderBy('createdAt', 'desc')
+                where('ownerUid', '==', uid)
             );
             const snapshot = await getDocs(q);
-            const userMemories = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Memory));
+            const userMemories = snapshot.docs.map(doc => {
+                const data = doc.data();
+                return { 
+                    id: doc.id, 
+                    ...data,
+                    // TimestampをDateオブジェクトに変換
+                    createdAt: (data.createdAt as Timestamp)?.toDate() || new Date()
+                } as Memory;
+            });
+            
+            // クライアントサイドでソートを実行
+            userMemories.sort((a, b) => {
+                const dateA = a.createdAt instanceof Date ? a.createdAt.getTime() : 0;
+                const dateB = b.createdAt instanceof Date ? b.createdAt.getTime() : 0;
+                return dateB - dateA;
+            });
+
             setMemories(userMemories);
         } catch (error) {
             console.error("Error fetching memories:", error);
