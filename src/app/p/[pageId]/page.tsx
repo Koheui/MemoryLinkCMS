@@ -1,62 +1,22 @@
 // src/app/p/[pageId]/page.tsx
+'use client';
+import { useState, useEffect } from 'react';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Image from 'next/image';
-import type { PublicPage, PublicPageBlock } from '@/lib/types';
-import { Globe, Phone, Mail, Link as LinkIcon, Music, Clapperboard, Milestone, Camera } from 'lucide-react';
+import type { PublicPage, PublicPageBlock, Memory, Design } from '@/lib/types';
+import { Globe, Phone, Mail, Link as LinkIcon, Music, Clapperboard, Milestone, Camera, Loader2 } from 'lucide-react';
 import { FaXTwitter, FaInstagram, FaYoutube } from 'react-icons/fa6';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import { Badge } from '@/components/ui/badge';
 
 
-// This function fetches the static manifest.json from Firebase Storage.
+// This function now only fetches the static manifest for production builds.
+// For preview, we'll use localStorage.
 async function fetchPublicPageManifest(pageId: string): Promise<PublicPage | null> {
-  if (pageId === "preview") {
-    // MOCK DATA for local development and previewing
-    return {
-        id: "preview",
-        memoryId: "mockMemoryId",
-        title: "岡 浩平",
-        about: {
-            text: "FutureStudio株式会社 代表取締役。大切な人との想い出を、永遠の形に残すお手伝いをします。NFCタグに想い出を込めて、いつでもどこでも、スマートフォンをかざすだけで、大切な記憶が鮮やかに蘇ります。",
-            format: "plain",
-        },
-        design: {
-            theme: "dark",
-            accentColor: "#3B82F6",
-            bgColor: "#111827",
-            fontScale: 1.0,
-            fontFamily: "sans-serif",
-            headlineFontFamily: "sans-serif",
-        },
-        media: {
-            cover: { url: "https://placehold.co/1200x480.png", width: 1200, height: 480 },
-            profile: { url: "https://placehold.co/400x400.png", width: 400, height: 400 },
-        },
-        ordering: "custom",
-        blocks: [
-          { id: '1', type: 'text', title: 'ウェブサイト', icon: 'globe', visibility: 'show', order: 0, createdAt: '', updatedAt: '' },
-          { id: '2', type: 'text', title: 'YouTubeチャンネル', icon: 'youtube', visibility: 'show', order: 1, createdAt: '', updatedAt: '' },
-          { id: '7', type: 'album', title: '新婚旅行アルバム', order: 2, visibility: 'show', createdAt: '', updatedAt: '', album: { layout: 'carousel', assetIds: ['a1','a2','a3'], items: [
-            { src: 'https://placehold.co/600x400.png' }, { src: 'https://placehold.co/600x400.png' }, { src: 'https://placehold.co/600x400.png' }
-          ]}},
-          { id: '8', type: 'photo', title: 'お気に入りの一枚', order: 3, visibility: 'show', createdAt: '', updatedAt: '', photo: { assetId: 'p1', src: 'https://placehold.co/600x400.png', caption: '夕焼けのビーチで' }},
-          { id: '9', type: 'video', title: '子供の発表会', order: 4, visibility: 'show', createdAt: '', updatedAt: '', video: { assetId: 'v1', src: 'https://placehold.co/600x400.png' } },
-          { id: '10', type: 'audio', title: '祖母の思い出話', order: 5, visibility: 'show', createdAt: '', updatedAt: '', audio: { assetId: 'au1', src: '' } },
-          { id: '5', type: 'text', title: 'X (旧Twitter)', icon: 'x', visibility: 'show', order: 6, createdAt: '', updatedAt: '' },
-          { id: '6', type: 'text', title: 'Instagram', icon: 'instagram', visibility: 'show', order: 7, createdAt: '', updatedAt: '' },
-        ],
-        publish: {
-            status: "published",
-            publishedAt: new Date().toISOString(),
-        }
-    };
-  }
-
+  // Production fetch from Storage
   try {
-    // This part is for production, where a `manifest.json` is generated.
-    // The revalidate option ensures fresh data without a full rebuild.
     const res = await fetch(`https://storage.googleapis.com/${process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET}/deliver/publicPages/${pageId}/manifest.json`, { next: { revalidate: 300 }});
     if (!res.ok) {
         console.error(`Failed to fetch manifest for ${pageId}: ${res.statusText}`);
@@ -69,6 +29,41 @@ async function fetchPublicPageManifest(pageId: string): Promise<PublicPage | nul
      return null;
   }
 }
+
+// MOCK DATA for local development and previewing if localStorage is empty
+const mockData: PublicPage = {
+    id: "preview",
+    memoryId: "mockMemoryId",
+    title: "岡 浩平 (プレビュー)",
+    about: {
+        text: "FutureStudio株式会社 代表取締役。大切な人との想い出を、永遠の形に残すお手伝いをします。NFCタグに想い出を込めて、いつでもどこでも、スマートフォンをかざすだけで、大切な記憶が鮮やかに蘇ります。",
+        format: "plain",
+    },
+    design: {
+        theme: "dark",
+        accentColor: "#3B82F6",
+        bgColor: "#111827",
+        fontScale: 1.0,
+        fontFamily: "sans-serif",
+        headlineFontFamily: "sans-serif",
+    },
+    media: {
+        cover: { url: "https://placehold.co/1200x480.png", width: 1200, height: 480 },
+        profile: { url: "https://placehold.co/400x400.png", width: 400, height: 400 },
+    },
+    ordering: "custom",
+    blocks: [
+      { id: '1', type: 'text', title: 'ウェブサイト', icon: 'globe', visibility: 'show', order: 0, createdAt: new Date(), updatedAt: new Date() } as any,
+      { id: '2', type: 'text', title: 'YouTubeチャンネル', icon: 'youtube', visibility: 'show', order: 1, createdAt: new Date(), updatedAt: new Date() } as any,
+      { id: '7', type: 'album', title: '新婚旅行アルバム', order: 2, visibility: 'show', createdAt: new Date(), updatedAt: new Date(), album: { layout: 'carousel', assetIds: ['a1','a2','a3'], items: [
+        { src: 'https://placehold.co/600x400.png' }, { src: 'https://placehold.co/600x400.png' }, { src: 'https://placehold.co/600x400.png' }
+      ]}} as any,
+    ],
+    publish: {
+        status: "published",
+        publishedAt: new Date().toISOString() as any,
+    }
+};
 
 const blockIcons: { [key: string]: React.ReactNode } = {
   globe: <Globe className="h-6 w-6" />,
@@ -97,7 +92,7 @@ const BlockRenderer = ({ block }: { block: PublicPageBlock }) => {
                                 {block.album?.items?.map((item, index) => (
                                     <CarouselItem key={index} className="pl-2 md:basis-1/2">
                                         <div className="aspect-video relative rounded-lg overflow-hidden">
-                                           <Image src={item.src} alt={block.title || `Album image ${index+1}`} fill className="object-cover" />
+                                           {item.src && <Image src={item.src} alt={block.title || `Album image ${index+1}`} fill className="object-cover" />}
                                         </div>
                                     </CarouselItem>
                                 ))}
@@ -173,44 +168,76 @@ const BlockRenderer = ({ block }: { block: PublicPageBlock }) => {
     }
 }
 
-
-export async function generateMetadata({ params }: { params: { pageId: string } }): Promise<Metadata> {
-  const manifest = await fetchPublicPageManifest(params.pageId);
-
-  if (!manifest) {
+// Convert Memory to PublicPage for rendering
+function convertMemoryToPublicPage(memory: Memory): PublicPage {
     return {
-      title: 'ページが見つかりません',
-    };
-  }
-
-  return {
-    title: `${manifest.title} - 想い出リンク`,
-    description: manifest.about.text.substring(0, 160),
-    openGraph: {
-      title: manifest.title,
-      description: manifest.about.text.substring(0, 160),
-      images: [
-        {
-          url: manifest.media.cover.url,
-          width: manifest.media.cover.width,
-          height: manifest.media.cover.height,
-          alt: manifest.title,
+        id: memory.id,
+        memoryId: memory.id,
+        title: memory.title,
+        about: {
+            text: memory.description,
+            format: 'plain'
         },
-      ],
-      type: 'profile',
-    },
-    twitter: {
-        card: 'summary_large_image',
-        title: manifest.title,
-        description: manifest.about.text.substring(0, 160),
-        images: [manifest.media.cover.url],
-    }
-  };
+        design: memory.design,
+        media: {
+            // @ts-ignore - these are added dynamically from editor
+            cover: { url: memory.media?.cover?.url || "https://placehold.co/1200x480.png" },
+             // @ts-ignore
+            profile: { url: memory.media?.profile?.url || "https://placehold.co/400x400.png" },
+        },
+        ordering: 'custom',
+        blocks: memory.blocks,
+        publish: {
+            status: 'published',
+            publishedAt: new Date(),
+        },
+    };
 }
 
 
-export default async function PublicPage({ params }: { params: { pageId: string } }) {
-  const manifest = await fetchPublicPageManifest(params.pageId);
+export default function PublicPage({ params }: { params: { pageId: string } }) {
+  const [manifest, setManifest] = useState<PublicPage | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadPageData() {
+        setLoading(true);
+        let pageData: PublicPage | null = null;
+
+        if (params.pageId === 'preview') {
+            const storedPreviewData = localStorage.getItem('memory-preview');
+            if (storedPreviewData) {
+                try {
+                    const memoryData = JSON.parse(storedPreviewData) as Memory;
+                    pageData = convertMemoryToPublicPage(memoryData);
+                } catch(e) {
+                    console.error("Failed to parse preview data from localStorage", e);
+                    pageData = mockData; // fallback
+                }
+            } else {
+                pageData = mockData; // fallback
+            }
+        } else {
+            pageData = await fetchPublicPageManifest(params.pageId);
+        }
+
+        if (pageData) {
+            document.title = `${pageData.title} - 想い出リンク`;
+        }
+        setManifest(pageData);
+        setLoading(false);
+    }
+    
+    loadPageData();
+  }, [params.pageId]);
+
+  if (loading) {
+    return (
+        <div className="flex min-h-screen items-center justify-center bg-gray-900">
+            <Loader2 className="h-10 w-10 animate-spin text-white" />
+        </div>
+    )
+  }
 
   if (!manifest) {
     notFound();

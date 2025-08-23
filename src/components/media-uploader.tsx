@@ -36,24 +36,21 @@ export function MediaUploader({ assetType, accept, children, onUploadSuccess, me
     setIsUploading(true);
     if (fileInputRef.current) fileInputRef.current.value = "";
     
-    // All assets uploaded from the editor are stored within the memory's subcollection path.
-    // Library uploads (memoryId is undefined) are not implemented yet.
-    if (!memoryId) {
-        toast({ variant: 'destructive', title: 'エラー', description: 'アップロード先となるページが指定されていません。' });
-        setIsUploading(false);
-        return;
-    }
-
-    const storagePath = `users/${user.uid}/memories/${memoryId}/assets/${Date.now()}_${file.name}`;
-    const assetCollectionRef = collection(db, 'memories', memoryId, 'assets');
+    // Media library uploads (memoryId is undefined) should be stored in a general path.
+    // Editor uploads (memoryId is defined) are stored within the memory's folder.
+    const storagePath = memoryId
+      ? `users/${user.uid}/memories/${memoryId}/assets/${Date.now()}_${file.name}`
+      : `users/${user.uid}/library/${Date.now()}_${file.name}`;
+      
+    const assetCollectionRef = collection(db, 'assets');
     
     try {
-      // 1. Create a document in the 'memories/{memoryId}/assets' subcollection
+      // 1. Create a document in the root 'assets' collection
       const assetData: Omit<Asset, 'id' | 'createdAt' | 'updatedAt' | 'url'> = {
         ownerUid: user.uid,
-        memoryId: memoryId, // Associate with the current memory
+        memoryId: memoryId || null,
         name: file.name,
-        type: assetType,
+        type: file.type.startsWith('image') ? 'image' : file.type.startsWith('video') ? 'video' : 'audio',
         size: file.size,
         storagePath: storagePath,
       };
@@ -83,7 +80,7 @@ export function MediaUploader({ assetType, accept, children, onUploadSuccess, me
           // 3. Once upload is complete, get the URL and update the Firestore document
           const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
           
-          const finalAssetDoc = doc(db, 'memories', memoryId, 'assets', docRef.id);
+          const finalAssetDoc = doc(db, 'assets', docRef.id);
           await updateDoc(finalAssetDoc, {
             url: downloadURL,
             updatedAt: serverTimestamp(),
@@ -96,8 +93,8 @@ export function MediaUploader({ assetType, accept, children, onUploadSuccess, me
             id: finalAssetSnapshot.id,
             ...finalDocData,
             // Convert Timestamps to Dates for client-side use
-            createdAt: (finalDocData?.createdAt as Timestamp).toDate(),
-            updatedAt: (finalDocData?.updatedAt as Timestamp).toDate(),
+            createdAt: (finalDocData?.createdAt as Timestamp)?.toDate(),
+            updatedAt: (finalDocData?.updatedAt as Timestamp)?.toDate(),
           } as Asset;
 
           onUploadSuccess?.(finalAsset);

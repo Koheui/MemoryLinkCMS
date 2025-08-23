@@ -4,7 +4,7 @@
 import { Button } from '@/components/ui/button';
 import type { Memory, PublicPageBlock, Asset } from '@/lib/types';
 import { db } from '@/lib/firebase/client';
-import { doc, getDoc, Timestamp, updateDoc, arrayUnion, arrayRemove, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, Timestamp, updateDoc, arrayUnion, arrayRemove, serverTimestamp, collection, getDocs, orderBy, query, where } from 'firebase/firestore';
 import { notFound, useParams } from 'next/navigation';
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Eye, Loader2, PlusCircle, Edit, Image as ImageIcon, Trash2 } from 'lucide-react';
@@ -62,25 +62,28 @@ export default function MemoryEditorPage() {
       const memoryData = { 
         id: memoryDocSnap.id, 
         ...memoryDocSnap.data(),
-        blocks: memoryDocSnap.data().blocks || [] 
       } as Memory;
+      
+      if (!memoryData.blocks) {
+        memoryData.blocks = [];
+      }
       setMemory(memoryData);
 
-      // This logic for fetching assets is now simplified as they are part of the memory doc
-      // or would be managed in a global library. For this editor, we'll assume
-      // asset URLs are directly on the blocks or we fetch from a global asset store if needed.
-      // For now, we will simulate fetching related assets if they are referenced by ID.
+      const assetsQuery = query(
+        collection(db, 'assets'),
+        where('ownerUid', '==', currentUid),
+        orderBy('createdAt', 'desc')
+      );
+      const assetsSnap = await getDocs(assetsQuery);
+      const fetchedAssets = assetsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Asset));
+      setAssets(fetchedAssets);
       
-      // In a real app, you might query an 'assets' collection where memoryId is in a list of asset IDs.
-      // For simplicity here, we assume assets are either globally available or their URLs are on blocks.
-      // We will leave the local `assets` state for modals that might need a list of selectable media.
-      
-      setLoading(false);
     } catch (e) {
       console.error("Error fetching page data:", e);
       toast({ variant: 'destructive', title: "Error", description: "ページデータの読み込みに失敗しました。" });
       setMemory(null);
-      setLoading(false);
+    } finally {
+        setLoading(false);
     }
   }, [toast]);
 
@@ -128,6 +131,7 @@ export default function MemoryEditorPage() {
 
   const handleAssetUpload = (asset: Asset) => {
     setAssets(prevAssets => [asset, ...prevAssets]);
+    fetchAllData(memoryId, user!.uid); // Re-fetch all data to ensure consistency
   }
   
   const handleSaveBlock = async (newBlockData: Omit<PublicPageBlock, 'id' | 'createdAt' | 'updatedAt' | 'order'>, blockToEdit?: PublicPageBlock | null) => {
@@ -173,7 +177,7 @@ export default function MemoryEditorPage() {
               blocks: arrayRemove(blockToDelete),
               updatedAt: serverTimestamp()
           });
-          const newBlocks = blocks.filter(b => b.id !== blockId);
+          const newBlocks = blocks.filter(b => b.id !== blockId).map((b, index) => ({ ...b, order: index }));
           setMemory(prev => prev ? { ...prev, blocks: newBlocks } : null);
           toast({ title: "ブロックを削除しました" });
       } catch (error) {
@@ -182,6 +186,42 @@ export default function MemoryEditorPage() {
       }
   };
 
+  const handlePreview = () => {
+    if (!memory) return;
+    
+    // Resolve asset URLs before saving to localStorage
+    const getAssetUrl = (assetId: string | null): string | undefined => {
+      if (!assetId) return undefined;
+      return assets.find(a => a.id === assetId)?.url;
+    };
+    
+    const previewData = {
+      ...memory,
+      media: {
+        cover: { url: getAssetUrl(memory.coverAssetId) || "https://placehold.co/1200x480.png" },
+        profile: { url: getAssetUrl(memory.profileAssetId) || "https://placehold.co/400x400.png" },
+      },
+      blocks: memory.blocks.map(block => {
+        const newBlock = { ...block };
+        if (newBlock.type === 'photo' && newBlock.photo?.assetId) {
+            newBlock.photo.src = getAssetUrl(newBlock.photo.assetId);
+        }
+        if (newBlock.type === 'video' && newBlock.video?.assetId) {
+            newBlock.video.src = getAssetUrl(newBlock.video.assetId);
+        }
+        if (newBlock.type === 'audio' && newBlock.audio?.assetId) {
+            newBlock.audio.src = getAssetUrl(newBlock.audio.assetId);
+        }
+        if (newBlock.type === 'album' && newBlock.album?.assetIds) {
+            newBlock.album.items = newBlock.album.assetIds.map(id => ({ src: getAssetUrl(id) || '' }));
+        }
+        return newBlock;
+      })
+    };
+    
+    localStorage.setItem('memory-preview', JSON.stringify(previewData));
+    window.open(`/p/preview`, '_blank');
+  };
 
   if (loading || authLoading) {
      return (
@@ -195,7 +235,6 @@ export default function MemoryEditorPage() {
      return notFound();
   }
   
-  const publicUrl = `/p/preview`;
   const coverImageUrl = memory.coverAssetId ? assets.find(a => a.id === memory.coverAssetId)?.url : null;
   const profileImageUrl = memory.profileAssetId ? assets.find(a => a.id === memory.profileAssetId)?.url : null;
 
@@ -236,11 +275,9 @@ export default function MemoryEditorPage() {
            <p className="text-sm text-muted-foreground">ビジュアルエディタ</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" asChild>
-            <a href={publicUrl} target="_blank" rel="noopener noreferrer">
-                <Eye className="mr-2 h-4 w-4" />
-                プレビュー
-            </a>
+          <Button variant="outline" onClick={handlePreview}>
+              <Eye className="mr-2 h-4 w-4" />
+              プレビュー
           </Button>
            <Button>
             公開する

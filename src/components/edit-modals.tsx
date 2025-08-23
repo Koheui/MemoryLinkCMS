@@ -5,7 +5,7 @@ import * as React from 'react';
 import { useState, useEffect, useMemo } from 'react';
 import type { Memory, Asset, PublicPageBlock } from '@/lib/types';
 import { db } from '@/lib/firebase/client';
-import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, updateDoc, serverTimestamp } from 'firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -21,8 +21,6 @@ import { MediaUploader } from './media-uploader';
 export function DesignModal({ isOpen, setIsOpen, memory, assets, onUploadSuccess }: { isOpen: boolean, setIsOpen: (open: boolean) => void, memory: Memory, assets: Asset[], onUploadSuccess: (asset: Asset) => void }) {
     const [coverAssetId, setCoverAssetId] = useState(memory.coverAssetId);
     const [profileAssetId, setProfileAssetId] = useState(memory.profileAssetId);
-    const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null);
-    const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);
     const [isSaving, setIsSaving] = useState(false);
     const { toast } = useToast();
 
@@ -33,15 +31,15 @@ export function DesignModal({ isOpen, setIsOpen, memory, assets, onUploadSuccess
         }
     }, [memory, isOpen]);
 
-    useEffect(() => {
-        setCoverImageUrl(assets.find(a => a.id === coverAssetId)?.url || null);
+    const coverImageUrl = useMemo(() => {
+        return assets.find(a => a.id === coverAssetId)?.url || null;
     }, [coverAssetId, assets]);
-    
-    useEffect(() => {
-        setProfileImageUrl(assets.find(a => a.id === profileAssetId)?.url || null);
+
+    const profileImageUrl = useMemo(() => {
+        return assets.find(a => a.id === profileAssetId)?.url || null;
     }, [profileAssetId, assets]);
 
-    const imageAssets = assets.filter(a => a.type === 'image');
+    const imageAssets = useMemo(() => assets.filter(a => a.type === 'image'), [assets]);
     
     const handleSave = async () => {
         setIsSaving(true);
@@ -54,6 +52,7 @@ export function DesignModal({ isOpen, setIsOpen, memory, assets, onUploadSuccess
             });
             toast({ title: '成功', description: 'カバーとプロフィール画像を更新しました。' });
             setIsOpen(false);
+            onUploadSuccess({} as Asset); // Trigger a re-fetch in parent
         } catch (error) {
             console.error("Failed to save design:", error);
             toast({ variant: 'destructive', title: 'エラー', description: '画像の更新に失敗しました。' });
@@ -86,7 +85,7 @@ export function DesignModal({ isOpen, setIsOpen, memory, assets, onUploadSuccess
                     <div>
                         <Label>カバー画像</Label>
                         <div className="flex gap-2">
-                             <Select onValueChange={(value) => setCoverAssetId(value !== 'no-selection' ? value : undefined)} value={coverAssetId ?? 'no-selection'}>
+                             <Select onValueChange={(value) => setCoverAssetId(value !== 'no-selection' ? value : null)} value={coverAssetId ?? 'no-selection'}>
                                 <SelectTrigger><SelectValue placeholder="カバー画像を選択..." /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="no-selection">なし</SelectItem>
@@ -109,7 +108,7 @@ export function DesignModal({ isOpen, setIsOpen, memory, assets, onUploadSuccess
                      <div>
                         <Label>プロフィール画像</Label>
                         <div className="flex gap-2">
-                            <Select onValueChange={(value) => setProfileAssetId(value !== 'no-selection' ? value : undefined)} value={profileAssetId ?? 'no-selection'}>
+                            <Select onValueChange={(value) => setProfileAssetId(value !== 'no-selection' ? value : null)} value={profileAssetId ?? 'no-selection'}>
                                 <SelectTrigger><SelectValue placeholder="プロフィール画像を選択..." /></SelectTrigger>
                                 <SelectContent>
                                 <SelectItem value="no-selection">なし</SelectItem>
