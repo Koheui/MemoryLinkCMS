@@ -7,7 +7,6 @@
  * See a full list of supported triggers at https://firebase.google.com/docs/functions
  */
 
-import {setGlobalOptions} from "firebase-functions/v2";
 import {onObjectFinalized} from "firebase-functions/v2/storage";
 import * as logger from "firebase-functions/logger";
 import * as admin from "firebase-admin";
@@ -18,11 +17,10 @@ import ffmpeg from "fluent-ffmpeg";
 
 admin.initializeApp();
 
-// Set the region to match the project's region (e.g., asia-northeast1)
-setGlobalOptions({region: "asia-northeast1"});
-
-// This is the correct signature for the onObjectFinalized trigger.
+// This is the correct signature for the onObjectFinalized trigger for v2 Functions.
+// The region and other options are passed as the first argument.
 export const generateThumbnail = onObjectFinalized({
+  region: "asia-northeast1", // Set the region here as per v2 SDK spec
   cpu: 1,
   memory: "512MiB",
   timeoutSeconds: 60,
