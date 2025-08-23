@@ -1,3 +1,4 @@
+
 // src/app/(app)/memories/[memoryId]/page.tsx
 'use client';
 
@@ -196,32 +197,38 @@ export default function MemoryEditorPage() {
   }
   
    const handleDeleteBlock = async (blockId: string) => {
-      if (!memory) return;
-      const blockToDelete = blocks.find(b => b.id === blockId);
-      if (!blockToDelete) return;
+    if (!memory) return;
+    const blockToDelete = blocks.find((b) => b.id === blockId);
+    if (!blockToDelete) return;
 
-      if (!window.confirm("このブロックを本当に削除しますか？")) return;
+    if (!window.confirm("このブロックを本当に削除しますか？")) return;
 
-      try {
-          const memoryRef = doc(db, 'memories', memoryId);
-          // For arrayRemove to work, you must pass an object that is an exact match.
-          // Firestore Timestamps can be tricky. A safer way is to filter the array on the client 
-          // and update the entire `blocks` field, re-ordering the remaining blocks.
-          const newBlocks = blocks
-              .filter(b => b.id !== blockId)
-              .map((b, index) => ({ ...b, order: index })); // Re-order remaining blocks
+    try {
+      const memoryRef = doc(db, 'memories', memoryId);
+      // To use arrayRemove, we must pass an object that is an exact match.
+      // Firestore Timestamps can be tricky. It's safer to find the exact object.
+      await updateDoc(memoryRef, {
+        blocks: arrayRemove(blockToDelete),
+        updatedAt: serverTimestamp(),
+      });
 
-          await updateDoc(memoryRef, {
-              blocks: newBlocks,
-              updatedAt: serverTimestamp()
-          });
-
-          setMemory(prev => prev ? { ...prev, blocks: newBlocks } : null);
-          toast({ title: "ブロックを削除しました" });
-      } catch (error) {
-          console.error("Failed to delete block:", error);
-          toast({ variant: 'destructive', title: "エラー", description: "ブロックの削除に失敗しました。" });
-      }
+      // Also update client state
+      setMemory((prev) => {
+        if (!prev) return null;
+        const newBlocks = prev.blocks
+          .filter((b) => b.id !== blockId)
+          .map((b, index) => ({ ...b, order: index })); // Re-order remaining blocks
+        return { ...prev, blocks: newBlocks };
+      });
+      toast({ title: 'ブロックを削除しました' });
+    } catch (error) {
+      console.error('Failed to delete block:', error);
+      toast({
+        variant: 'destructive',
+        title: 'エラー',
+        description: 'ブロックの削除に失敗しました。',
+      });
+    }
   };
 
   const handlePreview = () => {
