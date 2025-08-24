@@ -191,23 +191,20 @@ export function PreviewModal({ isOpen, setIsOpen, memory, assets }: { isOpen: bo
 
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <DialogContent className="max-w-4xl h-[90vh] p-0 gap-0">
-                <DialogHeader className="p-4 border-b">
-                    <DialogTitle>プレビュー</DialogTitle>
-                    <DialogDescription>
-                        これは公開ページのプレビューです。実際の表示とは異なる場合があります。
-                    </DialogDescription>
+            <DialogContent className="max-w-md h-[90vh] p-0 gap-0 bg-gray-800/80 backdrop-blur-sm">
+                <DialogHeader className="p-4 border-b border-gray-700">
+                    <DialogTitle className="text-white">プレビュー</DialogTitle>
                 </DialogHeader>
-                <div className="overflow-auto flex-1">
+                <div className="flex-1 overflow-auto p-4">
                      <div style={{ 
                         backgroundColor: design.bgColor || '#111827', 
                         fontFamily: design.fontFamily || 'sans-serif',
                      } as React.CSSProperties}
-                     className="min-h-full text-white"
+                     className="min-h-full text-white mx-auto max-w-sm rounded-3xl border-8 border-black shadow-2xl overflow-hidden"
                      >
-                        <div className="container mx-auto max-w-2xl px-4 py-8 sm:px-6 lg:py-12">
+                        <div className="overflow-y-auto h-full">
                             <header className="relative">
-                                <div className="relative h-48 w-full overflow-hidden rounded-xl shadow-lg md:h-56">
+                                <div className="relative h-40 w-full">
                                     <Image 
                                     src={manifest.media.cover.url}
                                     alt={manifest.title}
@@ -219,26 +216,26 @@ export function PreviewModal({ isOpen, setIsOpen, memory, assets }: { isOpen: bo
                                     />
                                 </div>
                                 
-                                <div className="relative flex flex-col items-center -mt-20">
-                                    <div className="h-40 w-40 rounded-full z-10 bg-gray-800 border-4 border-background shadow-lg relative overflow-hidden shrink-0">
+                                <div className="relative flex flex-col items-center -mt-16">
+                                    <div className="h-24 w-24 rounded-full z-10 bg-gray-800 border-4 border-black shadow-lg relative overflow-hidden shrink-0">
                                         <Image 
                                             src={manifest.media.profile.url}
                                             alt="Profile"
                                             fill
                                             data-ai-hint="portrait person"
                                             className="rounded-full object-cover"
-                                            sizes="160px"
+                                            sizes="96px"
                                         />
                                     </div>
                                     
-                                    <div className="mt-4 text-center">
-                                        <h1 className="text-5xl font-bold text-yellow-300">{manifest.title}</h1>
-                                        <p className="mt-2 text-xl text-blue-300 max-w-prose mx-auto">{manifest.about.text}</p>
+                                    <div className="mt-4 px-4 text-left w-full">
+                                        <h1 className="text-3xl font-bold text-white">{manifest.title}</h1>
+                                        <p className="mt-2 text-base text-gray-300 max-w-prose">{manifest.about.text}</p>
                                     </div>
                                 </div>
                             </header>
 
-                            <main className="space-y-6 pb-12 mt-8">
+                            <main className="space-y-4 pb-12 mt-8 px-4">
                                 {manifest.blocks
                                     .filter(block => block.visibility === 'show')
                                     .sort((a,b) => a.order - b.order)
@@ -247,13 +244,13 @@ export function PreviewModal({ isOpen, setIsOpen, memory, assets }: { isOpen: bo
                                 ))}
                             </main>
 
-                            <footer className="mt-12 text-center text-sm text-gray-400 pb-8">
+                            <footer className="mt-8 text-center text-xs text-gray-500 pb-8 px-4">
                                 <p>&copy; {new Date().getFullYear()}. Powered by MemoryLink</p>
                             </footer>
                         </div>
                     </div>
                 </div>
-                <DialogFooter className="p-4 border-t">
+                <DialogFooter className="p-4 border-t border-gray-700">
                     <Button variant="outline" onClick={() => setIsOpen(false)}>閉じる</Button>
                 </DialogFooter>
             </DialogContent>
