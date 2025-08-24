@@ -17,8 +17,8 @@ import { doc, getDoc, collection, query, where, getDocs, Timestamp } from 'fireb
 async function fetchPublicPageData(pageId: string): Promise<{ memory: Memory, assets: Asset[] } | null> {
     try {
         const memoryDoc = await getDoc(doc(db, "memories", pageId));
-        if (!memoryDoc.exists()) {
-            console.error(`Memory with pageId ${pageId} not found.`);
+        if (!memoryDoc.exists() || memoryDoc.data().status !== 'active') { // Assuming 'active' status for public
+            console.error(`Memory with pageId ${pageId} not found or not active.`);
             return null;
         }
         const memoryData = { id: memoryDoc.id, ...memoryDoc.data() } as Memory;
@@ -214,14 +214,12 @@ export default function PublicPage() {
             if (storedPreviewData) {
                 try {
                     const parsedData = JSON.parse(storedPreviewData);
-                    // The stored data now includes memory, and assets separately
                     pageData = convertMemoryToPublicPage(parsedData.memory, parsedData.assets);
                 } catch(e) {
                     console.error("Failed to parse preview data from localStorage", e);
                 }
             }
         } else {
-            // This is a live page, fetch from Firestore.
             const data = await fetchPublicPageData(pageId);
             if (data) {
                 pageData = convertMemoryToPublicPage(data.memory, data.assets);
