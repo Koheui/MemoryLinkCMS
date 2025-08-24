@@ -194,7 +194,7 @@ const BlockRenderer = ({ block, design, setLightboxState }: { block: PublicPageB
                              <Image src={block.photo.src} alt={block.title || "Single photo"} fill className="object-cover" sizes="(max-width: 768px) 100vw, 50vw" />
                          </div>
                     )}
-                    <CardContent className="p-4">
+                    <CardContent className="p-4" style={cardStyle}>
                         <h3 style={textStyle} className="font-semibold">{block.title}</h3>
                         {block.photo?.caption && <p style={mutedTextStyle} className="text-sm mt-1">{block.photo.caption}</p>}
                     </CardContent>
@@ -211,7 +211,7 @@ const BlockRenderer = ({ block, design, setLightboxState }: { block: PublicPageB
                             <Clapperboard className="h-16 w-16 text-white/70" />
                         </div>
                     </div>
-                    <CardContent className="p-4">
+                    <CardContent className="p-4" style={cardStyle}>
                         <h3 style={textStyle} className="font-semibold">{block.title}</h3>
                     </CardContent>
                 </Card>
@@ -280,11 +280,11 @@ export function PreviewModal({ isOpen, setIsOpen, memory, assets }: { isOpen: bo
                 >
                     <div 
                         className="mx-auto relative"
-                        style={{
-                            backgroundColor: manifest.design.bgColor,
-                            color: manifest.design.textColor,
-                            fontFamily: manifest.design.fontFamily || 'sans-serif'
-                        } as React.CSSProperties}
+                         style={{
+                            backgroundColor: manifest.design.bgColor || '#111827', 
+                            color: manifest.design.textColor || '#FFFFFF',
+                            fontFamily: manifest.design.fontFamily || 'sans-serif',
+                         } as React.CSSProperties}
                     >
                          {backgroundImage && (
                             <div className="absolute inset-0 z-0">
@@ -836,39 +836,6 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
     );
 }
 
-const PRESET_THEMES: Record<string, Partial<Design>> = {
-    'Bauhaus': {
-        bgColor: '#F0E7D8', textColor: '#1A1A1A',
-        cardBgColor: '#FFFFFF', cardTextColor: '#1A1A1A',
-        accentColor: '#E60000',
-    },
-    'Swiss': {
-        bgColor: '#FFFFFF', textColor: '#000000',
-        cardBgColor: '#F5F5F5', cardTextColor: '#000000',
-        accentColor: '#FF0000',
-    },
-    'Memphis': {
-        bgColor: '#F5F5F5', textColor: '#000000',
-        cardBgColor: '#FFFFFF', cardTextColor: '#000000',
-        accentColor: '#FF6F61',
-    },
-    'Brutalism': {
-        bgColor: '#FFFFFF', textColor: '#000000',
-        cardBgColor: '#FFFFFF', cardTextColor: '#000000',
-        accentColor: '#0000FF',
-    },
-    'Abstract': {
-        bgColor: '#E6E6FA', textColor: '#333333',
-        cardBgColor: '#FFFFFF', cardTextColor: '#333333',
-        accentColor: '#6A5ACD',
-    },
-    'Geometric': {
-        bgColor: '#F0F8FF', textColor: '#2F4F4F',
-        cardBgColor: '#FFFFFF', cardTextColor: '#2F4F4F',
-        accentColor: '#4682B4',
-    }
-};
-
 // --- Design Modal ---
 export function DesignModal({ isOpen, setIsOpen, memory, assets, onUploadSuccess }: { isOpen: boolean, setIsOpen: (open: boolean) => void, memory: Memory, assets: Asset[], onUploadSuccess: (asset: Asset) => void }) {
     const [design, setDesign] = useState<Design>(memory.design);
@@ -885,20 +852,6 @@ export function DesignModal({ isOpen, setIsOpen, memory, assets, onUploadSuccess
         setDesign(prev => ({ ...prev, [key]: value }));
     };
     
-    const handleThemeChange = (themeName: string) => {
-        const theme = PRESET_THEMES[themeName];
-        if (theme) {
-            setDesign(prev => ({
-                ...prev,
-                ...theme,
-                theme: themeName as Design['theme'],
-            }));
-        } else {
-             handleDesignChange('theme', themeName as Design['theme']);
-        }
-    };
-
-
     const handleSave = async () => {
         setIsSaving(true);
         try {
@@ -941,18 +894,12 @@ export function DesignModal({ isOpen, setIsOpen, memory, assets, onUploadSuccess
                         <div className="space-y-4">
                             <div>
                                 <Label>プリセットテーマ</Label>
-                                 <Select onValueChange={handleThemeChange} value={design.theme}>
+                                 <Select onValueChange={(value) => handleDesignChange('theme', value as Design['theme'])} value={design.theme}>
                                     <SelectTrigger><SelectValue placeholder="テーマを選択..." /></SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="light">ライト (デフォルト)</SelectItem>
                                         <SelectItem value="dark">ダーク</SelectItem>
                                         <SelectItem value="cream">クリーム</SelectItem>
-                                        <SelectItem value="Bauhaus">Bauhaus</SelectItem>
-                                        <SelectItem value="Swiss">Swiss</SelectItem>
-                                        <SelectItem value="Memphis">Memphis</SelectItem>
-                                        <SelectItem value="Brutalism">Brutalism</SelectItem>
-                                        <SelectItem value="Abstract">Abstract</SelectItem>
-                                        <SelectItem value="Geometric">Geometric</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
