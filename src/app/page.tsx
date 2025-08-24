@@ -30,8 +30,8 @@ export default function Home() {
             <div className="grid gap-8 lg:grid-cols-2 lg:gap-16">
               <div className="flex flex-col justify-center space-y-6">
                 <div className="space-y-4">
-                  <h1 className="text-4xl font-bold tracking-tighter sm:text-5xl xl:text-6xl/none font-headline text-primary">
-                    大切な人との想い出を、永遠の形に。
+                  <h1 className="text-5xl font-bold tracking-tighter sm:text-5xl xl:text-6xl/none font-headline text-yellow-500">
+                    【検証用】テキストの変更が反映されました
                   </h1>
                   <p className="max-w-[600px] text-muted-foreground md:text-xl">
                     「想い出リンク」は、写真や動画、音声、そして物語を組み合わせ、スマートフォンからいつでもアクセスできる美しい記念ページを作成するサービスです。ユニークなNFCタグに、大切な記憶を込めて。
@@ -49,17 +49,17 @@ export default function Home() {
               <div className="flex items-center justify-center">
                  <Card className="w-full max-w-md shadow-lg">
                    <CardHeader>
-                      <CardTitle className="font-headline">世界に一つのデジタルな形見</CardTitle>
+                      <CardTitle className="font-headline">赤ちゃん筆</CardTitle>
                       <CardDescription>
-                        写真や物語などを、いつでもアクセスできる一つの共有可能なページにまとめます。
+                        赤ちゃん筆を購入するとこの専用ページから写真や動画をアップロードできます。
                       </CardDescription>
                    </CardHeader>
                    <CardContent>
                       <div className="relative aspect-video w-full overflow-hidden rounded-lg">
                          <Image
                            src="https://placehold.co/600x400.png"
-                           alt="Memory page preview"
-                           data-ai-hint="memorial collage"
+                           alt="赤ちゃん筆のサンプル画像"
+                           data-ai-hint="baby brush"
                            width={600}
                            height={400}
                            className="object-cover"
