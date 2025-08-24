@@ -1,3 +1,4 @@
+
 // src/app/(app)/dashboard/page.tsx
 'use client';
 
@@ -229,24 +230,24 @@ export default function DashboardPage() {
             
              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                 {memories.map(memory => (
-                    <Card key={memory.id} className="flex flex-col">
-                        <CardHeader>
-                            <CardTitle className="truncate">{memory.title}</CardTitle>
-                            <CardDescription>ID: {memory.id}</CardDescription>
-                        </CardHeader>
-                         <CardContent className="space-y-4 flex-grow">
-                            <div className="aspect-video bg-muted rounded-md flex items-center justify-center relative overflow-hidden">
+                    <Card key={memory.id} className="flex flex-col overflow-hidden">
+                        <CardContent className="p-0">
+                            <div className="aspect-video bg-muted relative">
                                 <Image 
                                     src={memory.coverImageUrl || "https://placehold.co/600x400.png"} 
                                     alt={memory.title} 
                                     fill
                                     sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                                    className="rounded-md object-cover" 
+                                    className="object-cover" 
                                     data-ai-hint="memorial" 
                                 />
                             </div>
                         </CardContent>
-                        <CardFooter className="flex gap-2">
+                        <CardHeader className="flex-grow">
+                            <CardTitle className="truncate">{memory.title}</CardTitle>
+                            <CardDescription>ID: {memory.id}</CardDescription>
+                        </CardHeader>
+                        <CardFooter className="flex gap-2 bg-muted/50 p-3">
                             <Button asChild className="flex-1">
                                 <Link href={`/memories/${memory.id}`}>
                                     <Edit className="mr-2 h-4 w-4" /> 編集
