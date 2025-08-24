@@ -227,21 +227,42 @@ export default function MemoryEditorPage() {
 
   const handlePreview = () => {
     if (!memory) return;
+
+    const convertTimestamp = (timestamp: any): string | null => {
+        if (timestamp instanceof Timestamp) {
+            return timestamp.toDate().toISOString();
+        }
+        if (timestamp && typeof timestamp.toDate === 'function') {
+             return timestamp.toDate().toISOString();
+        }
+        if (typeof timestamp === 'string') {
+            return timestamp; // Already a string
+        }
+        if(timestamp) {
+            // It might be a plain JS Date object from a previous serialization attempt
+             try {
+                return new Date(timestamp).toISOString();
+             } catch (e) {
+                // fall through
+             }
+        }
+        return new Date().toISOString(); // Fallback
+    };
     
     // Create a serializable version of the memory data including assets
     const serializableMemory = {
       ...memory,
-      createdAt: (memory.createdAt as Timestamp)?.toDate().toISOString(),
-      updatedAt: (memory.updatedAt as Timestamp)?.toDate().toISOString(),
+      createdAt: convertTimestamp(memory.createdAt),
+      updatedAt: convertTimestamp(memory.updatedAt),
       blocks: memory.blocks.map(block => ({
         ...block,
-        createdAt: (block.createdAt as Timestamp)?.toDate().toISOString(),
-        updatedAt: (block.updatedAt as Timestamp)?.toDate().toISOString(),
+        createdAt: convertTimestamp(block.createdAt),
+        updatedAt: convertTimestamp(block.updatedAt),
       })),
       assets: assets.map(asset => ({
         ...asset,
-        createdAt: (asset.createdAt as any)?.toDate ? (asset.createdAt as Timestamp).toDate().toISOString() : asset.createdAt,
-        updatedAt: (asset.updatedAt as any)?.toDate ? (asset.updatedAt as Timestamp).toDate().toISOString() : asset.updatedAt,
+        createdAt: convertTimestamp(asset.createdAt),
+        updatedAt: convertTimestamp(asset.updatedAt),
       }))
     };
     
@@ -348,9 +369,9 @@ export default function MemoryEditorPage() {
                  </div>
                 
                 {/* Profile & About Section */}
-                <div className="relative flex flex-col items-center -mt-20">
+                 <div className="relative -mt-20">
                     <div 
-                       className="group relative h-32 w-32 sm:h-40 sm:w-40 overflow-hidden rounded-full border-4 border-background bg-muted flex items-center justify-center cursor-pointer shadow-lg hover:shadow-xl transition-shadow z-10"
+                       className="group relative h-32 w-32 sm:h-40 sm:w-40 mx-auto overflow-hidden rounded-full border-4 border-background bg-muted flex items-center justify-center cursor-pointer shadow-lg hover:shadow-xl transition-shadow z-10"
                        onClick={() => setIsAboutModalOpen(true)}
                     >
                        {profileImageUrl ? (
@@ -376,6 +397,7 @@ export default function MemoryEditorPage() {
                        </div>
                    </div>
                 </div>
+
 
                 {/* Blocks Section */}
                 <div className="mt-12 space-y-4 px-4 sm:px-6 pb-8">
