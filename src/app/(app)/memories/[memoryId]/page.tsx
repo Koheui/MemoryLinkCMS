@@ -225,22 +225,12 @@ export default function MemoryEditorPage() {
     }
   };
 
-  const handlePreview = async () => {
-    if (!memory || !user) return;
+  const handlePreview = () => {
+    if (!memory || !assets) return;
 
-    // To ensure the preview is always up-to-date, we re-fetch all data directly.
     try {
-        const memoryDoc = await getDoc(doc(db, 'memories', memoryId));
-        if (!memoryDoc.exists()) {
-            throw new Error("Memory not found");
-        }
-        const currentMemory = memoryDoc.data() as Memory;
-
-        const allAssetsQuery = query(collection(db, 'assets'), where('ownerUid', '==', user.uid));
-        const assetsSnapshot = await getDocs(allAssetsQuery);
-        const allAssets = assetsSnapshot.docs.map(d => d.data() as Asset);
-
-        const convertTimestamp = (timestamp: any): string | null => {
+        // Helper to convert Firestore Timestamps to ISO strings for JSON serialization
+        const convertTimestamp = (timestamp: any): string => {
             if (!timestamp) return new Date().toISOString();
             if (timestamp instanceof Timestamp) return timestamp.toDate().toISOString();
             if (typeof timestamp === 'string') return timestamp;
@@ -248,19 +238,19 @@ export default function MemoryEditorPage() {
             return new Date(timestamp).toISOString();
         };
 
+        // Create serializable versions of the data currently in state
         const serializableMemory = {
-            ...currentMemory,
-            id: memoryDoc.id,
-            createdAt: convertTimestamp(currentMemory.createdAt),
-            updatedAt: convertTimestamp(currentMemory.updatedAt),
-            blocks: currentMemory.blocks.map(b => ({
+            ...memory,
+            createdAt: convertTimestamp(memory.createdAt),
+            updatedAt: convertTimestamp(memory.updatedAt),
+            blocks: memory.blocks.map(b => ({
                 ...b,
                 createdAt: convertTimestamp(b.createdAt),
                 updatedAt: convertTimestamp(b.updatedAt),
             })),
         };
         
-        const serializableAssets = allAssets.map(asset => ({
+        const serializableAssets = assets.map(asset => ({
             ...asset,
             createdAt: convertTimestamp(asset.createdAt),
             updatedAt: convertTimestamp(asset.updatedAt),
@@ -269,7 +259,6 @@ export default function MemoryEditorPage() {
         const previewData = {
             memory: serializableMemory,
             assets: serializableAssets,
-            // blocks are now nested inside memory
         };
 
         localStorage.setItem('memory-preview', JSON.stringify(previewData));
@@ -282,7 +271,8 @@ export default function MemoryEditorPage() {
             description: 'プレビューデータの生成中にエラーが発生しました。'
         });
     }
-  };
+};
+
 
   if (loading || authLoading) {
      return (
