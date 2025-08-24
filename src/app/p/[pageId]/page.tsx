@@ -217,7 +217,8 @@ export default function PublicPage() {
   useEffect(() => {
     async function loadPageData() {
         let pageData: PublicPage | null = null;
-        
+        setLoading(true);
+
         if (pageId === 'preview') {
             const storedPreviewData = localStorage.getItem('memory-preview');
             if (storedPreviewData) {
@@ -246,8 +247,9 @@ export default function PublicPage() {
     }
     
     if(pageId) {
-        setLoading(true);
         loadPageData();
+    } else {
+        setLoading(false);
     }
   }, [pageId]);
 
@@ -332,3 +334,4 @@ export default function PublicPage() {
     </div>
   );
 }
+
