@@ -225,55 +225,63 @@ export default function MemoryEditorPage() {
     }
   };
 
-  const handlePreview = () => {
-    if (!memory) return;
+  const handlePreview = async () => {
+    if (!memory || !user) return;
 
-    const convertTimestamp = (timestamp: any): string | null => {
-      if (!timestamp) return new Date().toISOString();
-      if (timestamp instanceof Timestamp) {
-        return timestamp.toDate().toISOString();
-      }
-      if (typeof timestamp === 'string') {
-        return timestamp; // Already a string
-      }
-      if (timestamp.toDate && typeof timestamp.toDate === 'function') {
-        return timestamp.toDate().toISOString();
-      }
-      try {
-        return new Date(timestamp).toISOString();
-      } catch (e) {
-        return new Date().toISOString();
-      }
-    };
-    
-    // Create a serializable version of the data for localStorage
-    const serializableMemory = {
-      ...memory,
-      createdAt: convertTimestamp(memory.createdAt),
-      updatedAt: convertTimestamp(memory.updatedAt),
-      blocks: undefined, // remove blocks from memory object to avoid duplication
-    };
-    
-    const serializableBlocks = memory.blocks.map(block => ({
-        ...block,
-        createdAt: convertTimestamp(block.createdAt),
-        updatedAt: convertTimestamp(block.updatedAt),
-    }));
+    // To ensure the preview is always up-to-date, we re-fetch all data directly.
+    try {
+        const memoryDoc = await getDoc(doc(db, 'memories', memoryId));
+        if (!memoryDoc.exists()) {
+            throw new Error("Memory not found");
+        }
+        const currentMemory = memoryDoc.data() as Memory;
 
-    const serializableAssets = assets.map(asset => ({
-      ...asset,
-      createdAt: convertTimestamp(asset.createdAt),
-      updatedAt: convertTimestamp(asset.updatedAt),
-    }));
+        const allAssetsQuery = query(collection(db, 'assets'), where('ownerUid', '==', user.uid));
+        const assetsSnapshot = await getDocs(allAssetsQuery);
+        const allAssets = assetsSnapshot.docs.map(d => d.data() as Asset);
 
-    const previewData = {
-        memory: serializableMemory,
-        assets: serializableAssets,
-        blocks: serializableBlocks,
-    };
-    
-    localStorage.setItem('memory-preview', JSON.stringify(previewData));
-    window.open(`/p/preview`, '_blank');
+        const convertTimestamp = (timestamp: any): string | null => {
+            if (!timestamp) return new Date().toISOString();
+            if (timestamp instanceof Timestamp) return timestamp.toDate().toISOString();
+            if (typeof timestamp === 'string') return timestamp;
+            if (timestamp.toDate && typeof timestamp.toDate === 'function') return timestamp.toDate().toISOString();
+            return new Date(timestamp).toISOString();
+        };
+
+        const serializableMemory = {
+            ...currentMemory,
+            id: memoryDoc.id,
+            createdAt: convertTimestamp(currentMemory.createdAt),
+            updatedAt: convertTimestamp(currentMemory.updatedAt),
+            blocks: currentMemory.blocks.map(b => ({
+                ...b,
+                createdAt: convertTimestamp(b.createdAt),
+                updatedAt: convertTimestamp(b.updatedAt),
+            })),
+        };
+        
+        const serializableAssets = allAssets.map(asset => ({
+            ...asset,
+            createdAt: convertTimestamp(asset.createdAt),
+            updatedAt: convertTimestamp(asset.updatedAt),
+        }));
+
+        const previewData = {
+            memory: serializableMemory,
+            assets: serializableAssets,
+            // blocks are now nested inside memory
+        };
+
+        localStorage.setItem('memory-preview', JSON.stringify(previewData));
+        window.open(`/p/preview`, '_blank');
+    } catch (error) {
+        console.error("Failed to generate preview data:", error);
+        toast({
+            variant: 'destructive',
+            title: 'プレビュー失敗',
+            description: 'プレビューデータの生成中にエラーが発生しました。'
+        });
+    }
   };
 
   if (loading || authLoading) {

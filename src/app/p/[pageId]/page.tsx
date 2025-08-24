@@ -14,7 +14,7 @@ import { doc, getDoc, collection, query, where, getDocs, Timestamp } from 'fireb
 
 
 // This function fetches both the memory and its associated assets for a real public page
-async function fetchPublicPageData(pageId: string): Promise<{ memory: Memory, assets: Asset[], blocks: PublicPageBlock[] } | null> {
+async function fetchPublicPageData(pageId: string): Promise<{ memory: Memory, assets: Asset[] } | null> {
     try {
         const memoryDoc = await getDoc(doc(db, "memories", pageId));
         if (!memoryDoc.exists()) {
@@ -22,14 +22,13 @@ async function fetchPublicPageData(pageId: string): Promise<{ memory: Memory, as
             return null;
         }
         const memoryData = { id: memoryDoc.id, ...memoryDoc.data() } as Memory;
-        const blocks = memoryData.blocks || [];
 
         // Fetch all assets owned by the user. This is a simplification.
         // A better approach would be to query assets where memoryId matches.
         const assetSnapshots = await getDocs(query(collection(db, "assets"), where("ownerUid", "==", memoryData.ownerUid)));
         const assets = assetSnapshots.docs.map(d => ({ id: d.id, ...d.data() } as Asset));
 
-        return { memory: memoryData, assets, blocks };
+        return { memory: memoryData, assets };
 
     } catch (error) {
         console.error(`Error fetching page data for ${pageId}:`, error);
@@ -38,7 +37,7 @@ async function fetchPublicPageData(pageId: string): Promise<{ memory: Memory, as
 }
 
 // Convert Memory to PublicPage for rendering. This is used for previewing and for real pages.
-function convertMemoryToPublicPage(memory: Memory, assets: Asset[], blocks: PublicPageBlock[]): PublicPage {
+function convertMemoryToPublicPage(memory: Memory, assets: Asset[]): PublicPage {
     const getAssetUrlById = (assetId: string | null): string | undefined => {
         if (!assetId) return undefined;
         return assets.find((a: Asset) => a.id === assetId)?.url;
@@ -48,7 +47,7 @@ function convertMemoryToPublicPage(memory: Memory, assets: Asset[], blocks: Publ
         return assets.find((a: Asset) => a.id === assetId);
     }
 
-    const hydratedBlocks = (blocks || []).map((block: PublicPageBlock) => {
+    const hydratedBlocks = (memory.blocks || []).map((block: PublicPageBlock) => {
         const newBlock = { ...block };
         if (newBlock.type === 'photo' && newBlock.photo?.assetId) {
             newBlock.photo.src = getAssetUrlById(newBlock.photo.assetId);
@@ -215,8 +214,8 @@ export default function PublicPage() {
             if (storedPreviewData) {
                 try {
                     const parsedData = JSON.parse(storedPreviewData);
-                    // The stored data now includes memory, assets, and blocks separately
-                    pageData = convertMemoryToPublicPage(parsedData.memory, parsedData.assets, parsedData.blocks);
+                    // The stored data now includes memory, and assets separately
+                    pageData = convertMemoryToPublicPage(parsedData.memory, parsedData.assets);
                 } catch(e) {
                     console.error("Failed to parse preview data from localStorage", e);
                 }
@@ -225,7 +224,7 @@ export default function PublicPage() {
             // This is a live page, fetch from Firestore.
             const data = await fetchPublicPageData(pageId);
             if (data) {
-                pageData = convertMemoryToPublicPage(data.memory, data.assets, data.blocks);
+                pageData = convertMemoryToPublicPage(data.memory, data.assets);
             }
         }
 
