@@ -234,15 +234,17 @@ export default function MemoryEditorPage() {
             return obj.map(item => convertTimestamps(item));
         }
         if (obj instanceof Timestamp) {
-            return { __datatype__: 'timestamp', value: obj.toDate().toISOString() };
+            return obj.toDate().toISOString();
         }
-        if (obj.toDate && typeof obj.toDate === 'function') {
-            return { __datatype__: 'timestamp', value: obj.toDate().toISOString() };
+        if (obj.toDate && typeof obj.toDate === 'function') { // Fallback for similar objects
+            return obj.toDate().toISOString();
         }
         if (typeof obj === 'object') {
             const newObj: { [key: string]: any } = {};
             for (const key in obj) {
-                newObj[key] = convertTimestamps(obj[key]);
+                 if (Object.prototype.hasOwnProperty.call(obj, key)) {
+                    newObj[key] = convertTimestamps(obj[key]);
+                 }
             }
             return newObj;
         }
@@ -254,11 +256,13 @@ export default function MemoryEditorPage() {
             memory: convertTimestamps(memory),
             assets: convertTimestamps(assets),
         };
-        const jsonString = JSON.stringify(previewData);
-        // Using btoa for Base64 encoding, compatible with browsers
-        const encodedData = btoa(unescape(encodeURIComponent(jsonString)));
-        const url = `/p/preview?data=${encodedData}`;
+        
+        const PREVIEW_DATA_KEY = 'previewData';
+        localStorage.setItem(PREVIEW_DATA_KEY, JSON.stringify(previewData));
+
+        const url = `/p/preview`;
         window.open(url, '_blank');
+
     } catch (error) {
         console.error("Failed to stringify or encode preview data:", error);
         toast({
@@ -372,7 +376,7 @@ export default function MemoryEditorPage() {
                     <div 
                        className="group relative h-32 w-32 sm:h-40 sm:w-40 mx-auto overflow-hidden rounded-full border-4 border-background bg-muted flex items-center justify-center cursor-pointer shadow-lg hover:shadow-xl transition-shadow z-10"
                        onClick={() => setIsAboutModalOpen(true)}
-                    >
+                   >
                        {profileImageUrl ? (
                             <Image src={profileImageUrl} alt="プロフィール画像" fill sizes="160px" className="object-cover" />
                        ) : (

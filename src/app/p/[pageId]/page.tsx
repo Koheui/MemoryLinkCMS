@@ -18,8 +18,8 @@ import { doc, getDoc, collection, query, where, getDocs, Timestamp } from 'fireb
 async function fetchPublicPageData(pageId: string): Promise<{ memory: Memory, assets: Asset[] } | null> {
     try {
         const memoryDoc = await getDoc(doc(db, "memories", pageId));
-        if (!memoryDoc.exists() || memoryDoc.data().status !== 'active') { // Assuming 'active' status for public
-            console.error(`Memory with pageId ${pageId} not found or not active.`);
+        if (!memoryDoc.exists()) { 
+            console.error(`Memory with pageId ${pageId} not found.`);
             return null;
         }
         const memoryData = { id: memoryDoc.id, ...memoryDoc.data() } as Memory;
@@ -47,8 +47,32 @@ function convertMemoryToPublicPage(memory: Memory, assets: Asset[]): PublicPage 
         if (!assetId) return undefined;
         return assets.find((a: Asset) => a.id === assetId);
     }
+    
+    // Function to revive ISO date strings back to Date objects, then to Timestamps for type compatibility
+    const reviveTimestamps = (obj: any): any => {
+        if (!obj) return obj;
+        if (Array.isArray(obj)) {
+            return obj.map(item => reviveTimestamps(item));
+        }
+        if (typeof obj === 'object') {
+            const newObj: { [key: string]: any } = {};
+            for (const key in obj) {
+                if (Object.prototype.hasOwnProperty.call(obj, key)) {
+                    if ((key === 'createdAt' || key === 'updatedAt') && typeof obj[key] === 'string') {
+                         newObj[key] = Timestamp.fromDate(new Date(obj[key]));
+                    } else {
+                        newObj[key] = reviveTimestamps(obj[key]);
+                    }
+                }
+            }
+            return newObj;
+        }
+        return obj;
+    };
+    
+    const revivedMemory = reviveTimestamps(memory);
 
-    const hydratedBlocks = (memory.blocks || []).map((block: PublicPageBlock) => {
+    const hydratedBlocks = (revivedMemory.blocks || []).map((block: PublicPageBlock) => {
         const newBlock = { ...block };
         if (newBlock.type === 'photo' && newBlock.photo?.assetId) {
             newBlock.photo.src = getAssetUrlById(newBlock.photo.assetId);
@@ -70,25 +94,6 @@ function convertMemoryToPublicPage(memory: Memory, assets: Asset[]): PublicPage 
         return newBlock;
     });
 
-    const reviveTimestamps = (obj: any): any => {
-        if (!obj) return obj;
-        if (Array.isArray(obj)) {
-            return obj.map(item => reviveTimestamps(item));
-        }
-        if (typeof obj === 'object') {
-            if (obj.__datatype__ === 'timestamp' && obj.value) {
-                return Timestamp.fromDate(new Date(obj.value));
-            }
-            const newObj: { [key: string]: any } = {};
-            for (const key in obj) {
-                newObj[key] = reviveTimestamps(obj[key]);
-            }
-            return newObj;
-        }
-        return obj;
-    };
-
-    const revivedMemory = reviveTimestamps(memory);
 
     return {
         id: revivedMemory.id,
@@ -220,7 +225,6 @@ const BlockRenderer = ({ block }: { block: PublicPageBlock }) => {
 
 function PageContent() {
   const params = useParams();
-  const searchParams = useSearchParams();
   const pageId = params.pageId as string;
   const [manifest, setManifest] = useState<PublicPage | null>(null);
   const [loading, setLoading] = useState(true);
@@ -230,27 +234,30 @@ function PageContent() {
     async function loadPageData() {
         setLoading(true);
         setError(null);
+        
+        const PREVIEW_DATA_KEY = 'previewData';
 
         if (pageId === 'preview') {
-            const encodedData = searchParams.get('data');
-            if (encodedData) {
+            const jsonString = localStorage.getItem(PREVIEW_DATA_KEY);
+            if (jsonString) {
                 try {
-                    const jsonString = decodeURIComponent(atob(encodedData));
                     const parsedData = JSON.parse(jsonString);
-
                     if (parsedData.memory && parsedData.assets) {
                         const pageData = convertMemoryToPublicPage(parsedData.memory, parsedData.assets);
                         setManifest(pageData);
                     } else {
                         throw new Error("Invalid preview data structure.");
                     }
-                } catch(e: any) {
-                    console.error("Failed to parse preview data from URL:", e);
-                    setError('プレビューデータの解析に失敗しました。URLが破損している可能性があります。');
+                } catch (e: any) {
+                    console.error("Failed to parse preview data from localStorage:", e);
+                    setError('プレビューデータの解析に失敗しました。データが破損している可能性があります。');
+                } finally {
+                    localStorage.removeItem(PREVIEW_DATA_KEY);
                 }
             } else {
                  setError('プレビューデータが見つかりませんでした。編集画面から再度プレビューボタンを押してください。');
             }
+            setLoading(false);
         } else if (pageId) {
             const data = await fetchPublicPageData(pageId);
             if (data) {
@@ -258,13 +265,12 @@ function PageContent() {
             } else {
                  setError('この想い出ページは存在しないか、まだ公開されていません。');
             }
+            setLoading(false);
         }
-        
-        setLoading(false);
     }
     
     loadPageData();
-  }, [pageId, searchParams]);
+  }, [pageId]);
 
   useEffect(() => {
     if (manifest?.title) {
