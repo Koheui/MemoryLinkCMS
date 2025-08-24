@@ -225,6 +225,7 @@ const BlockRenderer = ({ block }: { block: PublicPageBlock }) => {
 
 function PageContent() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const pageId = params.pageId as string;
   const [manifest, setManifest] = useState<PublicPage | null>(null);
   const [loading, setLoading] = useState(true);
@@ -235,13 +236,12 @@ function PageContent() {
         setLoading(true);
         setError(null);
         
-        const PREVIEW_DATA_KEY = 'previewData';
-
         if (pageId === 'preview') {
-            const jsonString = localStorage.getItem(PREVIEW_DATA_KEY);
-            if (jsonString) {
+            const encodedData = searchParams.get('data');
+            if (encodedData) {
                 try {
-                    const parsedData = JSON.parse(jsonString);
+                    const decodedJsonString = decodeURIComponent(atob(encodedData));
+                    const parsedData = JSON.parse(decodedJsonString);
                     if (parsedData.memory && parsedData.assets) {
                         const pageData = convertMemoryToPublicPage(parsedData.memory, parsedData.assets);
                         setManifest(pageData);
@@ -249,10 +249,8 @@ function PageContent() {
                         throw new Error("Invalid preview data structure.");
                     }
                 } catch (e: any) {
-                    console.error("Failed to parse preview data from localStorage:", e);
+                    console.error("Failed to parse preview data from URL:", e);
                     setError('プレビューデータの解析に失敗しました。データが破損している可能性があります。');
-                } finally {
-                    localStorage.removeItem(PREVIEW_DATA_KEY);
                 }
             } else {
                  setError('プレビューデータが見つかりませんでした。編集画面から再度プレビューボタンを押してください。');
@@ -270,7 +268,7 @@ function PageContent() {
     }
     
     loadPageData();
-  }, [pageId]);
+  }, [pageId, searchParams]);
 
   useEffect(() => {
     if (manifest?.title) {

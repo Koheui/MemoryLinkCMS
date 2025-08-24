@@ -257,10 +257,11 @@ export default function MemoryEditorPage() {
             assets: convertTimestamps(assets),
         };
         
-        const PREVIEW_DATA_KEY = 'previewData';
-        localStorage.setItem(PREVIEW_DATA_KEY, JSON.stringify(previewData));
-
-        const url = `/p/preview`;
+        const jsonString = JSON.stringify(previewData);
+        // Using btoa for Base64 encoding, which is available in all modern browsers.
+        const encodedData = btoa(unescape(encodeURIComponent(jsonString)));
+        
+        const url = `/p/preview?data=${encodedData}`;
         window.open(url, '_blank');
 
     } catch (error) {
