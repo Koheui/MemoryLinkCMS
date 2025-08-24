@@ -1,4 +1,3 @@
-
 // src/hooks/use-auth.tsx
 "use client";
 
@@ -80,7 +79,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (authUser) => {
       setLoading(true);
-      if (authUser && authUser.emailVerified) { // <-- Check for emailVerified
+      if (authUser) { // Email verification is handled by the email link flow
         try {
           // Check for page invitation claim right after auth state is confirmed
           await claimInvitedPage(authUser);
@@ -98,10 +97,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
            apiClient.setToken(null);
         }
       } else {
-        // If user exists but email is not verified, they are effectively logged out from the app's perspective
-        if (authUser && !authUser.emailVerified) {
-          console.log("User is not verified, treating as logged out.");
-        }
         setUser(null);
         setIsAdmin(false);
         apiClient.setToken(null);
@@ -116,7 +111,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       await auth.signOut();
       apiClient.setToken(null);
-      router.push('/login');
+      // Redirect to the main landing page on logout
+      router.push('/');
     } catch (error) {
       console.error("Logout failed:", error);
     }

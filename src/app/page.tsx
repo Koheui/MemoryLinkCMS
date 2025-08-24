@@ -4,6 +4,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { ArrowRight } from 'lucide-react';
 import Image from 'next/image';
 
+// This page now serves as the main landing page for the entire service.
+// In a real-world scenario, you would have multiple, distinct LPs.
+// This one can be considered the "master" or fallback LP.
+// Auth buttons are removed as auth should be initiated from service-specific LPs.
 export default function Home() {
   return (
     <div className="flex flex-col min-h-screen bg-background">
@@ -11,17 +15,9 @@ export default function Home() {
         <Link href="/" className="flex items-center gap-2 font-headline" prefetch={false}>
           <span className="text-2xl font-bold">想い出クラウド</span>
         </Link>
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" asChild>
-            <Link href="/login">ログイン</Link>
-          </Button>
-          <Button asChild>
-            <Link href="/signup">
-              無料で始める
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Link>
-          </Button>
-        </div>
+        <nav>
+          {/* Navigation for different service LPs could go here */}
+        </nav>
       </header>
       <main className="flex-1">
         <section className="w-full py-12 md:py-24 lg:py-32 xl:py-40 bg-muted/30">
@@ -36,12 +32,9 @@ export default function Home() {
                 </p>
               </div>
               <div className="flex flex-col gap-2 min-[400px]:flex-row">
-                <Button size="lg" asChild>
-                  <Link href="/signup">
-                    想い出ページを作成する
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Link>
-                </Button>
+                 <Button size="lg" disabled>
+                    サービスを選択して始める
+                  </Button>
               </div>
             </div>
           </div>

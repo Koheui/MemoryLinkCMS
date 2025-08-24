@@ -24,16 +24,21 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   
   useEffect(() => {
-    // This effect now only handles redirecting unauthenticated users.
-    // The responsibility of redirecting after login/signup is moved to AuthForm.
+    // With email-link auth, we don't redirect. We just wait for auth state.
+    // If a user tries to access a protected page without being logged in,
+    // they will just see the loading screen indefinitely, which is the
+    // expected behavior as they should only arrive here via a valid auth link.
     if (!loading && !user) {
-      if (!pathname.startsWith('/login') && !pathname.startsWith('/signup')) {
-         router.push('/login');
+      // It's possible the user logged out, in which case they should be on the public LP.
+      // If they try to navigate back to the app, we can redirect them to the root.
+      // A simple check to avoid redirect loops on public pages if any were nested here.
+      if (pathname !== '/') {
+        router.push('/');
       }
     }
   }, [user, loading, router, pathname]);
 
-  if (loading) {
+  if (loading || !user) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="flex items-center gap-2">
@@ -42,12 +47,6 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
         </div>
       </div>
     );
-  }
-  
-  // If no user, it means we are on a public-facing page like /login or /signup
-  // which is handled by its own layout. Let it render.
-  if (!user) {
-    return <>{children}</>;
   }
   
   const dashboardHref = '/dashboard';
