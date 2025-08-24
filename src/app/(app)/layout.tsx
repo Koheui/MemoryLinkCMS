@@ -24,15 +24,15 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   
   useEffect(() => {
+    // This is the SINGLE source of truth for protecting routes.
+    // If loading is finished and there's no user, redirect to login.
     if (!loading && !user) {
-        // Redirect to login if not authenticated and not on a public-in-app page.
-        // The root ('/') is public, so we don't redirect from there.
-        if (!['/login', '/signup', '/'].some(p => pathname.startsWith(p))) {
-            router.push('/login');
-        }
+        router.push('/login');
     }
-  }, [user, loading, router, pathname]);
+  }, [user, loading, router]);
 
+  // While loading, or if there's no user (and redirect is in progress), show a loader.
+  // This prevents flashing the page content before the redirect happens.
   if (loading || !user) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -100,7 +100,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default function AppLayout({ children }: { children: React.Node }) {
+export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <AuthProvider>
       <AppLayoutContent>{children}</AppLayoutContent>

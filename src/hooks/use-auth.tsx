@@ -25,51 +25,6 @@ const AuthContext = createContext<AuthContextType>({
 });
 
 
-// Function to check for and claim an invited page
-const claimInvitedPage = async (user: User) => {
-    if (!user.email) return;
-
-    // Find an order with the user's email that hasn't been claimed yet
-    const ordersQuery = query(
-        collection(db, 'orders'),
-        where('email', '==', user.email),
-        where('userUid', '==', null)
-    );
-
-    const querySnapshot = await getDocs(ordersQuery);
-
-    if (!querySnapshot.empty) {
-        // Claim the first found invitation
-        const orderDoc = querySnapshot.docs[0];
-        const order = orderDoc.data() as Order;
-        
-        if (order.memoryId) {
-            console.log(`User ${user.email} has a pending invitation for memory ${order.memoryId}. Claiming it now.`);
-            
-            const batch = writeBatch(db);
-
-            // 1. Assign the memory to the user
-            const memoryRef = doc(db, 'memories', order.memoryId);
-            batch.update(memoryRef, { ownerUid: user.uid });
-
-            // 2. Mark the order as claimed by this user
-            batch.update(orderDoc.ref, { userUid: user.uid });
-
-            try {
-                await batch.commit();
-                console.log(`Successfully claimed page ${order.memoryId} for user ${user.uid}.`);
-                // Returning true to indicate a claim was made, which might trigger a UI refresh
-                return true;
-            } catch (error) {
-                console.error("Error claiming page:", error);
-                return false;
-            }
-        }
-    }
-    return false;
-};
-
-
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<AuthContextType['user'] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -81,10 +36,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setLoading(true);
       if (authUser) {
         try {
-          // This invitation claiming logic is for a specific flow (admin creates order -> user signs up).
-          // It might need adjustment for other flows.
-          await claimInvitedPage(authUser);
-
           const tokenResult = await authUser.getIdTokenResult();
           const claims = tokenResult.claims;
           setIsAdmin(claims.role === 'admin');
@@ -101,24 +52,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUser(null);
         setIsAdmin(false);
         apiClient.setToken(null);
-        if (router) {
-             const currentPath = window.location.pathname;
-             if (!['/', '/login', '/signup'].some(p => currentPath.startsWith(p))) {
-                 router.push('/login');
-             }
-        }
       }
       setLoading(false);
     });
 
     return () => unsubscribe();
-  }, [router]);
+  }, []);
 
   const handleLogout = useCallback(async () => {
     try {
       await auth.signOut();
-      apiClient.setToken(null);
-      router.push('/');
+      // The state change from onAuthStateChanged will trigger the layout effect
+      // to redirect to the login page. We can also push manually for faster feedback.
+      router.push('/login');
     } catch (error) {
       console.error("Logout failed:", error);
     }
