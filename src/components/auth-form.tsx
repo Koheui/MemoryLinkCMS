@@ -8,7 +8,9 @@ import * as z from 'zod';
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
-  UserCredential
+  sendEmailVerification,
+  UserCredential,
+  User
 } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase/client';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
@@ -55,16 +57,27 @@ export function AuthForm({ type }: AuthFormProps) {
       password: '',
     },
   });
+  
+  const handleAuthSuccess = (user: User) => {
+    if (!user.emailVerified) {
+      router.push(`/verify-email?email=${user.email}`);
+      return;
+    }
+    // On success and verified, go to the dashboard.
+    router.push('/dashboard');
+  }
 
   const onSubmit = async (data: AuthFormValues) => {
     setLoading(true);
 
     try {
-      let userCredential: UserCredential;
-
       if (type === 'signup') {
-        userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
+        const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
         const user = userCredential.user;
+        
+        // Send verification email
+        await sendEmailVerification(user);
+
         const userType = searchParams.get('type') || 'other';
 
         // Create user profile in 'users' collection
@@ -78,14 +91,26 @@ export function AuthForm({ type }: AuthFormProps) {
         };
         await setDoc(userRef, userProfile);
         
-        toast({ title: "ようこそ！", description: "アカウントが作成されました。ダッシュボードに移動します。"});
-        // After signup, take user to the dashboard to create their first page.
-        router.push('/dashboard');
+        toast({ title: "確認メールを送信しました", description: "アカウントを有効化するため、メールをご確認ください。"});
+        // After signup, take user to the verification notice page.
+        router.push(`/verify-email?email=${data.email}`);
 
       } else { // Login
-        userCredential = await signInWithEmailAndPassword(auth, data.email, data.password);
-        // On success, go to the dashboard.
-        router.push('/dashboard');
+        const userCredential = await signInWithEmailAndPassword(auth, data.email, data.password);
+        const user = userCredential.user;
+        
+        if (!user.emailVerified) {
+            toast({
+                variant: 'destructive',
+                title: 'メールアドレス未確認',
+                description: 'このアカウントはまだ有効化されていません。確認メールを再送信しますので、メールをご確認ください。',
+            });
+            await sendEmailVerification(user);
+            router.push(`/verify-email?email=${user.email}`);
+            return;
+        }
+        
+        handleAuthSuccess(user);
       }
 
     } catch (error: any) {
