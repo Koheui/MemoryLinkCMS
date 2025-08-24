@@ -1,4 +1,5 @@
 
+
 // src/components/edit-modals.tsx
 'use client';
 
@@ -141,7 +142,7 @@ const BlockRenderer = ({ block, setLightboxState }: { block: PublicPageBlock, se
     switch (block.type) {
         case 'album':
             return (
-                <Card className="overflow-hidden bg-card/50 border-border shadow-lg">
+                <Card className="overflow-hidden bg-card/80 border-border shadow-lg backdrop-blur-sm">
                     <CardHeader>
                         <div className="flex items-center gap-3">
                            <Milestone className="h-5 w-5 text-muted-foreground" />
@@ -173,7 +174,7 @@ const BlockRenderer = ({ block, setLightboxState }: { block: PublicPageBlock, se
             );
         case 'photo':
              return (
-                 <Card className="overflow-hidden bg-card/50 border-border shadow-lg">
+                 <Card className="overflow-hidden bg-card/80 border-border shadow-lg backdrop-blur-sm">
                     {block.photo?.src && (
                          <div className="aspect-video relative w-full">
                              <Image src={block.photo.src} alt={block.title || "Single photo"} fill className="object-cover" sizes="(max-width: 768px) 100vw, 50vw" />
@@ -187,7 +188,7 @@ const BlockRenderer = ({ block, setLightboxState }: { block: PublicPageBlock, se
             );
         case 'video':
             return (
-                 <Card className="overflow-hidden bg-card/50 border-border shadow-lg group">
+                 <Card className="overflow-hidden bg-card/80 border-border shadow-lg group backdrop-blur-sm">
                     <div className="aspect-video relative w-full bg-black">
                         {block.video?.poster ? (
                              <Image src={block.video.poster} alt={block.title || "Video thumbnail"} fill className="object-cover opacity-80 group-hover:opacity-60 transition-opacity" sizes="(max-width: 768px) 100vw, 50vw" />
@@ -203,7 +204,7 @@ const BlockRenderer = ({ block, setLightboxState }: { block: PublicPageBlock, se
             );
         case 'audio':
               return (
-                 <Card className="flex items-center gap-4 p-4 bg-card/50 border-border shadow-lg">
+                 <Card className="flex items-center gap-4 p-4 bg-card/80 border-border shadow-lg backdrop-blur-sm">
                     <div className="flex-shrink-0">
                         <Music className="h-8 w-8 text-muted-foreground" />
                     </div>
@@ -217,7 +218,7 @@ const BlockRenderer = ({ block, setLightboxState }: { block: PublicPageBlock, se
             );
         case 'text':
              return (
-               <a href="#" className="group block w-full rounded-xl bg-card/50 p-2 shadow-lg ring-1 ring-border backdrop-blur-sm transition-all duration-300 ease-in-out hover:scale-[1.02] hover:bg-accent/80 hover:shadow-2xl hover:ring-accent">
+               <a href="#" className="group block w-full rounded-xl bg-card/80 p-2 shadow-lg ring-1 ring-border backdrop-blur-sm transition-all duration-300 ease-in-out hover:scale-[1.02] hover:bg-accent hover:shadow-2xl hover:ring-accent">
                     <div className="flex items-center gap-4 rounded-lg bg-transparent p-3">
                         <div className="flex-shrink-0 text-muted-foreground group-hover:text-accent-foreground">
                            {blockIcons[block.icon || 'default'] || blockIcons.default}
@@ -256,16 +257,17 @@ export function PreviewModal({ isOpen, setIsOpen, memory, assets }: { isOpen: bo
             startIndex={lightboxState.startIndex}
         />
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <DialogContent className="max-w-2xl h-full flex flex-col p-0 gap-0 bg-background border-0 shadow-2xl sm:h-[90vh]">
-                <DialogHeader className="p-4 border-b">
+            <DialogContent className="max-w-2xl h-full flex flex-col p-0 gap-0 border-0 shadow-2xl sm:h-[90vh] overflow-hidden">
+                <DialogHeader className="p-4 border-b bg-background">
                     <DialogTitle>プレビュー</DialogTitle>
                 </DialogHeader>
                  <div className="flex-1 overflow-auto bg-muted/40">
                      <div 
-                        className="bg-background mx-auto"
+                        className="mx-auto"
                         style={{
-                            backgroundColor: manifest.design.bgColor,
-                            color: manifest.design.textColor || 'inherit',
+                            background: manifest.design.bgColor || '#F9FAFB', // a light default
+                            color: manifest.design.textColor || '#111827', // a dark default
+                            fontFamily: manifest.design.fontFamily || 'sans-serif'
                         }}
                     >
                          {backgroundImage && (
@@ -289,7 +291,7 @@ export function PreviewModal({ isOpen, setIsOpen, memory, assets }: { isOpen: bo
                                 </div>
                                 
                                 <div className="relative flex flex-col items-center -mt-20 px-6">
-                                    <div className="h-40 w-40 rounded-full z-10 bg-gray-800 border-4 border-background shadow-lg relative overflow-hidden shrink-0">
+                                    <div className="h-40 w-40 rounded-full z-10 border-4 border-background shadow-lg relative overflow-hidden shrink-0" style={{backgroundColor: manifest.design.bgColor || '#F9FAFB'}}>
                                         <Image 
                                             src={manifest.media.profile.url}
                                             alt="Profile"
@@ -302,7 +304,7 @@ export function PreviewModal({ isOpen, setIsOpen, memory, assets }: { isOpen: bo
                                     
                                     <div className="mt-4 text-center w-full">
                                         <h1 className="text-3xl sm:text-4xl font-bold">{manifest.title}</h1>
-                                        <p className="mt-2 text-base max-w-prose mx-auto">{manifest.about.text}</p>
+                                        <p className="mt-2 text-base max-w-prose mx-auto opacity-80">{manifest.about.text}</p>
                                     </div>
                                 </div>
                             </header>
@@ -316,7 +318,7 @@ export function PreviewModal({ isOpen, setIsOpen, memory, assets }: { isOpen: bo
                                 ))}
                             </main>
 
-                            <footer className="mt-8 text-center text-xs text-muted-foreground/80 pb-8 px-4">
+                            <footer className="mt-8 text-center text-xs opacity-60 pb-8 px-4">
                                 <p>&copy; {new Date().getFullYear()}. Powered by MemoryLink</p>
                             </footer>
                         </div>

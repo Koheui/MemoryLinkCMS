@@ -1,4 +1,5 @@
 
+
 // src/app/p/[pageId]/page.tsx
 'use client';
 import { useState, useEffect, Suspense, useRef, useMemo } from 'react';
@@ -175,11 +176,11 @@ const BlockRenderer = ({ block, setLightboxState }: { block: PublicPageBlock, se
     switch (block.type) {
         case 'album':
             return (
-                <Card className="overflow-hidden bg-white/5 border-white/10 shadow-lg">
+                <Card className="overflow-hidden bg-card/80 border-border shadow-lg backdrop-blur-sm">
                     <CardHeader>
                         <div className="flex items-center gap-3">
-                           <Milestone className="h-5 w-5 text-gray-300" />
-                           <h3 className="font-semibold">{block.title}</h3>
+                           <Milestone className="h-5 w-5 text-muted-foreground" />
+                           <h3 className="font-semibold text-card-foreground">{block.title}</h3>
                         </div>
                     </CardHeader>
                     <CardContent className="pl-4 sm:pl-6">
@@ -207,21 +208,21 @@ const BlockRenderer = ({ block, setLightboxState }: { block: PublicPageBlock, se
             );
         case 'photo':
              return (
-                 <Card className="overflow-hidden bg-white/5 border-white/10 shadow-lg">
+                 <Card className="overflow-hidden bg-card/80 border-border shadow-lg backdrop-blur-sm">
                     {block.photo?.src && (
                          <div className="aspect-video relative w-full">
                              <Image src={block.photo.src} alt={block.title || "Single photo"} fill className="object-cover" />
                          </div>
                     )}
                     <CardContent className="p-4">
-                        <h3 className="font-semibold">{block.title}</h3>
-                        {block.photo?.caption && <p className="text-sm text-gray-300 mt-1">{block.photo.caption}</p>}
+                        <h3 className="font-semibold text-card-foreground">{block.title}</h3>
+                        {block.photo?.caption && <p className="text-sm text-muted-foreground mt-1">{block.photo.caption}</p>}
                     </CardContent>
                 </Card>
             );
         case 'video':
             return (
-                 <Card className="overflow-hidden bg-white/5 border-white/10 shadow-lg group">
+                 <Card className="overflow-hidden bg-card/80 border-border shadow-lg group backdrop-blur-sm">
                     <div className="aspect-video relative w-full bg-black">
                         {block.video?.poster ? (
                              <Image src={block.video.poster} alt={block.title || "Video thumbnail"} fill className="object-cover opacity-80 group-hover:opacity-60 transition-opacity" />
@@ -231,35 +232,35 @@ const BlockRenderer = ({ block, setLightboxState }: { block: PublicPageBlock, se
                         </div>
                     </div>
                     <CardContent className="p-4">
-                        <h3 className="font-semibold">{block.title}</h3>
+                        <h3 className="font-semibold text-card-foreground">{block.title}</h3>
                     </CardContent>
                 </Card>
             );
         case 'audio':
               return (
-                 <Card className="flex items-center gap-4 p-4 bg-white/5 border-white/10 shadow-lg">
+                 <Card className="flex items-center gap-4 p-4 bg-card/80 border-border shadow-lg backdrop-blur-sm">
                     <div className="flex-shrink-0">
-                        <Music className="h-8 w-8 text-gray-300" />
+                        <Music className="h-8 w-8 text-muted-foreground" />
                     </div>
                     <div className="flex-grow">
-                        <h3 className="font-semibold">{block.title}</h3>
+                        <h3 className="font-semibold text-card-foreground">{block.title}</h3>
                     </div>
                     <div className="flex-shrink-0">
-                       <Badge variant="outline" className="text-white/70 border-white/20">再生</Badge>
+                       <Badge variant="outline" className="text-foreground border-border">再生</Badge>
                     </div>
                 </Card>
             );
         case 'text':
              return (
-               <a href="#" className="group block w-full rounded-xl bg-white/5 p-2 shadow-lg ring-1 ring-white/10 backdrop-blur-sm transition-all duration-300 ease-in-out hover:scale-[1.02] hover:bg-white/10 hover:shadow-2xl hover:ring-white/20">
+               <a href="#" className="group block w-full rounded-xl bg-card/80 p-2 shadow-lg ring-1 ring-border backdrop-blur-sm transition-all duration-300 ease-in-out hover:scale-[1.02] hover:bg-accent hover:shadow-2xl hover:ring-accent">
                     <div className="flex items-center gap-4 rounded-lg bg-transparent p-3">
-                        <div className="flex-shrink-0 text-white">
+                        <div className="flex-shrink-0 text-muted-foreground group-hover:text-accent-foreground">
                            {blockIcons[block.icon || 'default'] || blockIcons.default}
                         </div>
-                        <div className="flex-grow text-left text-lg font-semibold">
+                        <div className="flex-grow text-left text-lg font-semibold text-card-foreground group-hover:text-accent-foreground">
                             {block.title}
                         </div>
-                         <div className="flex-shrink-0 text-white/30 transition-transform group-hover:text-white/60 group-hover:translate-x-1">
+                         <div className="flex-shrink-0 text-muted-foreground/50 transition-transform group-hover:text-accent-foreground/60 group-hover:translate-x-1">
                             <LinkIcon className="h-5 w-5" />
                         </div>
                     </div>
