@@ -1,3 +1,4 @@
+
 // src/components/media-uploader.tsx
 'use client';
 import React, { useRef, useState, useImperativeHandle } from 'react';
@@ -18,9 +19,46 @@ interface MediaUploaderProps {
   accept: string;
   onUploadSuccess: (asset: Asset) => void;
   memoryId?: string;
-  onFileSelected?: (file: File) => void; // Callback when file is selected
+  onFileSelected?: (file: File) => void; 
   children?: React.ReactNode;
 }
+
+const generateVideoThumbnail = (file: File): Promise<Blob> => {
+    return new Promise((resolve, reject) => {
+        const video = document.createElement('video');
+        video.preload = 'metadata';
+        video.src = URL.createObjectURL(file);
+
+        video.onloadeddata = () => {
+            // Seek to a specific time, e.g., the first second
+            video.currentTime = 1;
+        };
+
+        video.onseeked = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+                return reject(new Error('Could not get canvas context'));
+            }
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            canvas.toBlob((blob) => {
+                if (!blob) {
+                    return reject(new Error('Canvas to Blob conversion failed'));
+                }
+                URL.revokeObjectURL(video.src); // Clean up
+                resolve(blob);
+            }, 'image/jpeg', 0.8);
+        };
+        
+        video.onerror = (e) => {
+            reject(new Error('Video loading failed.'));
+            URL.revokeObjectURL(video.src);
+        };
+    });
+};
+
 
 export const MediaUploader = React.forwardRef<MediaUploaderRef, MediaUploaderProps>(
   ({ assetType, accept, onUploadSuccess, memoryId, onFileSelected, children }, forwardRef) => {
@@ -38,76 +76,72 @@ export const MediaUploader = React.forwardRef<MediaUploaderRef, MediaUploaderPro
         const toastId = `upload-${assetId}`;
         toast({ id: toastId, title: 'アップロード開始', description: `${file.name}をアップロードしています...` });
 
-        // Step 1: Create a placeholder document in Firestore
-        // This makes the asset "exist" immediately for the UI.
         const assetDocRef = doc(db, 'assets', assetId);
-        const placeholderAsset: Omit<Asset, 'id'> = {
-            ownerUid: user.uid,
-            memoryId: memoryId || null,
-            name: file.name,
-            type: file.type.startsWith('image') ? 'image' : file.type.startsWith('video') ? 'video' : 'audio',
-            storagePath: '', // Will be updated later
-            url: '',         // Will be updated later
-            thumbnailUrl: null,
-            size: file.size,
-            createdAt: serverTimestamp() as Timestamp,
-            updatedAt: serverTimestamp() as Timestamp,
-        };
-        await setDoc(assetDocRef, placeholderAsset);
-
+        
         try {
-            const storagePath = memoryId
+            const isVideo = file.type.startsWith('video');
+            let thumbnailBlob: Blob | null = null;
+            
+            if (isVideo) {
+                try {
+                    thumbnailBlob = await generateVideoThumbnail(file);
+                } catch(thumbError: any) {
+                    console.error("Thumbnail generation failed:", thumbError);
+                    toast({ variant: 'destructive', title: 'サムネイル生成失敗', description: thumbError.message });
+                    // Continue without thumbnail
+                }
+            }
+            
+            // Step 1: Upload main file
+            const mainFileStoragePath = memoryId
                 ? `users/${user.uid}/memories/${memoryId}/assets/${assetId}_${file.name}`
                 : `users/${user.uid}/library/${assetId}_${file.name}`;
-            const storageRef = ref(storage, storagePath);
+            const mainFileRef = ref(storage, mainFileStoragePath);
+            const mainUploadTask = uploadBytesResumable(mainFileRef, file, { contentType: file.type });
 
-            // Metadata is crucial for triggering the Functions correctly
-            const metadata = {
-              contentType: file.type,
-              customMetadata: {
-                assetId: assetId,
+            // Step 2: Upload thumbnail if it exists
+            let thumbUploadTask: Promise<string | null> = Promise.resolve(null);
+            if (thumbnailBlob) {
+                const thumbFileStoragePath = mainFileStoragePath.replace(/(\.[\w\d_-]+)$/i, '_thumb.jpg');
+                const thumbFileRef = ref(storage, thumbFileStoragePath);
+                thumbUploadTask = uploadBytesResumable(thumbFileRef, thumbnailBlob, { contentType: 'image/jpeg' })
+                    .then(snapshot => getDownloadURL(snapshot.ref));
+            }
+
+            // Step 3: Wait for both uploads and get URLs
+            const [mainDownloadURL, thumbDownloadURL] = await Promise.all([
+                 mainUploadTask.then(snapshot => getDownloadURL(snapshot.ref)),
+                 thumbUploadTask
+            ]);
+
+            // Step 4: Create final document in Firestore
+            const finalAssetData: Omit<Asset, 'id'> = {
                 ownerUid: user.uid,
-              }
+                memoryId: memoryId || null,
+                name: file.name,
+                type: file.type.startsWith('image') ? 'image' : file.type.startsWith('video') ? 'video' : 'audio',
+                storagePath: mainFileStoragePath,
+                url: mainDownloadURL,
+                thumbnailUrl: thumbDownloadURL || null,
+                size: file.size,
+                createdAt: serverTimestamp() as Timestamp,
+                updatedAt: serverTimestamp() as Timestamp,
             };
+
+            await setDoc(assetDocRef, finalAssetData);
             
-            // For videos, Functions will generate the thumbnail. For images, we just upload.
-            const uploadTask = uploadBytesResumable(storageRef, file, metadata);
-
-            uploadTask.on('state_changed', 
-                (snapshot) => { /* Progress can be handled here if needed */ },
-                async (error) => { // Handle unsuccessful uploads
-                    console.error("Upload failed:", error);
-                    toast.update(toastId, { variant: 'destructive', title: 'アップロード失敗', description: error.message });
-                    // Clean up the placeholder document on failure
-                    await deleteDoc(assetDocRef);
-                },
-                async () => { // Handle successful uploads
-                    const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-
-                    // Update the document with the final URL and storage path.
-                    // For videos, the `thumbnailUrl` will be updated later by the Function.
-                    await setDoc(assetDocRef, { 
-                        url: downloadURL,
-                        storagePath: storagePath,
-                        updatedAt: serverTimestamp(),
-                    }, { merge: true });
-                    
-                    const finalDoc = await getDoc(assetDocRef);
-                    const finalAsset = { id: finalDoc.id, ...finalDoc.data() } as Asset;
-
-                    toast.update(toastId, { title: '成功', description: 'アップロードが完了しました。' });
-                    
-                    if (onUploadSuccess) {
-                        onUploadSuccess(finalAsset);
-                    }
-                }
-            );
+            const finalAsset = { id: assetId, ...finalAssetData } as Asset;
+            
+            toast.update(toastId, { title: '成功', description: 'アップロードが完了しました。' });
+            
+            if (onUploadSuccess) {
+                onUploadSuccess(finalAsset);
+            }
 
         } catch (error: any) {
             console.error("Upload process failed:", error);
             toast.update(toastId, { variant: 'destructive', title: 'アップロード失敗', description: error.message });
-            // Clean up on failure
-            await deleteDoc(assetDocRef);
+            await deleteDoc(assetDocRef).catch(e => console.error("Cleanup failed", e));
         }
     };
     
@@ -121,12 +155,11 @@ export const MediaUploader = React.forwardRef<MediaUploaderRef, MediaUploaderPro
       const file = event.target.files?.[0];
       if (!file) return;
       
-      // If a callback is provided, let the parent component know a file was selected
       if (onFileSelected) {
           onFileSelected(file);
+      } else {
+        await uploadFile(file);
       }
-      
-      await uploadFile(file);
       
       if (fileInputRef.current) fileInputRef.current.value = "";
     };
