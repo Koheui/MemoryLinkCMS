@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
     const db = getFirestore(getAdminApp());
     const newMemoryRef = db.collection('memories').doc();
     
-    const newMemoryData: Omit<Memory, 'id' | 'createdAt' | 'updatedAt'> = {
+    const newMemoryData: Omit<Memory, 'id' | 'createdAt' | 'updatedAt' | 'blocks'> = {
       ownerUid: uid,
       title: '新しい想い出ページ',
       type: memoryType,
@@ -36,6 +36,7 @@ export async function POST(req: NextRequest) {
     
     await newMemoryRef.set({
       ...newMemoryData,
+      blocks: [], // Initialize with an empty blocks array
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
     });
@@ -44,8 +45,9 @@ export async function POST(req: NextRequest) {
         id: newMemoryRef.id,
         ...newMemoryData,
         // Faking timestamps for the immediate response to the client
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        createdAt: new Date().toISOString() as any,
+        updatedAt: new Date().toISOString() as any,
+        blocks: [],
     }
 
     return NextResponse.json({ ok: true, data: newMemory }, { status: 200 });

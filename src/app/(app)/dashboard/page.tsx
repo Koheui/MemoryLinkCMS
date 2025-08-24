@@ -38,6 +38,34 @@ export default function DashboardPage() {
     const router = useRouter();
     const { toast } = useToast();
 
+    const handleCreateNewMemory = useCallback(async () => {
+        if (!user) return;
+        setIsCreating(true);
+        try {
+            const res = await apiClient.fetch('/api/memories/create', {
+                method: 'POST',
+                body: JSON.stringify({ type: 'other' })
+            });
+
+            if (!res.ok) {
+                const errorData = await res.json();
+                throw new Error(errorData.error || 'API request failed');
+            }
+
+            const { data: newMemory } = await res.json();
+            
+            toast({ title: '成功', description: '新しい想い出ページが作成されました。編集画面に移動します。'});
+            // Hard navigation to ensure all states are fresh on the editor page.
+            window.location.assign(`/memories/${newMemory.id}`);
+
+        } catch (error: any) {
+             console.error("Error creating new memory:", error);
+             toast({ variant: 'destructive', title: 'エラー', description: `ページの作成に失敗しました: ${error.message}`});
+        } finally {
+            setIsCreating(false);
+        }
+    }, [user, toast]);
+    
     const fetchMemoriesAndAssets = useCallback(async (uid: string) => {
         setLoading(true);
         try {
@@ -55,6 +83,14 @@ export default function DashboardPage() {
                 getDocs(memoriesQuery),
                 getDocs(assetsQuery)
             ]);
+
+            // If user has no memories, create one automatically. This is for the LP flow.
+            if (memoriesSnapshot.empty) {
+                await handleCreateNewMemory();
+                // The page will redirect, so no need to continue processing here.
+                return;
+            }
+
 
             // Process assets first into a map for quick lookups
             const userAssets = assetsSnapshot.docs.map(doc => {
@@ -95,7 +131,7 @@ export default function DashboardPage() {
         } finally {
             setLoading(false);
         }
-    }, [toast]);
+    }, [toast, handleCreateNewMemory]);
 
     useEffect(() => {
         if (!authLoading && user) {
@@ -104,33 +140,6 @@ export default function DashboardPage() {
             setLoading(false);
         }
     }, [user, authLoading, fetchMemoriesAndAssets]);
-
-    const handleCreateNewMemory = async () => {
-        if (!user) return;
-        setIsCreating(true);
-        try {
-            const res = await apiClient.fetch('/api/memories/create', {
-                method: 'POST',
-                body: JSON.stringify({ type: 'other' })
-            });
-
-            if (!res.ok) {
-                const errorData = await res.json();
-                throw new Error(errorData.error || 'API request failed');
-            }
-
-            const { data: newMemory } = await res.json();
-            
-            toast({ title: '成功', description: '新しい想い出ページが作成されました。編集画面に移動します。'});
-            window.location.assign(`/memories/${newMemory.id}`);
-
-        } catch (error: any) {
-             console.error("Error creating new memory:", error);
-             toast({ variant: 'destructive', title: 'エラー', description: `ページの作成に失敗しました: ${error.message}`});
-        } finally {
-            setIsCreating(false);
-        }
-    }
     
     const handleDeleteMemory = async () => {
         if (!memoryToDelete || !user) return;
@@ -177,18 +186,15 @@ export default function DashboardPage() {
         );
     }
 
-    if (memories.length === 0) {
+    if (memories.length === 0 && !isCreating) {
         return (
             <div className="flex h-full items-center justify-center p-4">
                  <div className="text-center py-20 bg-muted/50 rounded-lg border border-dashed w-full max-w-lg">
-                    <h2 className="text-xl font-semibold">まだ想い出ページがありません</h2>
+                    <h2 className="text-xl font-semibold">最初の想い出ページを作成中...</h2>
                     <p className="text-muted-foreground mt-2 px-4">
-                        （将来的には、ここで招待コードの入力などが求められます）
+                        初回ログインありがとうございます。あなたのための特別なページを準備しています。
                     </p>
-                     <Button onClick={handleCreateNewMemory} disabled={isCreating} className="mt-6">
-                        {isCreating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
-                        最初のページを作成する
-                    </Button>
+                     <Loader2 className="mt-6 h-8 w-8 animate-spin text-primary mx-auto" />
                 </div>
             </div>
         )
