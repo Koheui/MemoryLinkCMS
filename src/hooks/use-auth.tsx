@@ -79,7 +79,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (authUser) => {
       setLoading(true);
-      if (authUser && authUser.emailVerified) { // Email verification is now required
+      if (authUser) { // Temporarily removed emailVerified check for easier development
         try {
           // Check for page invitation claim right after auth state is confirmed
           await claimInvitedPage(authUser);

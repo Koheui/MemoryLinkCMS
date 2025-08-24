@@ -1,4 +1,5 @@
-// src/app/verify-email/page.tsx
+// This page is currently not used, but is kept for future implementation
+// of the email verification flow.
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { MailCheck } from "lucide-react";
 import Link from "next/link";

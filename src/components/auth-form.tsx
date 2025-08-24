@@ -67,31 +67,22 @@ export function AuthForm({ type }: AuthFormProps) {
             updatedAt: serverTimestamp(),
         });
         
-        // Send verification email
-        await sendEmailVerification(user);
-        toast({
-          title: '確認メールを送信しました',
-          description: 'ご登録のメールアドレスをご確認ください。',
-        });
+        // Temporarily disabled for smoother development
+        // await sendEmailVerification(user);
+        // toast({
+        //   title: '確認メールを送信しました',
+        //   description: 'ご登録のメールアドレスをご確認ください。',
+        // });
         
         // Redirect to a page that informs the user to check their email
-        router.push('/verify-email');
+        // router.push('/verify-email');
+        toast({ title: '登録完了', description: 'ようこそ！ダッシュボードへ移動します。' });
+        router.push('/dashboard');
+
 
       } else {
         // Login
-        const userCredential = await signInWithEmailAndPassword(auth, email, password);
-
-        if (!userCredential.user.emailVerified) {
-            toast({
-                variant: 'destructive',
-                title: 'メールアドレスが確認されていません',
-                description: 'ログインする前に、メールに送信されたリンクをクリックしてアカウントを有効化してください。',
-            });
-             await auth.signOut(); // Log out user until they are verified
-            setLoading(false);
-            return;
-        }
-
+        await signInWithEmailAndPassword(auth, email, password);
         toast({ title: 'ログインしました', description: 'ようこそ！' });
         router.push('/dashboard');
       }
