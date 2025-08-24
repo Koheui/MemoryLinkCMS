@@ -216,9 +216,8 @@ export default function PublicPage() {
 
   useEffect(() => {
     async function loadPageData() {
-        setLoading(true);
         let pageData: PublicPage | null = null;
-
+        
         if (pageId === 'preview') {
             const storedPreviewData = localStorage.getItem('memory-preview');
             if (storedPreviewData) {
@@ -226,8 +225,6 @@ export default function PublicPage() {
                     const parsedData = JSON.parse(storedPreviewData);
                     if (parsedData.memory && parsedData.assets) {
                         pageData = convertMemoryToPublicPage(parsedData.memory, parsedData.assets);
-                    } else {
-                        console.error("Preview data is missing 'memory' or 'assets' keys.");
                     }
                 } catch(e) {
                     console.error("Failed to parse preview data from localStorage", e);
@@ -243,11 +240,13 @@ export default function PublicPage() {
         if (pageData) {
             document.title = `${pageData.title} - 想い出リンク`;
         }
+        
         setManifest(pageData);
         setLoading(false);
     }
     
     if(pageId) {
+        setLoading(true);
         loadPageData();
     }
   }, [pageId]);
@@ -333,4 +332,3 @@ export default function PublicPage() {
     </div>
   );
 }
-

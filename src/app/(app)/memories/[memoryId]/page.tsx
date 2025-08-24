@@ -228,35 +228,39 @@ export default function MemoryEditorPage() {
   const handlePreview = () => {
     if (!memory || !assets) return;
 
-    try {
-        // Helper to convert Firestore Timestamps to ISO strings for JSON serialization
-        const convertTimestamp = (timestamp: any): string => {
-            if (!timestamp) return new Date().toISOString();
-            if (timestamp instanceof Timestamp) return timestamp.toDate().toISOString();
-            if (timestamp._seconds) return new Date(timestamp._seconds * 1000).toISOString();
-            if (typeof timestamp === 'string') return timestamp;
-            if (timestamp.toDate && typeof timestamp.toDate === 'function') return timestamp.toDate().toISOString();
+    // Helper to convert Firestore Timestamps to ISO strings for JSON serialization
+    const convertTimestamp = (timestamp: any): string => {
+        if (!timestamp) return new Date().toISOString();
+        if (timestamp instanceof Timestamp) return timestamp.toDate().toISOString();
+        if (timestamp._seconds) return new Date(timestamp._seconds * 1000).toISOString();
+        if (typeof timestamp === 'string') return timestamp;
+        if (timestamp.toDate && typeof timestamp.toDate === 'function') return timestamp.toDate().toISOString();
+        try {
             return new Date(timestamp).toISOString();
-        };
+        } catch (e) {
+            return new Date().toISOString();
+        }
+    };
+    
+    // Create serializable versions of the data currently in state
+    const serializableMemory = {
+        ...memory,
+        createdAt: convertTimestamp(memory.createdAt),
+        updatedAt: convertTimestamp(memory.updatedAt),
+        blocks: memory.blocks.map(b => ({
+            ...b,
+            createdAt: convertTimestamp(b.createdAt),
+            updatedAt: convertTimestamp(b.updatedAt),
+        })),
+    };
+    
+    const serializableAssets = assets.map(asset => ({
+        ...asset,
+        createdAt: convertTimestamp(asset.createdAt),
+        updatedAt: convertTimestamp(asset.updatedAt),
+    }));
 
-        // Create serializable versions of the data currently in state
-        const serializableMemory = {
-            ...memory,
-            createdAt: convertTimestamp(memory.createdAt),
-            updatedAt: convertTimestamp(memory.updatedAt),
-            blocks: memory.blocks.map(b => ({
-                ...b,
-                createdAt: convertTimestamp(b.createdAt),
-                updatedAt: convertTimestamp(b.updatedAt),
-            })),
-        };
-        
-        const serializableAssets = assets.map(asset => ({
-            ...asset,
-            createdAt: convertTimestamp(asset.createdAt),
-            updatedAt: convertTimestamp(asset.updatedAt),
-        }));
-
+    try {
         const previewData = {
             memory: serializableMemory,
             assets: serializableAssets,
@@ -265,11 +269,11 @@ export default function MemoryEditorPage() {
         localStorage.setItem('memory-preview', JSON.stringify(previewData));
         window.open(`/p/preview`, '_blank');
     } catch (error) {
-        console.error("Failed to generate preview data:", error);
+        console.error("Failed to stringify or set preview data:", error);
         toast({
             variant: 'destructive',
             title: 'プレビュー失敗',
-            description: 'プレビューデータの生成中にエラーが発生しました。'
+            description: 'プレビューデータの生成中にエラーが発生しました。コンソールを確認してください。'
         });
     }
 };
@@ -537,4 +541,3 @@ function SortableBlockItem({ block, assets, onEdit, onDelete }: { block: PublicP
         </div>
     );
 }
-
