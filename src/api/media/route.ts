@@ -27,8 +27,8 @@ export async function POST(req: NextRequest) {
     for (const k of required) {
       if (body?.[k] === undefined) return err(400, `Missing field: ${k}`);
     }
-    if (!['image','video', 'audio'].includes(body.type)) {
-      return err(400, 'Invalid type (must be image|video|audio)');
+    if (!['image','video', 'audio', 'album'].includes(body.type)) {
+      return err(400, `Invalid type (must be image|video|audio|album)`);
     }
 
     const db = getFirestore(getAdminApp());

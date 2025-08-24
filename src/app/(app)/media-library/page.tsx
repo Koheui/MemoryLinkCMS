@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Checkbox } from '@/components/ui/checkbox';
+import Image from 'next/image';
 import {
   Accordion,
   AccordionContent,
@@ -22,7 +24,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { PlusCircle, Loader2, Image as ImageIcon, Video, Mic, Trash2, Upload } from 'lucide-react';
+import { PlusCircle, Loader2, Image as ImageIcon, Video, Mic, Trash2, Upload, GripVertical, Check, X } from 'lucide-react';
 import type { Asset } from '@/lib/types';
 import { useAuth } from '@/hooks/use-auth';
 import { useState, useEffect, useCallback } from 'react';
@@ -32,6 +34,8 @@ import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { MediaUploader } from '@/components/media-uploader';
 import { apiClient } from '@/lib/api-client';
+import { cn } from '@/lib/utils';
+
 
 export default function MediaLibraryPage() {
   const { user, loading: authLoading } = useAuth();
@@ -41,6 +45,7 @@ export default function MediaLibraryPage() {
   const [storagePercentage, setStoragePercentage] = useState(0);
   const [assetToDelete, setAssetToDelete] = useState<Asset | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [selectedAssets, setSelectedAssets] = useState<string[]>([]);
   const { toast } = useToast();
 
   const TOTAL_STORAGE_LIMIT_MB = 200;
@@ -99,8 +104,6 @@ export default function MediaLibraryPage() {
 
     setIsDeleting(true);
     try {
-        // This asset is not part of a block, so it's a simpler delete.
-        // We still use a server-side endpoint for security and atomicity.
         const res = await apiClient.fetch('/api/assets/delete', {
             method: 'POST',
             body: JSON.stringify({ assetId: assetToDelete.id }),
@@ -111,7 +114,6 @@ export default function MediaLibraryPage() {
             throw new Error(errorData.error || 'サーバーでアセットの削除に失敗しました。');
         }
         
-        // Optimistically update UI
         setAssets(prev => prev.filter(a => a.id !== assetToDelete.id));
         setTotalSize(prev => prev - (assetToDelete.size || 0));
         setStoragePercentage(((totalSize - (assetToDelete.size || 0)) / TOTAL_STORAGE_LIMIT_BYTES) * 100);
@@ -125,6 +127,14 @@ export default function MediaLibraryPage() {
         setAssetToDelete(null);
     }
   };
+
+  const handleSelectionChange = (assetId: string) => {
+    setSelectedAssets(prev => 
+      prev.includes(assetId) 
+        ? prev.filter(id => id !== assetId)
+        : [...prev, assetId]
+    );
+  }
 
   function formatBytes(bytes: number, decimals = 2) {
       if (!bytes || bytes === 0) return '0 Bytes';
@@ -141,8 +151,58 @@ export default function MediaLibraryPage() {
       { type: 'audio', label: '音声', icon: <Mic className="h-5 w-5" /> },
   ];
 
-  const renderAssetTable = (type: Asset['type']) => {
+  const renderAssetList = (type: Asset['type']) => {
     const filteredAssets = assets.filter(asset => asset.type === type);
+
+    if (type === 'image') {
+        return (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                {filteredAssets.length > 0 ? filteredAssets.map(asset => {
+                    const isSelected = selectedAssets.includes(asset.id);
+                    return (
+                        <Card 
+                            key={asset.id} 
+                            className={cn(
+                                "overflow-hidden relative group cursor-pointer transition-all duration-200",
+                                isSelected ? "ring-2 ring-primary ring-offset-2" : "ring-0"
+                            )}
+                            onClick={() => handleSelectionChange(asset.id)}
+                        >
+                            <div className="absolute top-2 left-2 z-10">
+                               <Checkbox 
+                                 checked={isSelected}
+                                 onCheckedChange={() => handleSelectionChange(asset.id)}
+                                 className="h-5 w-5 bg-background/80 border-white/80 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                               />
+                            </div>
+                             <button 
+                                className="absolute top-2 right-2 z-10 h-7 w-7 rounded-full bg-black/50 text-white/80 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive/80"
+                                onClick={(e) => { e.stopPropagation(); setAssetToDelete(asset); }}
+                            >
+                               <Trash2 className="h-4 w-4" />
+                            </button>
+                            <CardContent className="p-0">
+                                <div className="aspect-square relative">
+                                    <Image 
+                                        src={asset.url}
+                                        alt={asset.name}
+                                        fill
+                                        sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, (max-width: 1280px) 20vw, 16vw"
+                                        className="object-cover"
+                                        data-ai-hint="gallery photo"
+                                    />
+                                </div>
+                            </CardContent>
+                        </Card>
+                    );
+                }) : (
+                     <div className="col-span-full text-center py-10">
+                        このカテゴリのメディアはまだありません。
+                    </div>
+                )}
+            </div>
+        )
+    }
 
     return (
         <Table>
@@ -200,7 +260,7 @@ export default function MediaLibraryPage() {
             </AlertDialogHeader>
             <AlertDialogFooter>
                 <AlertDialogCancel>キャンセル</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDeleteAsset} disabled={isDeleting}>
+                <AlertDialogAction onClick={handleDeleteAsset} disabled={isDeleting} className="bg-destructive hover:bg-destructive/90">
                     {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                     削除
                 </AlertDialogAction>
@@ -216,10 +276,10 @@ export default function MediaLibraryPage() {
             </div>
             {user && (
                  <MediaUploader
-                    assetType="image" // Default, can be any as it's just a trigger
+                    assetType="image"
                     accept="image/*,video/*,audio/*"
                     onUploadSuccess={(newAsset) => {
-                      fetchAssets(user.uid); // Re-fetch all assets to reflect the new upload
+                      fetchAssets(user.uid);
                     }}
                   >
                     <Button>
@@ -244,10 +304,23 @@ export default function MediaLibraryPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="font-headline">メディアカテゴリ</CardTitle>
-           <CardDescription>
-              カテゴリを選択して、アップロード済みのメディアを表示・管理します。メディアは各ページの編集画面からもアップロードできます。
-          </CardDescription>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                 <div>
+                    <CardTitle className="font-headline">メディアカテゴリ</CardTitle>
+                    <CardDescription>
+                        カテゴリを選択してメディアを管理します。写真は複数選択してアルバムを作成できます。
+                    </CardDescription>
+                </div>
+                 {selectedAssets.length > 0 && (
+                    <div className="flex items-center gap-4">
+                        <span className="text-sm font-medium text-primary">{selectedAssets.length}件の写真を選択中</span>
+                        <Button>
+                            <PlusCircle className="mr-2 h-4 w-4" />
+                            アルバムを作成
+                        </Button>
+                    </div>
+                 )}
+            </div>
         </CardHeader>
         <CardContent>
             <Accordion type="single" collapsible className="w-full" defaultValue="image">
@@ -260,7 +333,7 @@ export default function MediaLibraryPage() {
                             </div>
                         </AccordionTrigger>
                         <AccordionContent>
-                           {renderAssetTable(type)}
+                           {renderAssetList(type)}
                         </AccordionContent>
                     </AccordionItem>
                 ))}

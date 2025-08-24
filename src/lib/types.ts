@@ -75,7 +75,7 @@ export interface Asset {
   ownerUid: string;
   memoryId: string | null; 
   name: string;
-  type: 'image' | 'video' | 'audio';
+  type: 'image' | 'video' | 'audio' | 'album';
   storagePath: string;
   url: string;
   size: number;
