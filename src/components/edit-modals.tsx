@@ -261,12 +261,12 @@ export function PreviewModal({ isOpen, setIsOpen, memory, assets }: { isOpen: bo
                 <DialogHeader className="p-4 border-b bg-background">
                     <DialogTitle>プレビュー</DialogTitle>
                 </DialogHeader>
-                 <div className="flex-1 overflow-auto bg-muted/40">
+                 <div className="flex-1 overflow-auto">
                      <div 
-                        className="mx-auto"
+                        className="mx-auto relative"
                         style={{
-                            background: manifest.design.bgColor || '#F9FAFB', // a light default
-                            color: manifest.design.textColor || '#111827', // a dark default
+                            background: manifest.design.bgColor || '#F9FAFB',
+                            color: manifest.design.textColor || '#111827',
                             fontFamily: manifest.design.fontFamily || 'sans-serif'
                         }}
                     >
@@ -291,7 +291,7 @@ export function PreviewModal({ isOpen, setIsOpen, memory, assets }: { isOpen: bo
                                 </div>
                                 
                                 <div className="relative flex flex-col items-center -mt-20 px-6">
-                                    <div className="h-40 w-40 rounded-full z-10 border-4 border-background shadow-lg relative overflow-hidden shrink-0" style={{backgroundColor: manifest.design.bgColor || '#F9FAFB'}}>
+                                    <div className="h-40 w-40 rounded-full z-10 border-4 shadow-lg relative overflow-hidden shrink-0" style={{borderColor: manifest.design.bgColor || '#F9FAFB'}}>
                                         <Image 
                                             src={manifest.media.profile.url}
                                             alt="Profile"
@@ -979,3 +979,4 @@ export function DesignModal({ isOpen, setIsOpen, memory, assets, onUploadSuccess
         </Dialog>
     );
 }
+
