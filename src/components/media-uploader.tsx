@@ -4,13 +4,13 @@ import React, { useRef, useState, useImperativeHandle } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { storage, db } from '@/lib/firebase/client';
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytesResumable, getDownloadURL, uploadBytes } from 'firebase/storage';
 import { collection, addDoc, doc, updateDoc, getDoc, Timestamp, serverTimestamp, deleteDoc } from 'firebase/firestore';
 import type { Asset } from '@/lib/types';
 
 export interface MediaUploaderRef {
   triggerUpload: () => void;
-  uploadFile: (file: File, assetId: string) => Promise<Asset | null>;
+  uploadFile: (file: File, assetId: string, thumbnailFile?: File) => Promise<Asset | null>;
   createPlaceholderAsset: (file: File) => Promise<Asset | null>;
 }
 
@@ -74,7 +74,7 @@ export const MediaUploader = React.forwardRef<MediaUploaderRef, MediaUploaderPro
         }
     }
 
-    const uploadFile = async (file: File, assetId: string): Promise<Asset | null> => {
+    const uploadFile = async (file: File, assetId: string, thumbnailFile?: File): Promise<Asset | null> => {
         if (!user) {
             toast({ variant: 'destructive', title: 'エラー', description: 'ログインしていません。' });
             return null;
@@ -87,62 +87,51 @@ export const MediaUploader = React.forwardRef<MediaUploaderRef, MediaUploaderPro
         const assetDocRef = doc(db, 'assets', assetId);
 
         try {
-            await updateDoc(assetDocRef, { storagePath });
-
+            // Upload main file
             const storageRef = ref(storage, storagePath);
-            const metadata = { 
-                contentType: file.type,
-                customMetadata: { assetId: assetId }
-            };
+            await uploadBytes(storageRef, file, { contentType: file.type });
+            const downloadURL = await getDownloadURL(storageRef);
 
-            return new Promise((resolve, reject) => {
-                const uploadTask = uploadBytesResumable(storageRef, file, metadata);
-
-                uploadTask.on('state_changed',
-                    null,
-                    async (error) => {
-                        console.error("Upload failed:", error);
-                        toast({ variant: 'destructive', title: 'アップロード失敗', description: error.message });
-                        try {
-                           await deleteDoc(assetDocRef);
-                           console.log(`Deleted placeholder asset ${assetId} after upload failure.`);
-                           // Also trigger a re-fetch or update in the parent component if necessary
-                            if (onUploadSuccess) {
-                                // A "delete" type event could be passed here if the parent needs to react
-                            }
-                        } catch (deleteError) {
-                            console.error(`Failed to delete placeholder asset ${assetId}:`, deleteError);
-                        }
-                        reject(error);
-                    },
-                    async () => {
-                        const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-                        await updateDoc(assetDocRef, {
-                            url: downloadURL,
-                            updatedAt: serverTimestamp(),
-                        });
-                        
-                        const finalAssetSnapshot = await getDoc(assetDocRef);
-                        const finalDocData = finalAssetSnapshot.data();
-
-                        const finalAsset: Asset = { 
-                            id: finalAssetSnapshot.id,
-                            ...finalDocData,
-                            createdAt: (finalDocData?.createdAt as Timestamp)?.toDate(),
-                            updatedAt: (finalDocData?.updatedAt as Timestamp)?.toDate(),
-                        } as Asset;
-                        
-                        if (onUploadSuccess) {
-                           onUploadSuccess(finalAsset);
-                        }
-
-                        resolve(finalAsset);
-                    }
-                );
+            // Upload thumbnail if it exists
+            let thumbnailURL: string | null = null;
+            if (thumbnailFile) {
+                const thumbStoragePath = `users/${user.uid}/memories/${memoryId}/assets/thumb_${assetId}_${thumbnailFile.name}`;
+                const thumbStorageRef = ref(storage, thumbStoragePath);
+                await uploadBytes(thumbStorageRef, thumbnailFile, { contentType: thumbnailFile.type });
+                thumbnailURL = await getDownloadURL(thumbStorageRef);
+            }
+            
+            await updateDoc(assetDocRef, {
+                storagePath,
+                url: downloadURL,
+                thumbnailUrl: thumbnailURL,
+                updatedAt: serverTimestamp(),
             });
+                        
+            const finalAssetSnapshot = await getDoc(assetDocRef);
+            const finalDocData = finalAssetSnapshot.data();
+
+            const finalAsset: Asset = { 
+                id: finalAssetSnapshot.id,
+                ...finalDocData,
+                createdAt: (finalDocData?.createdAt as Timestamp)?.toDate(),
+                updatedAt: (finalDocData?.updatedAt as Timestamp)?.toDate(),
+            } as Asset;
+            
+            if (onUploadSuccess) {
+                onUploadSuccess(finalAsset);
+            }
+            return finalAsset;
+
         } catch (error: any) {
             console.error("Upload process failed:", error);
             toast({ variant: 'destructive', title: 'エラー', description: `アップロード処理中にエラーが発生しました: ${error.message}` });
+            // Clean up placeholder on failure
+            try {
+                await deleteDoc(assetDocRef);
+            } catch (deleteError) {
+                console.error(`Failed to delete placeholder asset ${assetId}:`, deleteError);
+            }
             return null;
         }
     };
@@ -161,11 +150,6 @@ export const MediaUploader = React.forwardRef<MediaUploaderRef, MediaUploaderPro
 
       if (onFileSelected) {
         onFileSelected(file);
-      } else {
-        // This direct upload is now discouraged in favor of the placeholder flow
-        createPlaceholderAsset(file).then(placeholder => {
-            if(placeholder) uploadFile(file, placeholder.id);
-        })
       }
       
       if (fileInputRef.current) fileInputRef.current.value = "";
