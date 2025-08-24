@@ -5,7 +5,7 @@ import { getAdminApp } from '@/lib/firebase/firebaseAdmin';
 import { getFirestore, writeBatch, collection, query, where, getDocs } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
 import type { Memory, Asset } from '@/lib/types';
-import path from 'path';
+const path = require('path');
 
 function err(status: number, msg: string) {
   return NextResponse.json({ error: msg }, { status });
