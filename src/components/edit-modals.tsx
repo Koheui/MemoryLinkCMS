@@ -23,6 +23,8 @@ import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 
 // --- Preview Modal ---
@@ -110,7 +112,7 @@ const BlockRenderer = ({ block }: { block: PublicPageBlock }) => {
                                 {block.album?.items?.map((item, index) => (
                                     <CarouselItem key={index} className="pl-2 md:basis-1/2">
                                         <div className="aspect-video relative rounded-lg overflow-hidden">
-                                           {item.src && <Image src={item.src} alt={block.title || `Album image ${index+1}`} fill className="object-cover" />}
+                                           {item.src && <Image src={item.src} alt={block.title || `Album image ${index+1}`} fill className="object-cover" sizes="(max-width: 768px) 50vw, 33vw" />}
                                         </div>
                                     </CarouselItem>
                                 ))}
@@ -126,7 +128,7 @@ const BlockRenderer = ({ block }: { block: PublicPageBlock }) => {
                  <Card className="overflow-hidden bg-card/50 border-border shadow-lg">
                     {block.photo?.src && (
                          <div className="aspect-video relative w-full">
-                             <Image src={block.photo.src} alt={block.title || "Single photo"} fill className="object-cover" />
+                             <Image src={block.photo.src} alt={block.title || "Single photo"} fill className="object-cover" sizes="(max-width: 768px) 100vw, 50vw" />
                          </div>
                     )}
                     <CardContent className="p-4">
@@ -140,7 +142,7 @@ const BlockRenderer = ({ block }: { block: PublicPageBlock }) => {
                  <Card className="overflow-hidden bg-card/50 border-border shadow-lg group">
                     <div className="aspect-video relative w-full bg-black">
                         {block.video?.poster ? (
-                             <Image src={block.video.poster} alt={block.title || "Video thumbnail"} fill className="object-cover opacity-80 group-hover:opacity-60 transition-opacity" />
+                             <Image src={block.video.poster} alt={block.title || "Video thumbnail"} fill className="object-cover opacity-80 group-hover:opacity-60 transition-opacity" sizes="(max-width: 768px) 100vw, 50vw" />
                         ) : <div className="w-full h-full bg-black flex items-center justify-center"><Clapperboard className="h-16 w-16 text-white/70" /></div>}
                         <div className="absolute inset-0 flex items-center justify-center">
                             <Clapperboard className="h-16 w-16 text-white/70" />
@@ -192,7 +194,7 @@ export function PreviewModal({ isOpen, setIsOpen, memory, assets }: { isOpen: bo
 
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <DialogContent className="max-w-2xl h-[90vh] flex flex-col p-0 gap-0 bg-background border-0 shadow-2xl">
+            <DialogContent className="max-w-2xl h-full flex flex-col p-0 gap-0 bg-background border-0 shadow-2xl sm:h-[90vh]">
                 <DialogHeader className="p-4 border-b">
                     <DialogTitle>プレビュー</DialogTitle>
                 </DialogHeader>
@@ -207,7 +209,7 @@ export function PreviewModal({ isOpen, setIsOpen, memory, assets }: { isOpen: bo
                                     priority
                                     data-ai-hint="background scenery"
                                     className="object-cover"
-                                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                                    sizes="(max-width: 768px) 100vw, 896px"
                                     />
                                 </div>
                                 
@@ -223,9 +225,9 @@ export function PreviewModal({ isOpen, setIsOpen, memory, assets }: { isOpen: bo
                                         />
                                     </div>
                                     
-                                    <div className="mt-4 text-left w-full">
+                                    <div className="mt-4 text-center w-full">
                                         <h1 className="text-xl font-bold text-foreground">{manifest.title}</h1>
-                                        <p className="mt-2 text-base text-muted-foreground max-w-prose">{manifest.about.text}</p>
+                                        <p className="mt-2 text-base text-muted-foreground max-w-prose mx-auto text-left">{manifest.about.text}</p>
                                     </div>
                                 </div>
                             </header>
@@ -462,6 +464,7 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
     const [blockType, setBlockType] = useState<PublicPageBlock['type'] | null>(null);
     const [title, setTitle] = useState('');
     const [selectedAsset, setSelectedAsset] = useState<Asset | undefined>(undefined);
+    const [selectedAlbumAssetIds, setSelectedAlbumAssetIds] = useState<string[]>([]);
     
     const [textContent, setTextContent] = useState('');
     const [photoCaption, setPhotoCaption] = useState('');
@@ -480,6 +483,7 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
         setTextContent('');
         setPhotoCaption('');
         setSelectedAsset(undefined);
+        setSelectedAlbumAssetIds([]);
         setIsSaving(false);
     }
     
@@ -498,6 +502,7 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
                 }
                 if (block.type === 'video') setSelectedAsset(assets.find(a => a.id === block.video?.assetId));
                 if (block.type === 'audio') setSelectedAsset(assets.find(a => a.id === block.audio?.assetId));
+                if (block.type === 'album') setSelectedAlbumAssetIds(block.album?.assetIds || []);
             } else if (!isEditing && !blockType) {
                  resetState();
             }
@@ -507,7 +512,11 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
 
     const handleUploadCompleted = (newAsset: Asset) => {
         onUploadSuccess(newAsset);
-        setSelectedAsset(newAsset); // Automatically select the new asset
+        if(blockType === 'album'){
+            setSelectedAlbumAssetIds(prev => [...prev, newAsset.id]);
+        } else {
+            setSelectedAsset(newAsset); // Automatically select the new asset
+        }
         toast({ title: 'アップロード完了', description: `${newAsset.name}が選択されました。` });
     }
 
@@ -521,6 +530,11 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
              toast({ variant: 'destructive', title: 'エラー', description: 'メディアファイルを選択またはアップロードしてください。' });
             return;
         }
+        
+        if (blockType === 'album' && selectedAlbumAssetIds.length === 0) {
+            toast({ variant: 'destructive', title: 'エラー', description: 'アルバムに含める写真を1枚以上選択してください。' });
+            return;
+        }
 
         setIsSaving(true);
 
@@ -530,6 +544,7 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
             if (blockType === 'photo') newBlockData.photo = { assetId: selectedAsset!.id, caption: photoCaption };
             if (blockType === 'video') newBlockData.video = { assetId: selectedAsset!.id };
             if (blockType === 'audio') newBlockData.audio = { assetId: selectedAsset!.id };
+            if (blockType === 'album') newBlockData.album = { layout: 'carousel', assetIds: selectedAlbumAssetIds };
             
             await onSave(newBlockData, block);
             
@@ -576,7 +591,7 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
                 <div className="grid grid-cols-2 gap-4">
                     <Button variant="outline" className="h-24 flex-col gap-2" onClick={() => setBlockType('text')}><Type className="w-8 h-8"/>テキスト/リンク</Button>
                     <Button variant="outline" className="h-24 flex-col gap-2" onClick={() => setBlockType('photo')}><ImageIcon className="w-8 h-8"/>写真</Button>
-                    <Button variant="outline" className="h-24 flex-col gap-2" onClick={() => setBlockType('album')} disabled><Album className="w-8 h-8"/>アルバム (近日)</Button>
+                    <Button variant="outline" className="h-24 flex-col gap-2" onClick={() => setBlockType('album')}><Album className="w-8 h-8"/>アルバム</Button>
                     <Button variant="outline" className="h-24 flex-col gap-2" onClick={() => setBlockType('video')}><Video className="w-8 h-8"/>動画</Button>
                     <Button variant="outline" className="h-24 flex-col gap-2" onClick={() => setBlockType('audio')}><Mic className="w-8 h-8"/>音声</Button>
                 </div>
@@ -584,7 +599,47 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
         }
         
         let specificFields = null;
-        if (blockType === 'photo') {
+        if (blockType === 'album') {
+            specificFields = (
+                <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                         <Label>写真を選択 ({selectedAlbumAssetIds.length}枚)</Label>
+                         <MediaUploader
+                            assetType="image"
+                            accept="image/*"
+                            memoryId={memory.id}
+                            onUploadSuccess={handleUploadCompleted}
+                        >
+                            <Button type="button" variant="outline" size="sm">
+                                <Upload className="h-4 w-4 mr-2"/>
+                                新規アップロード
+                            </Button>
+                        </MediaUploader>
+                    </div>
+                   
+                    <ScrollArea className="h-64 rounded-md border">
+                         <div className="grid grid-cols-3 gap-2 p-2">
+                            {imageAssets.map(asset => (
+                                <div key={asset.id} className="relative aspect-square group cursor-pointer" onClick={() => {
+                                    setSelectedAlbumAssetIds(prev => 
+                                        prev.includes(asset.id) 
+                                        ? prev.filter(id => id !== asset.id) 
+                                        : [...prev, asset.id]
+                                    )
+                                }}>
+                                    <Image src={asset.url} alt={asset.name} fill className="object-cover rounded-sm" sizes="150px"/>
+                                    {selectedAlbumAssetIds.includes(asset.id) && (
+                                        <div className="absolute inset-0 bg-primary/70 flex items-center justify-center">
+                                            <CheckCircle className="h-8 w-8 text-primary-foreground" />
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                         </div>
+                    </ScrollArea>
+                </div>
+            )
+        } else if (blockType === 'photo') {
             specificFields = (
                  <div className="space-y-4">
                     {renderAssetSelector('image', imageAssets, '写真を選択...')}
@@ -664,7 +719,7 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
             if(!open) resetState();
             setIsOpen(open);
         }}>
-            <DialogContent className="sm:max-w-[480px]">
+            <DialogContent className="sm:max-w-md">
                 <DialogHeader>
                     <DialogTitle>{isEditing ? 'ブロックを編集' : '新しいブロックを追加'}</DialogTitle>
                 </DialogHeader>

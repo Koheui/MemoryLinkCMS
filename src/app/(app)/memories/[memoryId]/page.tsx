@@ -1,3 +1,4 @@
+
 // src/app/(app)/memories/[memoryId]/page.tsx
 'use client';
 
@@ -412,10 +413,37 @@ function SortableBlockItem({ block, assets, onEdit, onDelete }: { block: PublicP
         video: <VideoIcon className="w-5 h-5 text-muted-foreground" />,
         audio: <Mic className="w-5 h-5 text-muted-foreground" />,
     }
+    
+    const getAssetById = (assetId: string) => assets.find(a => a.id === assetId);
 
     const renderBlockContent = () => {
+        if (block.type === 'album' && block.album?.assetIds) {
+            const albumAssets = block.album.assetIds.map(getAssetById).filter(Boolean) as Asset[];
+            return (
+                 <div className="p-2 space-y-2">
+                    <p className="font-semibold text-sm truncate">{block.title || "無題のアルバム"}</p>
+                    {albumAssets.length > 0 ? (
+                        <div className="flex -space-x-4 rtl:space-x-reverse">
+                            {albumAssets.slice(0, 4).map((asset, index) => (
+                                <div key={asset.id} className="relative h-12 w-12 rounded-md overflow-hidden border-2 border-background">
+                                   <Image src={asset.url} alt={asset.name} fill sizes="48px" className="object-cover" />
+                                </div>
+                            ))}
+                            {albumAssets.length > 4 && (
+                                <div className="h-12 w-12 rounded-md bg-muted flex items-center justify-center text-sm font-medium text-muted-foreground border-2 border-background">
+                                    +{albumAssets.length - 4}
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                         <p className="text-xs text-muted-foreground">写真が選択されていません</p>
+                    )}
+                 </div>
+            )
+        }
+        
         if (block.type === 'photo' && block.photo?.assetId) {
-            const asset = assets.find(a => a.id === block.photo?.assetId);
+            const asset = getAssetById(block.photo?.assetId);
             if (asset?.url) {
                 return (
                     <div className="p-2 space-y-2">
@@ -430,7 +458,7 @@ function SortableBlockItem({ block, assets, onEdit, onDelete }: { block: PublicP
         }
         
         if (block.type === 'video' && block.video?.assetId) {
-            const asset = assets.find(a => a.id === block.video?.assetId);
+            const asset = getAssetById(block.video?.assetId);
             if (asset) {
                 const thumbnailUrl = asset.thumbnailUrl;
                 return (
