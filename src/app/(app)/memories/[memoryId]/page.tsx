@@ -333,47 +333,48 @@ export default function MemoryEditorPage() {
        <main className="flex-1 overflow-auto p-4 sm:p-6 lg:p-8">
             <div className="mx-auto max-w-2xl bg-background shadow-lg rounded-xl overflow-hidden">
                  {/* Cover and Profile Section */}
-                 <div className="relative mb-[-72px] sm:mb-[-80px]">
-                    <div 
-                        className="group relative aspect-[21/9] w-full overflow-hidden bg-muted flex items-center justify-center cursor-pointer transition-all duration-300 hover:shadow-inner"
-                        onClick={() => setIsCoverPhotoModalOpen(true)}
-                    >
-                        {coverImageUrl ? (
-                            <Image src={coverImageUrl} alt="カバー画像" fill sizes="(max-width: 768px) 100vw, 896px" className="object-cover" />
-                        ) : (
-                             <ImageIcon className="h-12 w-12 text-muted-foreground" />
-                        )}
-                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                            <p className="text-white font-bold flex items-center gap-2"><Edit className="h-4 w-4" />カバー画像を編集</p>
-                        </div>
-                    </div>
-                     <div 
-                        className="group absolute -bottom-16 sm:-bottom-20 left-1/2 -translate-x-1/2 h-32 w-32 sm:h-40 sm:w-40 overflow-hidden rounded-full border-4 border-background bg-muted flex items-center justify-center cursor-pointer shadow-lg hover:shadow-xl transition-shadow"
-                        onClick={() => setIsAboutModalOpen(true)}
-                     >
-                        {profileImageUrl ? (
-                             <Image src={profileImageUrl} alt="プロフィール画像" fill sizes="160px" className="object-cover" />
-                        ) : (
-                            <ImageIcon className="h-10 w-10 text-muted-foreground" />
-                        )}
-                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                             <p className="text-white font-bold text-center text-sm"><Edit className="h-4 w-4 mx-auto mb-1" />編集</p>
-                        </div>
-                    </div>
-                </div>
+                 <div 
+                     className="group relative aspect-[21/9] w-full overflow-hidden bg-muted flex items-center justify-center cursor-pointer transition-all duration-300 hover:shadow-inner"
+                     onClick={() => setIsCoverPhotoModalOpen(true)}
+                 >
+                     {coverImageUrl ? (
+                         <Image src={coverImageUrl} alt="カバー画像" fill sizes="(max-width: 768px) 100vw, 896px" className="object-cover" />
+                     ) : (
+                          <ImageIcon className="h-12 w-12 text-muted-foreground" />
+                     )}
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                         <p className="text-white font-bold flex items-center gap-2"><Edit className="h-4 w-4" />カバー画像を編集</p>
+                     </div>
+                 </div>
                 
-                {/* About Section */}
-                <div 
-                    className="group relative pt-24 sm:pt-28 text-center px-4 cursor-pointer"
-                    onClick={() => setIsAboutModalOpen(true)}
-                >
-                     <div className="inline-block relative">
-                        <h1 className="text-3xl font-bold sm:text-4xl">{memory.title}</h1>
-                        <p className="mt-2 text-base text-muted-foreground max-w-prose">{memory.description || "紹介文を編集..."}</p>
-                         <Button variant="outline" size="sm" className="absolute -top-2 -right-12 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Edit className="h-4 w-4"/>
-                        </Button>
-                    </div>
+                {/* Profile & About Section */}
+                <div className="relative flex flex-col items-center -mt-20">
+                    <div 
+                       className="group relative h-32 w-32 sm:h-40 sm:w-40 overflow-hidden rounded-full border-4 border-background bg-muted flex items-center justify-center cursor-pointer shadow-lg hover:shadow-xl transition-shadow z-10"
+                       onClick={() => setIsAboutModalOpen(true)}
+                    >
+                       {profileImageUrl ? (
+                            <Image src={profileImageUrl} alt="プロフィール画像" fill sizes="160px" className="object-cover" />
+                       ) : (
+                           <ImageIcon className="h-10 w-10 text-muted-foreground" />
+                       )}
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <p className="text-white font-bold text-center text-sm"><Edit className="h-4 w-4 mx-auto mb-1" />編集</p>
+                       </div>
+                   </div>
+
+                   <div 
+                       className="group relative pt-4 text-center px-4 cursor-pointer"
+                       onClick={() => setIsAboutModalOpen(true)}
+                   >
+                        <div className="inline-block relative">
+                           <h1 className="text-3xl font-bold sm:text-4xl">{memory.title}</h1>
+                           <p className="mt-2 text-base text-muted-foreground max-w-prose">{memory.description || "紹介文を編集..."}</p>
+                            <Button variant="outline" size="sm" className="absolute -top-2 -right-12 opacity-0 group-hover:opacity-100 transition-opacity">
+                               <Edit className="h-4 w-4"/>
+                           </Button>
+                       </div>
+                   </div>
                 </div>
 
                 {/* Blocks Section */}
