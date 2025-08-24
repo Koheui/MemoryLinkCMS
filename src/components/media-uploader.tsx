@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { storage, db } from '@/lib/firebase/client';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { collection, addDoc, doc, updateDoc, getDoc, Timestamp, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, doc, updateDoc, getDoc, Timestamp, serverTimestamp, deleteDoc } from 'firebase/firestore';
 import type { Asset } from '@/lib/types';
 
 export interface MediaUploaderRef {
@@ -100,10 +100,19 @@ export const MediaUploader = React.forwardRef<MediaUploaderRef, MediaUploaderPro
 
                 uploadTask.on('state_changed',
                     null,
-                    (error) => {
+                    async (error) => {
                         console.error("Upload failed:", error);
                         toast({ variant: 'destructive', title: 'アップロード失敗', description: error.message });
-                        // TODO: Maybe delete the placeholder doc here.
+                        try {
+                           await deleteDoc(assetDocRef);
+                           console.log(`Deleted placeholder asset ${assetId} after upload failure.`);
+                           // Also trigger a re-fetch or update in the parent component if necessary
+                            if (onUploadSuccess) {
+                                // A "delete" type event could be passed here if the parent needs to react
+                            }
+                        } catch (deleteError) {
+                            console.error(`Failed to delete placeholder asset ${assetId}:`, deleteError);
+                        }
                         reject(error);
                     },
                     async () => {
