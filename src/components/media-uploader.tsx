@@ -1,25 +1,19 @@
-
 // src/components/media-uploader.tsx
 'use client';
-import React, { useRef, useState, useImperativeHandle } from 'react';
+import React, { useRef } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { storage, db } from '@/lib/firebase/client';
-import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
-import { doc, setDoc, Timestamp, serverTimestamp, getDoc, deleteDoc } from 'firebase/firestore';
+import { ref, uploadBytesResumable, getDownloadURL, uploadBytes } from 'firebase/storage';
+import { doc, setDoc, Timestamp, serverTimestamp } from 'firebase/firestore';
 import type { Asset } from '@/lib/types';
 import { v4 as uuidv4 } from 'uuid';
-
-export interface MediaUploaderRef {
-  triggerUpload: () => void;
-}
 
 interface MediaUploaderProps {
   assetType: 'image' | 'video' | 'audio';
   accept: string;
   onUploadSuccess: (asset: Asset) => void;
   memoryId?: string;
-  onFileSelected?: (file: File) => void; 
   children?: React.ReactNode;
 }
 
@@ -40,28 +34,29 @@ const generateVideoThumbnail = (file: File): Promise<Blob> => {
             canvas.height = video.videoHeight;
             const ctx = canvas.getContext('2d');
             if (!ctx) {
+                URL.revokeObjectURL(video.src);
                 return reject(new Error('Could not get canvas context'));
             }
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
             canvas.toBlob((blob) => {
+                URL.revokeObjectURL(video.src); // Clean up
                 if (!blob) {
                     return reject(new Error('Canvas to Blob conversion failed'));
                 }
-                URL.revokeObjectURL(video.src); // Clean up
                 resolve(blob);
             }, 'image/jpeg', 0.8);
         };
         
         video.onerror = (e) => {
-            reject(new Error('Video loading failed.'));
             URL.revokeObjectURL(video.src);
+            reject(new Error('Video loading failed.'));
         };
     });
 };
 
 
-export const MediaUploader = React.forwardRef<MediaUploaderRef, MediaUploaderProps>(
-  ({ assetType, accept, onUploadSuccess, memoryId, onFileSelected, children }, forwardRef) => {
+export const MediaUploader = React.forwardRef<unknown, MediaUploaderProps>(
+  ({ accept, onUploadSuccess, memoryId, children }, forwardRef) => {
     const { user } = useAuth();
     const { toast } = useToast();
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -76,45 +71,33 @@ export const MediaUploader = React.forwardRef<MediaUploaderRef, MediaUploaderPro
         const toastId = `upload-${assetId}`;
         toast({ id: toastId, title: 'アップロード開始', description: `${file.name}をアップロードしています...` });
 
-        const assetDocRef = doc(db, 'assets', assetId);
-        
         try {
             const isVideo = file.type.startsWith('video');
-            let thumbnailBlob: Blob | null = null;
-            
-            if (isVideo) {
-                try {
-                    thumbnailBlob = await generateVideoThumbnail(file);
-                } catch(thumbError: any) {
-                    console.error("Thumbnail generation failed:", thumbError);
-                    toast({ variant: 'destructive', title: 'サムネイル生成失敗', description: thumbError.message });
-                    // Continue without thumbnail
-                }
-            }
             
             // Step 1: Upload main file
             const mainFileStoragePath = memoryId
                 ? `users/${user.uid}/memories/${memoryId}/assets/${assetId}_${file.name}`
                 : `users/${user.uid}/library/${assetId}_${file.name}`;
             const mainFileRef = ref(storage, mainFileStoragePath);
-            const mainUploadTask = uploadBytesResumable(mainFileRef, file, { contentType: file.type });
+            const mainUploadTask = await uploadBytes(mainFileRef, file, { contentType: file.type });
+            const mainDownloadURL = await getDownloadURL(mainUploadTask.ref);
 
-            // Step 2: Upload thumbnail if it exists
-            let thumbUploadTask: Promise<string | null> = Promise.resolve(null);
-            if (thumbnailBlob) {
-                const thumbFileStoragePath = mainFileStoragePath.replace(/(\.[\w\d_-]+)$/i, '_thumb.jpg');
-                const thumbFileRef = ref(storage, thumbFileStoragePath);
-                thumbUploadTask = uploadBytesResumable(thumbFileRef, thumbnailBlob, { contentType: 'image/jpeg' })
-                    .then(snapshot => getDownloadURL(snapshot.ref));
+            // Step 2: Handle thumbnail for video
+            let thumbDownloadURL: string | null = null;
+            if (isVideo) {
+                 try {
+                    const thumbnailBlob = await generateVideoThumbnail(file);
+                    const thumbFileStoragePath = mainFileStoragePath.replace(/(\.[\w\d_-]+)$/i, '_thumb.jpg');
+                    const thumbFileRef = ref(storage, thumbFileStoragePath);
+                    const thumbUploadTask = await uploadBytes(thumbFileRef, thumbnailBlob, { contentType: 'image/jpeg' });
+                    thumbDownloadURL = await getDownloadURL(thumbUploadTask.ref);
+                } catch(thumbError: any) {
+                    console.error("Thumbnail generation failed, continuing without it:", thumbError);
+                    toast({ variant: 'destructive', title: 'サムネイル生成失敗', description: thumbError.message });
+                }
             }
 
-            // Step 3: Wait for both uploads and get URLs
-            const [mainDownloadURL, thumbDownloadURL] = await Promise.all([
-                 mainUploadTask.then(snapshot => getDownloadURL(snapshot.ref)),
-                 thumbUploadTask
-            ]);
-
-            // Step 4: Create final document in Firestore
+            // Step 3: Create final document in Firestore
             const finalAssetData: Omit<Asset, 'id'> = {
                 ownerUid: user.uid,
                 memoryId: memoryId || null,
@@ -122,15 +105,22 @@ export const MediaUploader = React.forwardRef<MediaUploaderRef, MediaUploaderPro
                 type: file.type.startsWith('image') ? 'image' : file.type.startsWith('video') ? 'video' : 'audio',
                 storagePath: mainFileStoragePath,
                 url: mainDownloadURL,
-                thumbnailUrl: thumbDownloadURL || null,
+                thumbnailUrl: thumbDownloadURL,
                 size: file.size,
                 createdAt: serverTimestamp() as Timestamp,
                 updatedAt: serverTimestamp() as Timestamp,
             };
 
-            await setDoc(assetDocRef, finalAssetData);
+            await setDoc(doc(db, 'assets', assetId), finalAssetData);
             
-            const finalAsset = { id: assetId, ...finalAssetData } as Asset;
+            // Construct the final asset object including the generated ID for the callback
+            const finalAsset: Asset = { 
+                id: assetId, 
+                ...finalAssetData,
+                // These will be server timestamps, but we'll use a client-side date for immediate UI updates
+                createdAt: new Date() as any,
+                updatedAt: new Date() as any
+            };
             
             toast.update(toastId, { title: '成功', description: 'アップロードが完了しました。' });
             
@@ -141,26 +131,16 @@ export const MediaUploader = React.forwardRef<MediaUploaderRef, MediaUploaderPro
         } catch (error: any) {
             console.error("Upload process failed:", error);
             toast.update(toastId, { variant: 'destructive', title: 'アップロード失敗', description: error.message });
-            await deleteDoc(assetDocRef).catch(e => console.error("Cleanup failed", e));
         }
     };
     
-    useImperativeHandle(forwardRef, () => ({
-      triggerUpload: () => {
-        fileInputRef.current?.click();
-      },
-    }));
-
     const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0];
       if (!file) return;
       
-      if (onFileSelected) {
-          onFileSelected(file);
-      } else {
-        await uploadFile(file);
-      }
+      await uploadFile(file);
       
+      // Reset file input
       if (fileInputRef.current) fileInputRef.current.value = "";
     };
     

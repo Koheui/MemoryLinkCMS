@@ -24,7 +24,6 @@ export function CoverPhotoModal({ isOpen, setIsOpen, memory, assets, onUploadSuc
     const [coverAssetId, setCoverAssetId] = useState(memory.coverAssetId);
     const [isSaving, setIsSaving] = useState(false);
     const { toast } = useToast();
-    const uploaderRef = useRef<MediaUploaderRef>(null);
 
     useEffect(() => {
         if (isOpen) {
@@ -85,7 +84,6 @@ export function CoverPhotoModal({ isOpen, setIsOpen, memory, assets, onUploadSuc
                                 </SelectContent>
                             </Select>
                             <MediaUploader
-                                ref={uploaderRef}
                                 assetType="image"
                                 accept="image/*"
                                 memoryId={memory.id}
@@ -121,7 +119,6 @@ export function AboutModal({ isOpen, setIsOpen, memory, assets, onUploadSuccess,
     const [profileAssetId, setProfileAssetId] = useState(memory.profileAssetId);
     const [isSaving, setIsSaving] = useState(false);
     const { toast } = useToast();
-    const uploaderRef = useRef<MediaUploaderRef>(null);
 
     useEffect(() => {
        if (isOpen) {
@@ -198,7 +195,6 @@ export function AboutModal({ isOpen, setIsOpen, memory, assets, onUploadSuccess,
                                 </SelectContent>
                             </Select>
                             <MediaUploader
-                                ref={uploaderRef}
                                 assetType="image"
                                 accept="image/*"
                                 memoryId={memory.id}
@@ -238,7 +234,6 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
     const [isSaving, setIsSaving] = useState(false);
     const { toast } = useToast();
     const isEditing = block !== null;
-    const uploaderRef = useRef<MediaUploaderRef>(null);
     
     const imageAssets = useMemo(() => assets.filter(a => a.type === 'image'), [assets]);
     const videoAssets = useMemo(() => assets.filter(a => a.type === 'video'), [assets]);
@@ -255,8 +250,6 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
     }
     
     useEffect(() => {
-        // Only reset state if the modal is being opened for a new block,
-        // or if the block being edited changes.
         if (isOpen) {
             if (isEditing && block) {
                 if (block.id !== (block && block.id)) { // if editing a different block
@@ -273,11 +266,14 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
                 if (block.type === 'audio') setSelectedAssetId(block.audio?.assetId);
 
             } else if (!isEditing) {
-                // When opening for a new block, reset everything.
-                resetState();
+                 if (blockType) {
+                    // Do not reset if a block type is already selected for a new block
+                } else {
+                    resetState();
+                }
             }
         }
-    }, [block, isOpen, isEditing]);
+    }, [block, isOpen, isEditing, blockType]);
 
 
     const handleUploadCompleted = (newAsset: Asset) => {
@@ -332,7 +328,6 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
                     </SelectContent>
                 </Select>
                  <MediaUploader
-                    ref={uploaderRef}
                     assetType={type}
                     accept={`${type}/*`}
                     memoryId={memory.id}
