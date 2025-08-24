@@ -164,7 +164,10 @@ export const MediaUploader = React.forwardRef<MediaUploaderRef, MediaUploaderPro
     
     const trigger = children ? (
         React.cloneElement(children as React.ReactElement, {
-            onClick: () => fileInputRef.current?.click(),
+            onClick: (e: React.MouseEvent) => {
+              e.preventDefault();
+              fileInputRef.current?.click()
+            },
         })
     ) : null;
 
