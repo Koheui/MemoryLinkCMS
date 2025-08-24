@@ -42,10 +42,11 @@ export async function POST(req: NextRequest) {
     const batch = writeBatch(db);
 
     // --- Step 1: Find all assets associated with this memory ---
+    // Correctly query for assets belonging to the user and associated with the memory.
     const assetsQuery = query(
         collection(db, 'assets'), 
         where('ownerUid', '==', uid), 
-        where('memoryId', '==', memoryId) // <--- CRITICAL FIX: Only query assets for THIS memory
+        where('memoryId', '==', memoryId)
     );
     const assetsSnapshot = await getDocs(assetsQuery);
     
@@ -57,16 +58,16 @@ export async function POST(req: NextRequest) {
         // Delete from Storage
         if (asset.storagePath) {
             deletionPromises.push(storage.file(asset.storagePath).delete().catch(e => console.warn(`Could not delete file ${asset.storagePath}:`, e.message)));
+            
             // Also attempt to delete all thumbnail candidates if it's a video
-            if (asset.type === 'video' && asset.thumbnailCandidates) {
-                asset.thumbnailCandidates.forEach(thumbUrl => {
-                    // This is complex as URL needs to be parsed to get path. A simpler way is to delete folder if possible,
-                    // but for now, we rely on a consistent naming convention.
-                    // This part can be improved if thumbnail paths are stored directly.
-                });
-                const thumbDir = path.join(path.dirname(asset.storagePath), "thumbnails");
-                // This is a more aggressive deletion strategy, might need refinement.
-                // For now, deleting assets one by one is safer.
+            if (asset.type === 'video' && asset.thumbnailCandidates && asset.thumbnailCandidates.length > 0) {
+                 const thumbDir = path.join(path.dirname(asset.storagePath), "thumbnails");
+                 // This is a more aggressive deletion strategy, might need refinement.
+                 // It's safer to delete by known filenames if possible.
+                 // For now, we will assume convention `thumb-*.jpg` is not used and delete based on assetId
+                 const assetId = doc.id;
+                 deletionPromises.push(storage.file(`${thumbDir}/${assetId}_thumb-%s.jpg`).delete().catch(e => console.warn(`Could not delete thumbnail for asset ${assetId}:`, e.message)));
+
             }
         }
         // Delete asset document from Firestore
