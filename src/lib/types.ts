@@ -101,8 +101,8 @@ export interface Order {
     selectedModelId?: string | null;
     payment?: { method?: 'stripe' | 'invoice', linkUrl?: string, paidAt?: Timestamp };
     shipping?: { nfcWritten?: boolean, shippedAt?: Timestamp };
-    createdAt: Timestamp;
-    updatedAt: Timestamp;
+    createdAt: Timestamp | string; // Allow string for UI display
+    updatedAt: Timestamp | string; // Allow string for UI display
     // For UI display
     memoryTitle?: string;
 }

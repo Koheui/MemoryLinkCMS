@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
     
     // --- Step 1: Create the Memory page first to get an ID ---
     const newMemoryRef = db.collection('memories').doc();
-    const newMemoryData: Omit<Memory, 'id' | 'createdAt' | 'updatedAt' | 'ownerUid'> = {
+    const newMemoryData: Omit<Memory, 'id' | 'createdAt' | 'updatedAt' | 'ownerUid' | 'blocks'> = {
         title: '新しい想い出ページ',
         type: 'other', // This can be customized later based on productType
         status: 'draft',
@@ -54,6 +54,7 @@ export async function POST(req: NextRequest) {
     await newMemoryRef.set({
       ...newMemoryData,
       ownerUid: null, // Initially unowned
+      blocks: [], // Start with empty blocks
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
     });
