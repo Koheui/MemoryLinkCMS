@@ -119,7 +119,7 @@ export default function DashboardPage() {
             }
             
             toast({ title: "成功", description: `「${memoryToDelete.title}」を削除しました。` });
-            fetchMemories(user.uid); // Refresh the list
+            fetchMemories(user.uid);
         } catch (error: any) {
             console.error("Failed to delete memory:", error);
             toast({ variant: 'destructive', title: "削除失敗", description: error.message });
@@ -187,7 +187,7 @@ export default function DashboardPage() {
         </AlertDialog>
 
         <div className="space-y-6 p-4 sm:p-6 lg:p-8">
-            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div className="flex flex-col md:flex-row items-start md:flex-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold tracking-tight font-headline">ダッシュボード</h1>
                     <p className="text-muted-foreground">あなたの想い出ページを管理します。</p>
