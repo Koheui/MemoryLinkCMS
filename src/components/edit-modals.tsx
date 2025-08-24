@@ -249,8 +249,8 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
     const audioAssets = useMemo(() => assets.filter(a => a.type === 'audio'), [assets]);
     const selectedAsset = useMemo(() => assets.find(a => a.id === selectedAssetId), [selectedAssetId, assets]);
 
-    const resetState = () => {
-        setBlockType(null);
+    const resetState = (retainBlockType = false) => {
+        if (!retainBlockType) setBlockType(null);
         setTitle('');
         setTextContent('');
         setPhotoCaption('');
@@ -259,32 +259,35 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
         setPendingUpload(null);
         setIsSaving(false);
     }
-
-    useEffect(() => {
-        if (isOpen) {
-            if (isEditing && block) {
-                setBlockType(block.type);
-                setTitle(block.title || '');
-                if (block.type === 'text') setTextContent(block.text?.content || '');
-                if (block.type === 'photo') {
-                    setSelectedAssetId(block.photo?.assetId);
-                    setPhotoCaption(block.photo?.caption || '');
-                }
-                if (block.type === 'video') {
-                    const videoAssetId = block.video?.assetId;
-                    setSelectedAssetId(videoAssetId);
-                    if (videoAssetId) {
-                        const asset = assets.find(a => a.id === videoAssetId);
-                        setSelectedThumbnail(asset?.thumbnailUrl);
-                    }
-                }
-                if (block.type === 'audio') setSelectedAssetId(block.audio?.assetId);
-            } else {
-                resetState();
-            }
-        }
-    }, [block, isOpen, isEditing, assets]);
     
+    useEffect(() => {
+      if (isOpen) {
+        if (isEditing && block) {
+            setBlockType(block.type);
+            setTitle(block.title || '');
+            if (block.type === 'text') setTextContent(block.text?.content || '');
+            if (block.type === 'photo') {
+                setSelectedAssetId(block.photo?.assetId);
+                setPhotoCaption(block.photo?.caption || '');
+            }
+            if (block.type === 'video') {
+                const videoAssetId = block.video?.assetId;
+                setSelectedAssetId(videoAssetId);
+                if (videoAssetId) {
+                    const asset = assets.find(a => a.id === videoAssetId);
+                    setSelectedThumbnail(asset?.thumbnailUrl);
+                }
+            }
+            if (block.type === 'audio') setSelectedAssetId(block.audio?.assetId);
+        } else {
+            resetState();
+        }
+      }
+    // Only reset state when the modal is opened or the block being edited changes.
+    // Do not depend on `assets` to avoid resetting on upload.
+    }, [block, isOpen, isEditing]);
+
+
     useEffect(() => {
         if (selectedAsset?.type === 'video') {
             setSelectedThumbnail(selectedAsset.thumbnailUrl);
@@ -303,6 +306,9 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
                 onUploadSuccess(placeholderAsset);
                 setSelectedAssetId(placeholderAsset.id);
                 setPendingUpload({file, tempId: placeholderAsset.id});
+                
+                // Trigger the actual upload in the background
+                uploaderRef.current.uploadFile(file, placeholderAsset.id);
             }
         } catch (error: any) {
              console.error("Placeholder creation failed:", error);
@@ -316,7 +322,7 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
             return;
         }
 
-        if (['photo', 'video', 'audio'].includes(blockType) && !selectedAssetId && !pendingUpload) {
+        if (['photo', 'video', 'audio'].includes(blockType) && !selectedAssetId) {
              toast({ variant: 'destructive', title: 'エラー', description: 'メディアファイルを選択またはアップロードしてください。' });
             return;
         }
@@ -324,14 +330,9 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
         setIsSaving(true);
 
         try {
-            let finalAssetId = selectedAssetId;
-
-            // If a file is pending upload, start the upload process and use its ID.
-            if (pendingUpload && uploaderRef.current) {
-                finalAssetId = pendingUpload.tempId;
-                // Start upload but don't wait for it to finish.
-                uploaderRef.current.uploadFile(pendingUpload.file, pendingUpload.tempId);
-            }
+            // Note: Upload is already triggered in `handleFileSelectedForUpload`.
+            // We just need to save the block with the placeholder ID.
+            const finalAssetId = selectedAssetId;
 
             const newBlockData: any = { type: blockType, title, visibility: 'show' };
             if (blockType === 'text') newBlockData.text = { content: textContent };
@@ -501,7 +502,7 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
                 </div>
                 {blockType && ( 
                     <DialogFooter>
-                        {!isEditing && <Button variant="ghost" onClick={() => setBlockType(null)}>戻る</Button>}
+                        {!isEditing && <Button variant="ghost" onClick={() => resetState(false)}>戻る</Button>}
                         <DialogClose asChild><Button variant="outline">キャンセル</Button></DialogClose>
                         <Button onClick={handleSave} disabled={isSaving}>
                             {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
