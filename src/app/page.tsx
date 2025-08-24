@@ -27,46 +27,22 @@ export default function Home() {
       <main className="flex-1">
         <section className="w-full py-12 md:py-24 lg:py-32 xl:py-40 bg-muted/30">
           <div className="container px-4 md:px-6">
-            <div className="grid gap-8 lg:grid-cols-2 lg:gap-16">
-              <div className="flex flex-col justify-center space-y-6">
-                <div className="space-y-4">
-                  <h1 className="text-5xl font-bold tracking-tighter sm:text-5xl xl:text-6xl/none font-headline text-yellow-500">
-                    【検証用】テキストの変更が反映されました
-                  </h1>
-                  <p className="max-w-[600px] text-muted-foreground md:text-xl">
-                    「想い出リンク」は、写真や動画、音声、そして物語を組み合わせ、スマートフォンからいつでもアクセスできる美しい記念ページを作成するサービスです。ユニークなNFCタグに、大切な記憶を込めて。
-                  </p>
-                </div>
-                <div className="flex flex-col gap-2 min-[400px]:flex-row">
-                  <Button size="lg" asChild>
-                    <Link href="/signup">
-                      想い出ページを作成する
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    </Link>
-                  </Button>
-                </div>
+            <div className="flex flex-col items-center space-y-6 text-center">
+              <div className="space-y-4">
+                <h1 className="text-4xl font-bold tracking-tighter sm:text-5xl xl:text-6xl/none font-headline">
+                  大切な人との想い出を、永遠の形に。
+                </h1>
+                <p className="mx-auto max-w-[700px] text-muted-foreground md:text-xl">
+                  「想い出リンク」は、写真や動画、音声、そして物語を組み合わせ、スマートフォンからいつでもアクセスできる美しい記念ページを作成するサービスです。ユニークなNFCタグに、大切な記憶を込めて。
+                </p>
               </div>
-              <div className="flex items-center justify-center">
-                 <Card className="w-full max-w-md shadow-lg">
-                   <CardHeader>
-                      <CardTitle className="font-headline">赤ちゃん筆</CardTitle>
-                      <CardDescription>
-                        赤ちゃん筆を購入するとこの専用ページから写真や動画をアップロードできます。
-                      </CardDescription>
-                   </CardHeader>
-                   <CardContent>
-                      <div className="relative aspect-video w-full overflow-hidden rounded-lg">
-                         <Image
-                           src="https://placehold.co/600x400.png"
-                           alt="赤ちゃん筆のサンプル画像"
-                           data-ai-hint="baby brush"
-                           width={600}
-                           height={400}
-                           className="object-cover"
-                         />
-                      </div>
-                   </CardContent>
-                 </Card>
+              <div className="flex flex-col gap-2 min-[400px]:flex-row">
+                <Button size="lg" asChild>
+                  <Link href="/signup">
+                    想い出ページを作成する
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Link>
+                </Button>
               </div>
             </div>
           </div>
