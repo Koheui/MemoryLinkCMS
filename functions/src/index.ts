@@ -51,6 +51,11 @@ export const generateThumbnail = onObjectFinalized({
   const bucket = admin.storage().bucket(fileBucket);
   const tempFilePath = path.join(os.tmpdir(), fileName);
   const tempThumbDir = path.join(os.tmpdir(), `thumbs_${assetId}`);
+  
+  // Clean up previous temp directories if they exist
+  if (fs.existsSync(tempThumbDir)) {
+    fs.rmSync(tempThumbDir, { recursive: true, force: true });
+  }
   fs.mkdirSync(tempThumbDir, {recursive: true});
 
   const timestamps = ["1%", "50%", "90%"];
@@ -65,7 +70,8 @@ export const generateThumbnail = onObjectFinalized({
       ffmpeg(tempFilePath)
         .on("filenames", (filenames) => {
           logger.info("Generated filenames:", filenames);
-          screenshotFileNames.push(...filenames);
+          // Correctly push filenames to the array
+          screenshotFileNames.push(...filenames.map(name => `${assetId}_${name}`));
         })
         .on("end", () => {
           logger.info("Thumbnail generation finished.");
@@ -77,15 +83,18 @@ export const generateThumbnail = onObjectFinalized({
         })
         .screenshots({
           timestamps: timestamps,
+          // Use a consistent naming scheme that includes the assetId
           filename: `${assetId}_thumb-%s.jpg`,
           folder: tempThumbDir,
           size: "320x240",
         });
     });
     
-    logger.info("Successfully generated screenshots:", screenshotFileNames);
+    // The filenames from ffmpeg might not be what we expect, so re-read the directory
+    const actualFilenames = fs.readdirSync(tempThumbDir);
+    logger.info("Successfully generated screenshots:", actualFilenames);
 
-    const uploadPromises = screenshotFileNames.map((thumbFileName) => {
+    const uploadPromises = actualFilenames.map((thumbFileName) => {
         const tempThumbPath = path.join(tempThumbDir, thumbFileName);
         const thumbUploadPath = path.join(path.dirname(filePath), "thumbnails", thumbFileName);
         return bucket.upload(tempThumbPath, {
@@ -123,8 +132,13 @@ export const generateThumbnail = onObjectFinalized({
   } catch (error) {
     logger.error("Function failed:", error);
   } finally {
-    if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
-    if (fs.existsSync(tempThumbDir)) fs.rmSync(tempThumbDir, {recursive: true, force: true});
+    // Ensure both temporary file and directory are removed
+    if (fs.existsSync(tempFilePath)) {
+      fs.unlinkSync(tempFilePath);
+    }
+    if (fs.existsSync(tempThumbDir)) {
+      fs.rmSync(tempThumbDir, {recursive: true, force: true});
+    }
     logger.info("Cleaned up temporary files.");
   }
 });
