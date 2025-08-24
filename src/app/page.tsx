@@ -15,8 +15,13 @@ export default function Home() {
         <Link href="/" className="flex items-center gap-2 font-headline" prefetch={false}>
           <span className="text-2xl font-bold">想い出クラウド</span>
         </Link>
-        <nav>
-          {/* Navigation for different service LPs could go here */}
+        <nav className="flex items-center gap-4">
+           <Button asChild variant="ghost">
+             <Link href="/login">ログイン</Link>
+          </Button>
+           <Button asChild>
+             <Link href="/signup">新規登録</Link>
+          </Button>
         </nav>
       </header>
       <main className="flex-1">
@@ -32,8 +37,11 @@ export default function Home() {
                 </p>
               </div>
               <div className="flex flex-col gap-2 min-[400px]:flex-row">
-                 <Button size="lg" disabled>
-                    サービスを選択して始める
+                 <Button asChild size="lg">
+                    <Link href="/signup">
+                        無料で始める
+                        <ArrowRight className="ml-2 h-5 w-5" />
+                    </Link>
                   </Button>
               </div>
             </div>
