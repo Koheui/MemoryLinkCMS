@@ -12,9 +12,10 @@ import { v4 as uuidv4 } from 'uuid';
 
 interface MediaUploaderProps {
   onUploadSuccess: (asset: Asset) => void;
-  memoryId?: string;
+  memoryId?: string | null;
   children?: React.ReactNode;
   accept: string;
+  assetType: 'image' | 'video' | 'audio';
 }
 
 const generateVideoThumbnail = (file: File): Promise<Blob> => {
@@ -24,27 +25,27 @@ const generateVideoThumbnail = (file: File): Promise<Blob> => {
         video.src = URL.createObjectURL(file);
         video.muted = true;
 
-        video.onloadeddata = () => {
-            // Ensure video dimensions are available
+        const onLoadedMetadata = () => {
+             // Ensure video dimensions are available before seeking
             if (video.videoWidth === 0 || video.videoHeight === 0) {
-                 URL.revokeObjectURL(video.src);
+                 cleanup();
                  return reject(new Error('Video metadata (dimensions) could not be loaded.'));
             }
             video.currentTime = 1; // Seek to 1 second
         };
 
-        video.onseeked = () => {
+        const onSeeked = () => {
             const canvas = document.createElement('canvas');
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
             const ctx = canvas.getContext('2d');
             if (!ctx) {
-                URL.revokeObjectURL(video.src);
+                cleanup();
                 return reject(new Error('Could not get 2D context from canvas.'));
             }
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
             canvas.toBlob((blob) => {
-                URL.revokeObjectURL(video.src); // Clean up the object URL
+                cleanup();
                 if (!blob) {
                     return reject(new Error('Canvas to Blob conversion failed.'));
                 }
@@ -52,13 +53,23 @@ const generateVideoThumbnail = (file: File): Promise<Blob> => {
             }, 'image/jpeg', 0.8);
         };
         
-        video.onerror = (e) => {
-            URL.revokeObjectURL(video.src);
-            // Provide a more descriptive error
-            const error = e?.target?.error;
+        const onError = (e: Event) => {
+            cleanup();
+            const error = (e.target as HTMLVideoElement)?.error;
             const errorMessage = error ? `Code ${error.code}: ${error.message}` : 'An unknown video error occurred.';
             reject(new Error(`Video loading failed: ${errorMessage}`));
         };
+
+        const cleanup = () => {
+            video.removeEventListener('loadedmetadata', onLoadedMetadata);
+            video.removeEventListener('seeked', onSeeked);
+            video.removeEventListener('error', onError);
+            URL.revokeObjectURL(video.src);
+        };
+
+        video.addEventListener('loadedmetadata', onLoadedMetadata, { once: true });
+        video.addEventListener('seeked', onSeeked, { once: true });
+        video.addEventListener('error', onError, { once: true });
     });
 };
 

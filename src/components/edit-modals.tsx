@@ -1,3 +1,4 @@
+
 // src/components/edit-modals.tsx
 'use client';
 
@@ -15,7 +16,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, Save, Image as ImageIcon, Video, Mic, Type, Album, Upload, Clapperboard, Music, CheckCircle } from 'lucide-react';
 import Image from 'next/image';
-import { MediaUploader, type MediaUploaderRef } from './media-uploader';
+import { MediaUploader } from './media-uploader';
 import { v4 as uuidv4 } from 'uuid';
 import { cn } from '@/lib/utils';
 
@@ -251,10 +252,12 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
     
     useEffect(() => {
         if (isOpen) {
-            if (isEditing && block) {
-                if (block.id !== (block && block.id)) { // if editing a different block
+            const isDifferentBlock = isEditing && block && block.id !== (block && block.id);
+            if (!isEditing || isDifferentBlock) {
+                 if (!blockType) { // Only reset fully if no type is selected yet
                     resetState();
                 }
+            } else if (isEditing && block) {
                 setBlockType(block.type);
                 setTitle(block.title || '');
                 if (block.type === 'text') setTextContent(block.text?.content || '');
@@ -264,13 +267,6 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
                 }
                 if (block.type === 'video') setSelectedAssetId(block.video?.assetId);
                 if (block.type === 'audio') setSelectedAssetId(block.audio?.assetId);
-
-            } else if (!isEditing) {
-                 if (blockType) {
-                    // Do not reset if a block type is already selected for a new block
-                } else {
-                    resetState();
-                }
             }
         }
     }, [block, isOpen, isEditing, blockType]);
@@ -324,7 +320,7 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
                 <Select onValueChange={(value) => { setSelectedAssetId(value || undefined); }} value={selectedAssetId}>
                     <SelectTrigger><SelectValue placeholder={placeholder} /></SelectTrigger>
                     <SelectContent>
-                        {availableAssets.map(a => <SelectItem key={a.id} value={a.id} disabled={!a.url}>{a.name}{!a.url && " (処理中...)"}</SelectItem>)}
+                        {availableAssets.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
                     </SelectContent>
                 </Select>
                  <MediaUploader
