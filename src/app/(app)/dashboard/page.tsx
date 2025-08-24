@@ -119,7 +119,8 @@ export default function DashboardPage() {
             }
             
             toast({ title: "成功", description: `「${memoryToDelete.title}」を削除しました。` });
-            fetchMemories(user.uid);
+            // Force a hard reload to clear any stale listeners from other pages
+            window.location.reload(true);
         } catch (error: any) {
             console.error("Failed to delete memory:", error);
             toast({ variant: 'destructive', title: "削除失敗", description: error.message });
