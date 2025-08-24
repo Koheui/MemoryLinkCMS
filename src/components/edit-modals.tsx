@@ -1,3 +1,4 @@
+
 // src/components/edit-modals.tsx
 'use client';
 
@@ -191,16 +192,16 @@ export function PreviewModal({ isOpen, setIsOpen, memory, assets }: { isOpen: bo
 
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <DialogContent className="max-w-md h-[90vh] p-0 gap-0 bg-gray-800/80 backdrop-blur-sm">
+            <DialogContent className="max-w-md h-[90vh] p-0 gap-0 bg-gray-800/80 backdrop-blur-sm border-0">
                 <DialogHeader className="p-4 border-b border-gray-700">
                     <DialogTitle className="text-white">プレビュー</DialogTitle>
                 </DialogHeader>
-                <div className="flex-1 overflow-auto p-4">
+                 <div className="flex-1 overflow-auto p-4 flex items-center justify-center bg-zinc-900">
                      <div style={{ 
                         backgroundColor: design.bgColor || '#111827', 
                         fontFamily: design.fontFamily || 'sans-serif',
                      } as React.CSSProperties}
-                     className="min-h-full text-white mx-auto max-w-sm rounded-3xl border-8 border-black shadow-2xl overflow-hidden"
+                     className="h-full w-full max-w-[400px] text-white mx-auto rounded-3xl border-8 border-black shadow-2xl overflow-hidden"
                      >
                         <div className="overflow-y-auto h-full">
                             <header className="relative">
@@ -229,7 +230,7 @@ export function PreviewModal({ isOpen, setIsOpen, memory, assets }: { isOpen: bo
                                     </div>
                                     
                                     <div className="mt-4 px-4 text-left w-full">
-                                        <h1 className="text-3xl font-bold text-white">{manifest.title}</h1>
+                                        <h1 className="text-xl font-bold text-white">{manifest.title}</h1>
                                         <p className="mt-2 text-base text-gray-300 max-w-prose">{manifest.about.text}</p>
                                     </div>
                                 </div>
