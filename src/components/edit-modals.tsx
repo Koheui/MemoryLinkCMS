@@ -221,7 +221,7 @@ const BlockRenderer = ({ block, setLightboxState }: { block: PublicPageBlock, se
                         <div className="flex-shrink-0 text-muted-foreground group-hover:text-accent-foreground">
                            {blockIcons[block.icon || 'default'] || blockIcons.default}
                         </div>
-                        <div className="flex-grow text-center text-lg font-semibold text-card-foreground group-hover:text-accent-foreground">
+                        <div className="flex-grow text-left text-lg font-semibold text-card-foreground group-hover:text-accent-foreground">
                             {block.title}
                         </div>
                          <div className="flex-shrink-0 text-muted-foreground/50 transition-transform group-hover:text-accent-foreground/60 group-hover:translate-x-1">
