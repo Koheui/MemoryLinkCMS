@@ -232,11 +232,8 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
     const [title, setTitle] = useState('');
     const [selectedAssetId, setSelectedAssetId] = useState<string | undefined>(undefined);
     
-    const [pendingUpload, setPendingUpload] = useState<{file: File, tempId: string, thumbnail?: File} | null>(null);
-
     const [textContent, setTextContent] = useState('');
     const [photoCaption, setPhotoCaption] = useState('');
-    const [selectedThumbnail, setSelectedThumbnail] = useState<string | undefined>(undefined);
     
     const [isSaving, setIsSaving] = useState(false);
     const { toast } = useToast();
@@ -254,16 +251,17 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
         setTextContent('');
         setPhotoCaption('');
         setSelectedAssetId(undefined);
-        setSelectedThumbnail(undefined);
-        setPendingUpload(null);
         setIsSaving(false);
     }
     
     useEffect(() => {
         // Only reset state if the modal is being opened for a new block,
         // or if the block being edited changes.
-        if (isOpen && (block?.id !== (isEditing ? block.id : undefined))) {
+        if (isOpen) {
             if (isEditing && block) {
+                if (block.id !== (block && block.id)) { // if editing a different block
+                    resetState();
+                }
                 setBlockType(block.type);
                 setTitle(block.title || '');
                 if (block.type === 'text') setTextContent(block.text?.content || '');
@@ -271,85 +269,23 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
                     setSelectedAssetId(block.photo?.assetId);
                     setPhotoCaption(block.photo?.caption || '');
                 }
-                if (block.type === 'video') {
-                    const videoAssetId = block.video?.assetId;
-                    setSelectedAssetId(videoAssetId);
-                    if (videoAssetId) {
-                        const asset = assets.find(a => a.id === videoAssetId);
-                        setSelectedThumbnail(asset?.thumbnailUrl);
-                    }
-                }
+                if (block.type === 'video') setSelectedAssetId(block.video?.assetId);
                 if (block.type === 'audio') setSelectedAssetId(block.audio?.assetId);
-            } else {
+
+            } else if (!isEditing) {
+                // When opening for a new block, reset everything.
                 resetState();
             }
         }
-    }, [block, isOpen, isEditing, assets]);
+    }, [block, isOpen, isEditing]);
 
 
-    useEffect(() => {
-        if (selectedAsset?.type === 'video') {
-            setSelectedThumbnail(selectedAsset.thumbnailUrl);
-        }
-    }, [selectedAsset]);
-
-    const generateVideoThumbnail = async (videoFile: File): Promise<File | null> => {
-        return new Promise((resolve) => {
-            const video = document.createElement('video');
-            video.src = URL.createObjectURL(videoFile);
-            video.currentTime = 1; // Seek to 1 second
-            
-            video.onloadeddata = () => {
-                const canvas = document.createElement('canvas');
-                canvas.width = video.videoWidth;
-                canvas.height = video.videoHeight;
-                const ctx = canvas.getContext('2d');
-                if (!ctx) return resolve(null);
-
-                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                canvas.toBlob((blob) => {
-                    if (!blob) return resolve(null);
-                    const thumbFile = new File([blob], `thumb_${videoFile.name}.jpg`, { type: 'image/jpeg' });
-                    URL.revokeObjectURL(video.src); // Clean up
-                    resolve(thumbFile);
-                }, 'image/jpeg');
-            };
-            video.onerror = () => {
-                URL.revokeObjectURL(video.src);
-                resolve(null);
-            };
-        });
+    const handleUploadCompleted = (newAsset: Asset) => {
+        onUploadSuccess(newAsset);
+        setSelectedAssetId(newAsset.id);
+        toast({ title: 'アップロード完了', description: `${newAsset.name}がライブラリに追加されました。` });
     }
 
-    const handleFileSelectedForUpload = async (file: File) => {
-        if (!uploaderRef.current) {
-            toast({variant: 'destructive', title: "エラー", description: "アップローダーの準備ができていません。"});
-            return;
-        }
-
-        try {
-            const placeholderAsset = await uploaderRef.current.createPlaceholderAsset(file);
-            if(placeholderAsset) {
-                onUploadSuccess(placeholderAsset);
-                setSelectedAssetId(placeholderAsset.id);
-                
-                let thumbnailFile: File | undefined = undefined;
-                if (file.type.startsWith('video/')) {
-                    const generatedThumb = await generateVideoThumbnail(file);
-                    if (generatedThumb) {
-                        thumbnailFile = generatedThumb;
-                    } else {
-                         toast({variant: 'destructive', title: "エラー", description: "動画からサムネイルを生成できませんでした。"});
-                    }
-                }
-                setPendingUpload({file, tempId: placeholderAsset.id, thumbnail: thumbnailFile});
-            }
-        } catch (error: any) {
-             console.error("Placeholder creation failed:", error);
-             toast({variant: 'destructive', title: "エラー", description: `アップロードの準備に失敗しました: ${error.message}`});
-        }
-    };
-    
     const handleSave = async () => {
         if (!blockType) {
             toast({ variant: 'destructive', title: 'エラー', description: 'ブロックタイプを選択してください。' });
@@ -364,10 +300,6 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
         setIsSaving(true);
 
         try {
-            if (pendingUpload && uploaderRef.current) {
-                await uploaderRef.current.uploadFile(pendingUpload.file, pendingUpload.tempId, pendingUpload.thumbnail);
-            }
-            
             const newBlockData: any = { type: blockType, title, visibility: 'show' };
             if (blockType === 'text') newBlockData.text = { content: textContent };
             if (blockType === 'photo') newBlockData.photo = { assetId: selectedAssetId, caption: photoCaption };
@@ -393,7 +325,7 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
         <div className="space-y-2">
             <Label>メディア選択</Label>
             <div className="flex gap-2">
-                <Select onValueChange={(value) => { setSelectedAssetId(value || undefined); setPendingUpload(null); }} value={selectedAssetId}>
+                <Select onValueChange={(value) => { setSelectedAssetId(value || undefined); }} value={selectedAssetId}>
                     <SelectTrigger><SelectValue placeholder={placeholder} /></SelectTrigger>
                     <SelectContent>
                         {availableAssets.map(a => <SelectItem key={a.id} value={a.id} disabled={!a.url}>{a.name}{!a.url && " (処理中...)"}</SelectItem>)}
@@ -404,20 +336,13 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
                     assetType={type}
                     accept={`${type}/*`}
                     memoryId={memory.id}
-                    onFileSelected={handleFileSelectedForUpload}
-                    onUploadSuccess={onUploadSuccess}
+                    onUploadSuccess={handleUploadCompleted}
                 >
                     <Button type="button" variant="outline" size="icon">
                         <Upload className="h-4 w-4"/>
                     </Button>
                 </MediaUploader>
             </div>
-             {pendingUpload && pendingUpload.tempId === selectedAssetId && (
-                <div className="mt-2 text-sm text-muted-foreground p-2 bg-muted rounded-md flex items-center gap-2">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <span>アップロード準備完了: {pendingUpload.file.name}</span>
-                </div>
-            )}
         </div>
     );
 
@@ -460,12 +385,10 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
                              <div className="w-full aspect-video bg-muted rounded-md flex items-center justify-center">
                                  {selectedAsset.thumbnailUrl ? (
                                     <Image src={selectedAsset.thumbnailUrl} alt="サムネイル" fill sizes="(max-width: 768px) 100vw, 50vw" className="object-cover rounded-md" />
-                                 ) : pendingUpload?.thumbnail ? (
-                                    <Image src={URL.createObjectURL(pendingUpload.thumbnail)} alt="生成されたサムネイル" fill sizes="(max-width: 768px) 100vw, 50vw" className="object-cover rounded-md" />
                                  ) : (
                                      <div className="text-muted-foreground flex flex-col items-center gap-2">
-                                       <Clapperboard className="w-8 h-8"/>
-                                       <span>プレビューなし</span>
+                                       <Loader2 className="h-6 w-6 animate-spin"/>
+                                       <span className="text-xs">サムネイル生成中...</span>
                                      </div>
                                  )}
                              </div>
@@ -528,7 +451,7 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
                     <DialogFooter>
                         {!isEditing && <Button variant="ghost" onClick={() => resetState(false)}>戻る</Button>}
                         <DialogClose asChild><Button variant="outline">キャンセル</Button></DialogClose>
-                        <Button onClick={handleSave} disabled={isSaving || (!!pendingUpload && !selectedAsset?.thumbnailUrl)}>
+                        <Button onClick={handleSave} disabled={isSaving}>
                             {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             {getSaveButtonText()}
                         </Button>

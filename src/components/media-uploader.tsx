@@ -5,134 +5,140 @@ import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { storage, db } from '@/lib/firebase/client';
 import { ref, uploadBytesResumable, getDownloadURL, uploadBytes } from 'firebase/storage';
-import { collection, addDoc, doc, updateDoc, getDoc, Timestamp, serverTimestamp, deleteDoc } from 'firebase/firestore';
+import { collection, doc, updateDoc, getDoc, Timestamp, serverTimestamp, setDoc } from 'firebase/firestore';
 import type { Asset } from '@/lib/types';
+import { v4 as uuidv4 } from 'uuid';
 
 export interface MediaUploaderRef {
   triggerUpload: () => void;
-  uploadFile: (file: File, assetId: string, thumbnailFile?: File) => Promise<Asset | null>;
-  createPlaceholderAsset: (file: File) => Promise<Asset | null>;
 }
 
 interface MediaUploaderProps {
   assetType: 'image' | 'video' | 'audio';
   accept: string;
   onUploadSuccess?: (asset: Asset) => void;
-  onFileSelected?: (file: File) => void;
   memoryId?: string;
   children?: React.ReactNode;
 }
 
 export const MediaUploader = React.forwardRef<MediaUploaderRef, MediaUploaderProps>(
-  ({ assetType, accept, onUploadSuccess, onFileSelected, memoryId, children }, forwardRef) => {
+  ({ assetType, accept, onUploadSuccess, memoryId, children }, forwardRef) => {
     const { user } = useAuth();
     const { toast } = useToast();
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const createPlaceholderAsset = async (file: File): Promise<Asset | null> => {
+    const generateVideoThumbnail = async (videoFile: File): Promise<File | null> => {
+        return new Promise((resolve) => {
+            const video = document.createElement('video');
+            video.preload = 'metadata';
+            video.muted = true;
+            video.playsInline = true;
+
+            video.onloadedmetadata = () => {
+                video.currentTime = Math.min(1, video.duration / 2); // Seek to 1s or midpoint
+            };
+
+            video.onseeked = () => {
+                const canvas = document.createElement('canvas');
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                const ctx = canvas.getContext('2d');
+                if (!ctx) return resolve(null);
+
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                URL.revokeObjectURL(video.src); // Clean up video object URL
+
+                canvas.toBlob((blob) => {
+                    if (!blob) return resolve(null);
+                    const thumbFile = new File([blob], `thumb_${videoFile.name.split('.')[0]}.jpg`, { type: 'image/jpeg' });
+                    resolve(thumbFile);
+                }, 'image/jpeg', 0.8);
+            };
+
+            video.onerror = (e) => {
+                console.error("Video thumbnail generation error:", e);
+                URL.revokeObjectURL(video.src);
+                resolve(null);
+            };
+
+            video.src = URL.createObjectURL(videoFile);
+            video.play().catch(() => {}); // Play is needed on some browsers to trigger seek
+        });
+    }
+
+    const uploadFile = async (file: File) => {
         if (!user) {
             toast({ variant: 'destructive', title: 'エラー', description: 'ログインしていません。' });
-            return null;
+            return;
         }
 
+        const assetId = uuidv4();
+        const toastId = `upload-${assetId}`;
+        toast({ id: toastId, title: 'アップロード開始', description: `${file.name}をアップロードしています...` });
+
         try {
-            const assetCollectionRef = collection(db, 'assets');
-            const assetData: Omit<Asset, 'id' | 'createdAt' | 'updatedAt'| 'url' | 'storagePath'> = {
+            // Step 1: Generate thumbnail if it's a video
+            let thumbnailFile: File | null = null;
+            if (file.type.startsWith('video/')) {
+                thumbnailFile = await generateVideoThumbnail(file);
+                 if (!thumbnailFile) {
+                    toast({ variant: 'destructive', title: 'エラー', description: '動画からサムネイルを生成できませんでした。' });
+                }
+            }
+            
+            // Step 2: Upload main file
+            const mainFileStoragePath = memoryId
+                ? `users/${user.uid}/memories/${memoryId}/assets/${assetId}_${file.name}`
+                : `users/${user.uid}/library/${assetId}_${file.name}`;
+            const mainFileRef = ref(storage, mainFileStoragePath);
+            await uploadBytes(mainFileRef, file);
+            const mainFileUrl = await getDownloadURL(mainFileRef);
+
+            // Step 3: Upload thumbnail file if it exists
+            let thumbnailUrl: string | null = null;
+            if (thumbnailFile) {
+                const thumbStoragePath = mainFileStoragePath.replace(file.name, thumbnailFile.name);
+                const thumbFileRef = ref(storage, thumbStoragePath);
+                await uploadBytes(thumbFileRef, thumbnailFile);
+                thumbnailUrl = await getDownloadURL(thumbFileRef);
+            }
+            
+            // Step 4: Create document in Firestore with all data
+            const assetDocRef = doc(db, 'assets', assetId);
+            const newAssetData: Omit<Asset, 'id'> = {
                 ownerUid: user.uid,
                 memoryId: memoryId || null,
                 name: file.name,
                 type: file.type.startsWith('image') ? 'image' : file.type.startsWith('video') ? 'video' : 'audio',
+                storagePath: mainFileStoragePath,
+                url: mainFileUrl,
+                thumbnailUrl,
                 size: file.size,
+                createdAt: serverTimestamp() as Timestamp,
+                updatedAt: serverTimestamp() as Timestamp,
             };
 
-            const docRef = await addDoc(assetCollectionRef, {
-                ...assetData,
-                url: '', // Initially empty
-                storagePath: '', // Initially empty
-                thumbnailUrl: null,
-                thumbnailCandidates: [],
-                createdAt: serverTimestamp(),
-                updatedAt: serverTimestamp(),
-            });
-
-            const placeholderSnapshot = await getDoc(docRef);
-            const placeholderDocData = placeholderSnapshot.data();
+            await setDoc(assetDocRef, newAssetData);
             
-            const placeholderAsset: Asset = {
-                id: placeholderSnapshot.id,
-                 ...placeholderDocData,
-                createdAt: (placeholderDocData?.createdAt as Timestamp)?.toDate(),
-                updatedAt: (placeholderDocData?.updatedAt as Timestamp)?.toDate(),
+            const finalSnapshot = await getDoc(assetDocRef);
+            const finalData = finalSnapshot.data();
+
+            const finalAsset: Asset = {
+                id: assetId,
+                ...finalData,
+                createdAt: (finalData?.createdAt as Timestamp)?.toDate(),
+                updatedAt: (finalData?.updatedAt as Timestamp)?.toDate(),
             } as Asset;
 
-            return placeholderAsset;
-
-        } catch (error: any) {
-            console.error("Placeholder asset creation failed:", error);
-            toast({ variant: 'destructive', title: 'エラー', description: `プレースホルダーの作成に失敗しました: ${error.message}` });
-            return null;
-        }
-    }
-
-    const uploadFile = async (file: File, assetId: string, thumbnailFile?: File): Promise<Asset | null> => {
-        if (!user) {
-            toast({ variant: 'destructive', title: 'エラー', description: 'ログインしていません。' });
-            return null;
-        }
-
-        const storagePath = memoryId
-            ? `users/${user.uid}/memories/${memoryId}/assets/${assetId}_${file.name}`
-            : `users/${user.uid}/library/${assetId}_${file.name}`;
-            
-        const assetDocRef = doc(db, 'assets', assetId);
-
-        try {
-            // Upload main file
-            const storageRef = ref(storage, storagePath);
-            await uploadBytes(storageRef, file, { contentType: file.type });
-            const downloadURL = await getDownloadURL(storageRef);
-
-            // Upload thumbnail if it exists
-            let thumbnailURL: string | null = null;
-            if (thumbnailFile) {
-                const thumbStoragePath = `users/${user.uid}/memories/${memoryId}/assets/thumb_${assetId}_${thumbnailFile.name}`;
-                const thumbStorageRef = ref(storage, thumbStoragePath);
-                await uploadBytes(thumbStorageRef, thumbnailFile, { contentType: thumbnailFile.type });
-                thumbnailURL = await getDownloadURL(thumbStorageRef);
-            }
-            
-            await updateDoc(assetDocRef, {
-                storagePath,
-                url: downloadURL,
-                thumbnailUrl: thumbnailURL,
-                updatedAt: serverTimestamp(),
-            });
-                        
-            const finalAssetSnapshot = await getDoc(assetDocRef);
-            const finalDocData = finalAssetSnapshot.data();
-
-            const finalAsset: Asset = { 
-                id: finalAssetSnapshot.id,
-                ...finalDocData,
-                createdAt: (finalDocData?.createdAt as Timestamp)?.toDate(),
-                updatedAt: (finalDocData?.updatedAt as Timestamp)?.toDate(),
-            } as Asset;
+            toast.update(toastId, { title: '成功', description: 'アップロードが完了しました。' });
             
             if (onUploadSuccess) {
                 onUploadSuccess(finalAsset);
             }
-            return finalAsset;
 
         } catch (error: any) {
-            console.error("Upload process failed:", error);
-            toast({ variant: 'destructive', title: 'エラー', description: `アップロード処理中にエラーが発生しました: ${error.message}` });
-            // Clean up placeholder on failure
-            try {
-                await deleteDoc(assetDocRef);
-            } catch (deleteError) {
-                console.error(`Failed to delete placeholder asset ${assetId}:`, deleteError);
-            }
-            return null;
+            console.error("Upload failed:", error);
+            toast.update(toastId, { variant: 'destructive', title: 'アップロード失敗', description: error.message });
         }
     };
     
@@ -140,17 +146,13 @@ export const MediaUploader = React.forwardRef<MediaUploaderRef, MediaUploaderPro
       triggerUpload: () => {
         fileInputRef.current?.click();
       },
-      uploadFile,
-      createPlaceholderAsset,
     }));
 
-    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0];
       if (!file) return;
 
-      if (onFileSelected) {
-        onFileSelected(file);
-      }
+      await uploadFile(file);
       
       if (fileInputRef.current) fileInputRef.current.value = "";
     };
