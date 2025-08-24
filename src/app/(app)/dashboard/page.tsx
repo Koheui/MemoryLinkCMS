@@ -38,38 +38,9 @@ export default function DashboardPage() {
     const router = useRouter();
     const { toast } = useToast();
 
-    const handleCreateNewMemory = useCallback(async () => {
-        if (!user) return;
-        setIsCreating(true);
-        try {
-            const res = await apiClient.fetch('/api/memories/create', {
-                method: 'POST',
-                body: JSON.stringify({ type: 'other' })
-            });
-
-            if (!res.ok) {
-                const errorData = await res.json();
-                throw new Error(errorData.error || 'API request failed');
-            }
-
-            const { data: newMemory } = await res.json();
-            
-            toast({ title: '成功', description: '新しい想い出ページが作成されました。編集画面に移動します。'});
-            // Hard navigation to ensure all states are fresh on the editor page.
-            window.location.assign(`/memories/${newMemory.id}`);
-
-        } catch (error: any) {
-             console.error("Error creating new memory:", error);
-             toast({ variant: 'destructive', title: 'エラー', description: `ページの作成に失敗しました: ${error.message}`});
-        } finally {
-            setIsCreating(false);
-        }
-    }, [user, toast]);
-    
     const fetchMemoriesAndAssets = useCallback(async (uid: string) => {
         setLoading(true);
         try {
-            // Fetch memories and assets in parallel
             const memoriesQuery = query(
                 collection(db, 'memories'),
                 where('ownerUid', '==', uid)
@@ -84,28 +55,19 @@ export default function DashboardPage() {
                 getDocs(assetsQuery)
             ]);
 
-            // If user has no memories, create one automatically. This is for the LP flow.
-            if (memoriesSnapshot.empty) {
-                await handleCreateNewMemory();
-                // The page will redirect, so no need to continue processing here.
-                return;
-            }
-
-
-            // Process assets first into a map for quick lookups
-            const userAssets = assetsSnapshot.docs.map(doc => {
-                const data = doc.data();
-                 return { 
-                    id: doc.id, 
-                    ...data,
-                } as Asset;
-            });
+            const userAssets = assetsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Asset));
             setAssets(userAssets);
             
             const getAssetUrl = (assetId: string | null) => {
                 if (!assetId) return null;
-                const asset = userAssets.find(a => a.id === assetId);
-                return asset?.url || null;
+                return userAssets.find(a => a.id === assetId)?.url || null;
+            }
+
+            if (memoriesSnapshot.empty) {
+                // If user is authenticated but has no pages, create one for them.
+                // This improves the first-time user experience.
+                handleCreateNewMemory();
+                return; // The creation function will handle redirection.
             }
 
             const userMemories = memoriesSnapshot.docs.map(doc => {
@@ -131,7 +93,35 @@ export default function DashboardPage() {
         } finally {
             setLoading(false);
         }
-    }, [toast, handleCreateNewMemory]);
+    }, [toast]); // handleCreateNewMemory is now stable and does not need to be a dependency.
+    
+    const handleCreateNewMemory = useCallback(async () => {
+        if (!user || isCreating) return;
+        setIsCreating(true);
+        try {
+            const res = await apiClient.fetch('/api/memories/create', {
+                method: 'POST',
+                body: JSON.stringify({ type: 'other' })
+            });
+
+            if (!res.ok) {
+                const errorData = await res.json();
+                throw new Error(errorData.error || 'API request failed');
+            }
+
+            const { data: newMemory } = await res.json();
+            
+            toast({ title: '成功', description: '新しい想い出ページが作成されました。編集画面に移動します。'});
+            // Hard navigation to ensure all states are fresh on the editor page.
+            window.location.assign(`/memories/${newMemory.id}`);
+
+        } catch (error: any) {
+             console.error("Error creating new memory:", error);
+             toast({ variant: 'destructive', title: 'エラー', description: `ページの作成に失敗しました: ${error.message}`});
+             setIsCreating(false); // Reset creation state on error
+        }
+        // No finally block to reset isCreating, because success leads to navigation.
+    }, [user, isCreating, toast]);
 
     useEffect(() => {
         if (!authLoading && user) {
@@ -157,8 +147,8 @@ export default function DashboardPage() {
             }
             
             toast({ title: "成功", description: `「${memoryToDelete.title}」を削除しました。` });
-            // Force a hard reload to clear any stale listeners from other pages
-            window.location.reload(true);
+            setMemories(prev => prev.filter(m => m.id !== memoryToDelete.id));
+
         } catch (error: any) {
             console.error("Failed to delete memory:", error);
             toast({ variant: 'destructive', title: "削除失敗", description: error.message });
@@ -178,6 +168,7 @@ export default function DashboardPage() {
     }
 
     if (!user) {
+        // This case is handled by AppLayout now, but as a fallback:
         return (
             <div className="text-center p-8">
                 <h1 className="text-2xl font-bold">認証エラー</h1>
@@ -186,7 +177,7 @@ export default function DashboardPage() {
         );
     }
 
-    if (memories.length === 0 && !isCreating) {
+    if (isCreating) {
         return (
             <div className="flex h-full items-center justify-center p-4">
                  <div className="text-center py-20 bg-muted/50 rounded-lg border border-dashed w-full max-w-lg">
@@ -273,6 +264,12 @@ export default function DashboardPage() {
                     </Card>
                 ))}
             </div>
+            {memories.length === 0 && !isCreating && (
+                <div className="text-center py-20 bg-muted/50 rounded-lg border border-dashed">
+                    <h2 className="text-xl font-semibold">まだ想い出ページがありません</h2>
+                    <p className="text-muted-foreground mt-2">「新しいページを作成」ボタンから始めましょう。</p>
+                </div>
+            )}
         </div>
     </>
     );

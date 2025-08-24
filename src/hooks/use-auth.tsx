@@ -79,9 +79,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (authUser) => {
       setLoading(true);
-      if (authUser) { // Temporarily removed emailVerified check for easier development
+      if (authUser) {
         try {
-          // Check for page invitation claim right after auth state is confirmed
+          // This invitation claiming logic is for a specific flow (admin creates order -> user signs up).
+          // It might need adjustment for other flows.
           await claimInvitedPage(authUser);
 
           const tokenResult = await authUser.getIdTokenResult();
@@ -100,10 +101,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUser(null);
         setIsAdmin(false);
         apiClient.setToken(null);
-        if (router) { // Ensure router is available
-             // Find current path from headers if needed, or just redirect to login for simplicity.
+        if (router) {
              const currentPath = window.location.pathname;
-             if (!['/login', '/signup', '/verify-email', '/'].some(path => currentPath.startsWith(path))) {
+             if (!['/', '/login', '/signup'].some(p => currentPath.startsWith(p))) {
                  router.push('/login');
              }
         }
@@ -118,7 +118,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       await auth.signOut();
       apiClient.setToken(null);
-      // Redirect to the main landing page on logout
       router.push('/');
     } catch (error) {
       console.error("Logout failed:", error);

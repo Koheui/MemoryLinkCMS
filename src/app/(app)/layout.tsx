@@ -24,17 +24,12 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   
   useEffect(() => {
-    // With email-link auth, we don't redirect. We just wait for auth state.
-    // If a user tries to access a protected page without being logged in,
-    // they will just see the loading screen indefinitely, which is the
-    // expected behavior as they should only arrive here via a valid auth link.
     if (!loading && !user) {
-      // It's possible the user logged out, in which case they should be on the public LP.
-      // If they try to navigate back to the app, we can redirect them to the root.
-      // A simple check to avoid redirect loops on public pages if any were nested here.
-      if (pathname !== '/') {
-        router.push('/');
-      }
+        // Redirect to login if not authenticated and not on a public-in-app page.
+        // The root ('/') is public, so we don't redirect from there.
+        if (!['/login', '/signup', '/'].some(p => pathname.startsWith(p))) {
+            router.push('/login');
+        }
     }
   }, [user, loading, router, pathname]);
 
@@ -105,7 +100,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default function AppLayout({ children }: { children: React.ReactNode }) {
+export default function AppLayout({ children }: { children: React.Node }) {
   return (
     <AuthProvider>
       <AppLayoutContent>{children}</AppLayoutContent>
