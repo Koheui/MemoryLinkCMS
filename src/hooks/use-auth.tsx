@@ -3,9 +3,12 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
 import { User, onAuthStateChanged } from 'firebase/auth';
-import { auth } from '@/lib/firebase/client';
+import { auth, db } from '@/lib/firebase/client';
 import { useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api-client';
+import { collection, query, where, getDocs, writeBatch, doc } from 'firebase/firestore';
+import type { Order, Memory } from '@/lib/types';
+
 
 interface AuthContextType {
   user: (User & { uid: string }) | null;
@@ -21,6 +24,52 @@ const AuthContext = createContext<AuthContextType>({
     handleLogout: async () => {},
 });
 
+
+// Function to check for and claim an invited page
+const claimInvitedPage = async (user: User) => {
+    if (!user.email) return;
+
+    // Find an order with the user's email that hasn't been claimed yet
+    const ordersQuery = query(
+        collection(db, 'orders'),
+        where('email', '==', user.email),
+        where('userUid', '==', null)
+    );
+
+    const querySnapshot = await getDocs(ordersQuery);
+
+    if (!querySnapshot.empty) {
+        // Claim the first found invitation
+        const orderDoc = querySnapshot.docs[0];
+        const order = orderDoc.data() as Order;
+        
+        if (order.memoryId) {
+            console.log(`User ${user.email} has a pending invitation for memory ${order.memoryId}. Claiming it now.`);
+            
+            const batch = writeBatch(db);
+
+            // 1. Assign the memory to the user
+            const memoryRef = doc(db, 'memories', order.memoryId);
+            batch.update(memoryRef, { ownerUid: user.uid });
+
+            // 2. Mark the order as claimed by this user
+            batch.update(orderDoc.ref, { userUid: user.uid });
+
+            try {
+                await batch.commit();
+                console.log(`Successfully claimed page ${order.memoryId} for user ${user.uid}.`);
+                // Returning true to indicate a claim was made, which might trigger a UI refresh
+                return true;
+            } catch (error) {
+                console.error("Error claiming page:", error);
+                return false;
+            }
+        }
+    }
+    return false;
+};
+
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<AuthContextType['user'] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -32,6 +81,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setLoading(true);
       if (authUser) {
         try {
+          // Check for page invitation claim right after auth state is confirmed
+          await claimInvitedPage(authUser);
+
           const tokenResult = await authUser.getIdTokenResult();
           const claims = tokenResult.claims;
           setIsAdmin(claims.role === 'admin');
