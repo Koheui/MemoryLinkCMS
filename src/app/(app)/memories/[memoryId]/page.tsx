@@ -1,5 +1,3 @@
-
-
 // src/app/(app)/memories/[memoryId]/page.tsx
 'use client';
 
@@ -16,7 +14,7 @@ import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSo
 import { CSS } from '@dnd-kit/utilities';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
-import { AboutModal, CoverPhotoModal, BlockModal } from '@/components/edit-modals';
+import { AboutModal, CoverPhotoModal, BlockModal, PreviewModal } from '@/components/edit-modals';
 import { v4 as uuidv4 } from 'uuid';
 import {
   AlertDialog,
@@ -45,6 +43,7 @@ export default function MemoryEditorPage() {
   const [isCoverPhotoModalOpen, setIsCoverPhotoModalOpen] = useState(false);
   const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
   const [isBlockModalOpen, setIsBlockModalOpen] = useState(false);
+  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const [editingBlock, setEditingBlock] = useState<PublicPageBlock | null>(null);
   const [blockToDelete, setBlockToDelete] = useState<PublicPageBlock | null>(null);
 
@@ -224,65 +223,7 @@ export default function MemoryEditorPage() {
         setBlockToDelete(null);
     }
   };
-
-  const handlePreview = () => {
-    if (!memory || !assets) return;
-
-    // Helper to convert Firestore Timestamps to ISO strings for JSON serialization
-    const convertTimestamps = (obj: any): any => {
-        if (!obj) return obj;
-        if (Array.isArray(obj)) {
-            return obj.map(item => convertTimestamps(item));
-        }
-        if (obj instanceof Timestamp) {
-            return obj.toDate().toISOString();
-        }
-        if (obj.toDate && typeof obj.toDate === 'function') { // Fallback for similar objects
-            return obj.toDate().toISOString();
-        }
-        if (typeof obj === 'object') {
-            const newObj: { [key: string]: any } = {};
-            for (const key in obj) {
-                 if (Object.prototype.hasOwnProperty.call(obj, key)) {
-                    newObj[key] = convertTimestamps(obj[key]);
-                 }
-            }
-            return newObj;
-        }
-        return obj;
-    };
-
-    try {
-        const previewData = {
-            memory: convertTimestamps(memory),
-            assets: convertTimestamps(assets),
-        };
-        
-        const jsonString = JSON.stringify(previewData);
-        
-        // Open the new tab first.
-        const previewWindow = window.open('/p/preview', '_blank');
-        if (previewWindow) {
-            // Then set the data in localStorage.
-            localStorage.setItem('previewData', jsonString);
-        } else {
-            toast({
-                variant: 'destructive',
-                title: 'プレビュー失敗',
-                description: 'ポップアップがブロックされた可能性があります。'
-            });
-        }
-
-    } catch (error) {
-        console.error("Failed to stringify preview data:", error);
-        toast({
-            variant: 'destructive',
-            title: 'プレビュー失敗',
-            description: 'プレビューデータの生成中にエラーが発生しました。'
-        });
-    }
-};
-
+  
   if (loading || authLoading) {
      return (
         <div className="flex h-screen items-center justify-center bg-background">
@@ -331,6 +272,14 @@ export default function MemoryEditorPage() {
             onUploadSuccess={handleAssetUpdate}
         />
        )}
+       {isPreviewModalOpen && memory && (
+        <PreviewModal
+            isOpen={isPreviewModalOpen}
+            setIsOpen={setIsPreviewModalOpen}
+            memory={memory}
+            assets={assets}
+        />
+       )}
         <AlertDialog open={blockToDelete !== null} onOpenChange={(open) => !open && setBlockToDelete(null)}>
           <AlertDialogContent>
             <AlertDialogHeader>
@@ -353,7 +302,7 @@ export default function MemoryEditorPage() {
            <p className="text-sm text-muted-foreground">ビジュアルエディタ</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={handlePreview}>
+          <Button variant="outline" onClick={() => setIsPreviewModalOpen(true)}>
               <Eye className="mr-2 h-4 w-4" />
               プレビュー
           </Button>
