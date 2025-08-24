@@ -79,7 +79,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (authUser) => {
       setLoading(true);
-      if (authUser) { // Email verification is handled by the email link flow
+      if (authUser && authUser.emailVerified) { // Email verification is now required
         try {
           // Check for page invitation claim right after auth state is confirmed
           await claimInvitedPage(authUser);
@@ -100,12 +100,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUser(null);
         setIsAdmin(false);
         apiClient.setToken(null);
+        if (router) { // Ensure router is available
+             // Find current path from headers if needed, or just redirect to login for simplicity.
+             const currentPath = window.location.pathname;
+             if (!['/login', '/signup', '/verify-email', '/'].some(path => currentPath.startsWith(path))) {
+                 router.push('/login');
+             }
+        }
       }
       setLoading(false);
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [router]);
 
   const handleLogout = useCallback(async () => {
     try {

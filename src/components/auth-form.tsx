@@ -1,0 +1,187 @@
+// src/components/auth-form.tsx
+'use client';
+
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { useToast } from '@/hooks/use-toast';
+import { auth, db } from '@/lib/firebase/client';
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  sendEmailVerification
+} from 'firebase/auth';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useState, Suspense } from 'react';
+import { Loader2 } from 'lucide-react';
+import type { UserProfile } from '@/lib/types';
+
+
+interface AuthFormProps {
+  type: 'login' | 'signup';
+}
+
+export function AuthForm({ type }: AuthFormProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
+
+  const title = type === 'login' ? 'ログイン' : '新規アカウント登録';
+  const description =
+    type === 'login'
+      ? '登録したメールアドレスとパスワードでログインします。'
+      : '初めての方はこちらからご登録ください。';
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      if (type === 'signup') {
+        const userType = searchParams.get('type') || 'other';
+
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
+
+        // Create user profile in Firestore
+        const userProfile: Omit<UserProfile, 'id' | 'createdAt' | 'updatedAt'> = {
+          email: user.email!,
+          userType: userType as UserProfile['userType'],
+        };
+        await setDoc(doc(db, 'users', user.uid), {
+            ...userProfile,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+        });
+        
+        // Send verification email
+        await sendEmailVerification(user);
+        toast({
+          title: '確認メールを送信しました',
+          description: 'ご登録のメールアドレスをご確認ください。',
+        });
+        
+        // Redirect to a page that informs the user to check their email
+        router.push('/verify-email');
+
+      } else {
+        // Login
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+
+        if (!userCredential.user.emailVerified) {
+            toast({
+                variant: 'destructive',
+                title: 'メールアドレスが確認されていません',
+                description: 'ログインする前に、メールに送信されたリンクをクリックしてアカウントを有効化してください。',
+            });
+             await auth.signOut(); // Log out user until they are verified
+            setLoading(false);
+            return;
+        }
+
+        toast({ title: 'ログインしました', description: 'ようこそ！' });
+        router.push('/dashboard');
+      }
+    } catch (error: any) {
+      console.error(error);
+      let errorMessage = 'エラーが発生しました。';
+       if (error.code === 'auth/email-already-in-use') {
+        errorMessage = 'このメールアドレスは既に使用されています。ログインしてください。';
+      } else if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+        errorMessage = 'メールアドレスまたはパスワードが正しくありません。';
+      } else if (error.code === 'auth/weak-password') {
+        errorMessage = 'パスワードは6文字以上で設定してください。';
+      }
+      toast({
+        variant: 'destructive',
+        title: '認証エラー',
+        description: errorMessage,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const renderFooter = () => {
+    if (type === 'login') {
+      return (
+        <p className="px-6 text-center text-sm text-muted-foreground">
+          アカウントをお持ちでないですか？{' '}
+          <Link
+            href="/signup"
+            className="underline underline-offset-4 hover:text-primary"
+          >
+            新規登録
+          </Link>
+        </p>
+      );
+    }
+    return (
+      <p className="px-6 text-center text-sm text-muted-foreground">
+        すでにアカウントをお持ちですか？{' '}
+        <Link
+          href="/login"
+          className="underline underline-offset-4 hover:text-primary"
+        >
+          ログイン
+        </Link>
+      </p>
+    );
+  };
+
+  return (
+    <div className="flex h-screen items-center justify-center bg-muted/40">
+      <Card className="w-full max-w-sm">
+        <form onSubmit={handleSubmit}>
+          <CardHeader>
+            <CardTitle className="text-2xl">{title}</CardTitle>
+            <CardDescription>{description}</CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="email">メールアドレス</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="name@example.com"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="password">パスワード</Label>
+              <Input
+                id="password"
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </div>
+          </CardContent>
+          <CardFooter className="flex flex-col gap-4">
+            <Button className="w-full" type="submit" disabled={loading}>
+              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {type === 'login' ? 'ログイン' : '登録する'}
+            </Button>
+            {renderFooter()}
+          </CardFooter>
+        </form>
+      </Card>
+    </div>
+  );
+}
