@@ -4,12 +4,8 @@ import { getUidFromRequest } from '../../_lib/auth';
 import { getAdminApp } from '@/lib/firebase/firebaseAdmin';
 import { getStorage } from 'firebase-admin/storage';
 import type { Memory, Asset } from '@/lib/types';
+import { getFirestore } from 'firebase-admin/firestore';
 const path = require('path');
-
-// Turbopack/Next.js's bundler can have issues with destructuring imports from 'firebase-admin/firestore'
-// Using require syntax for more stable imports in the API route environment.
-const { getFirestore, collection, query, where, getDocs } = require('firebase-admin/firestore');
-
 
 function err(status: number, msg: string) {
   return NextResponse.json({ error: msg }, { status });
@@ -46,13 +42,9 @@ export async function POST(req: NextRequest) {
     const batch = db.batch();
 
     // --- Step 1: Find all assets associated with this memory ---
-    // Correctly query for assets belonging to the user and associated with the memory.
-    const assetsQuery = query(
-        collection(db, 'assets'), 
-        where('ownerUid', '==', uid), 
-        where('memoryId', '==', memoryId)
-    );
-    const assetsSnapshot = await getDocs(assetsQuery);
+    const assetsRef = db.collection('assets');
+    const assetsQuery = assetsRef.where('ownerUid', '==', uid).where('memoryId', '==', memoryId);
+    const assetsSnapshot = await assetsQuery.get();
     
     const deletionPromises: Promise<any>[] = [];
 
