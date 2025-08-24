@@ -273,8 +273,8 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
 
     const handleUploadCompleted = (newAsset: Asset) => {
         onUploadSuccess(newAsset);
-        setSelectedAsset(newAsset);
-        toast({ title: 'アップロード完了', description: `${newAsset.name}がライブラリに追加されました。` });
+        setSelectedAsset(newAsset); // Automatically select the new asset
+        toast({ title: 'アップロード完了', description: `${newAsset.name}が選択されました。` });
     }
 
     const handleSave = async () => {
