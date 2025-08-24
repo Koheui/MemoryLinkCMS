@@ -27,7 +27,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { apiClient } from '@/lib/api-client';
 
 
 // This is the new Visual Editor Page
@@ -229,47 +228,39 @@ export default function MemoryEditorPage() {
     if (!memory || !assets) return;
 
     // Helper to convert Firestore Timestamps to ISO strings for JSON serialization
-    const convertTimestamp = (timestamp: any): string => {
-        if (!timestamp) return new Date().toISOString();
-        if (timestamp instanceof Timestamp) return timestamp.toDate().toISOString();
-        if (timestamp._seconds) return new Date(timestamp._seconds * 1000).toISOString();
-        if (typeof timestamp === 'string') return timestamp;
-        if (timestamp.toDate && typeof timestamp.toDate === 'function') return timestamp.toDate().toISOString();
-        try {
-            return new Date(timestamp).toISOString();
-        } catch (e) {
-            return new Date().toISOString();
+    const convertTimestamps = (obj: any): any => {
+        if (!obj) return obj;
+        if (Array.isArray(obj)) {
+            return obj.map(item => convertTimestamps(item));
         }
+        if (obj instanceof Timestamp) {
+            return { __datatype__: 'timestamp', value: obj.toDate().toISOString() };
+        }
+        if (obj.toDate && typeof obj.toDate === 'function') {
+            return { __datatype__: 'timestamp', value: obj.toDate().toISOString() };
+        }
+        if (typeof obj === 'object') {
+            const newObj: { [key: string]: any } = {};
+            for (const key in obj) {
+                newObj[key] = convertTimestamps(obj[key]);
+            }
+            return newObj;
+        }
+        return obj;
     };
-    
-    // Create serializable versions of the data currently in state
-    const serializableMemory = {
-        ...memory,
-        createdAt: convertTimestamp(memory.createdAt),
-        updatedAt: convertTimestamp(memory.updatedAt),
-        blocks: memory.blocks.map(b => ({
-            ...b,
-            createdAt: convertTimestamp(b.createdAt),
-            updatedAt: convertTimestamp(b.updatedAt),
-        })),
-    };
-    
-    const serializableAssets = assets.map(asset => ({
-        ...asset,
-        createdAt: convertTimestamp(asset.createdAt),
-        updatedAt: convertTimestamp(asset.updatedAt),
-    }));
 
     try {
         const previewData = {
-            memory: serializableMemory,
-            assets: serializableAssets,
+            memory: convertTimestamps(memory),
+            assets: convertTimestamps(assets),
         };
-
-        localStorage.setItem('memory-preview', JSON.stringify(previewData));
-        window.open(`/p/preview`, '_blank');
+        const jsonString = JSON.stringify(previewData);
+        // Using btoa for Base64 encoding, compatible with browsers
+        const encodedData = btoa(unescape(encodeURIComponent(jsonString)));
+        const url = `/p/preview?data=${encodedData}`;
+        window.open(url, '_blank');
     } catch (error) {
-        console.error("Failed to stringify or set preview data:", error);
+        console.error("Failed to stringify or encode preview data:", error);
         toast({
             variant: 'destructive',
             title: 'プレビュー失敗',
@@ -277,7 +268,6 @@ export default function MemoryEditorPage() {
         });
     }
 };
-
 
   if (loading || authLoading) {
      return (

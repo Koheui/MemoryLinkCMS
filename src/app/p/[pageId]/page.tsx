@@ -1,8 +1,8 @@
 
 // src/app/p/[pageId]/page.tsx
 'use client';
-import { useState, useEffect, use } from 'react';
-import { useParams, notFound, useRouter } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
+import { useParams, notFound, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import type { PublicPage, PublicPageBlock, Memory, Asset } from '@/lib/types';
 import { Globe, Phone, Mail, Link as LinkIcon, Music, Clapperboard, Milestone, Camera, Loader2 } from 'lucide-react';
@@ -70,36 +70,47 @@ function convertMemoryToPublicPage(memory: Memory, assets: Asset[]): PublicPage 
         return newBlock;
     });
 
-    const convertTimestamp = (timestamp: any): Timestamp => {
-      if (!timestamp) return Timestamp.now();
-      if (timestamp instanceof Timestamp) return timestamp;
-      if (typeof timestamp === 'string') return Timestamp.fromDate(new Date(timestamp));
-      if (timestamp.toDate && typeof timestamp.toDate === 'function') return timestamp;
-      if (timestamp._seconds) return new Timestamp(timestamp._seconds, timestamp._nanoseconds);
-      return Timestamp.fromDate(new Date(timestamp));
+    const reviveTimestamps = (obj: any): any => {
+        if (!obj) return obj;
+        if (Array.isArray(obj)) {
+            return obj.map(item => reviveTimestamps(item));
+        }
+        if (typeof obj === 'object') {
+            if (obj.__datatype__ === 'timestamp' && obj.value) {
+                return Timestamp.fromDate(new Date(obj.value));
+            }
+            const newObj: { [key: string]: any } = {};
+            for (const key in obj) {
+                newObj[key] = reviveTimestamps(obj[key]);
+            }
+            return newObj;
+        }
+        return obj;
     };
 
+    const revivedMemory = reviveTimestamps(memory);
+
     return {
-        id: memory.id,
-        memoryId: memory.id,
-        title: memory.title,
+        id: revivedMemory.id,
+        memoryId: revivedMemory.id,
+        title: revivedMemory.title,
         about: {
-            text: memory.description || '',
+            text: revivedMemory.description || '',
             format: 'plain'
         },
-        design: memory.design,
+        design: revivedMemory.design,
         media: {
-            cover: { url: getAssetUrlById(memory.coverAssetId) || "https://placehold.co/1200x480.png", width: 1200, height: 480 },
-            profile: { url: getAssetUrlById(memory.profileAssetId) || "https://placehold.co/400x400.png", width: 400, height: 400 },
+            cover: { url: getAssetUrlById(revivedMemory.coverAssetId) || "https://placehold.co/1200x480.png", width: 1200, height: 480 },
+            profile: { url: getAssetUrlById(revivedMemory.profileAssetId) || "https://placehold.co/400x400.png", width: 400, height: 400 },
         },
         ordering: 'custom',
         blocks: hydratedBlocks,
         publish: {
             status: 'published',
-            publishedAt: convertTimestamp(memory.updatedAt), // Use updatedAt for simplicity
+            publishedAt: revivedMemory.updatedAt,
         },
-        createdAt: convertTimestamp(memory.createdAt),
-        updatedAt: convertTimestamp(memory.updatedAt),
+        createdAt: revivedMemory.createdAt,
+        updatedAt: revivedMemory.updatedAt,
     };
 }
 
@@ -207,51 +218,59 @@ const BlockRenderer = ({ block }: { block: PublicPageBlock }) => {
     }
 }
 
-
-export default function PublicPage() {
+function PageContent() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const pageId = params.pageId as string;
   const [manifest, setManifest] = useState<PublicPage | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadPageData() {
-        let pageData: PublicPage | null = null;
         setLoading(true);
+        setError(null);
 
         if (pageId === 'preview') {
-            const storedPreviewData = localStorage.getItem('memory-preview');
-            if (storedPreviewData) {
+            const encodedData = searchParams.get('data');
+            if (encodedData) {
                 try {
-                    const parsedData = JSON.parse(storedPreviewData);
+                    const jsonString = decodeURIComponent(atob(encodedData));
+                    const parsedData = JSON.parse(jsonString);
+
                     if (parsedData.memory && parsedData.assets) {
-                        pageData = convertMemoryToPublicPage(parsedData.memory, parsedData.assets);
+                        const pageData = convertMemoryToPublicPage(parsedData.memory, parsedData.assets);
+                        setManifest(pageData);
+                    } else {
+                        throw new Error("Invalid preview data structure.");
                     }
-                } catch(e) {
-                    console.error("Failed to parse preview data from localStorage", e);
+                } catch(e: any) {
+                    console.error("Failed to parse preview data from URL:", e);
+                    setError('プレビューデータの解析に失敗しました。URLが破損している可能性があります。');
                 }
+            } else {
+                 setError('プレビューデータが見つかりませんでした。編集画面から再度プレビューボタンを押してください。');
             }
         } else if (pageId) {
             const data = await fetchPublicPageData(pageId);
             if (data) {
-                pageData = convertMemoryToPublicPage(data.memory, data.assets);
+                setManifest(convertMemoryToPublicPage(data.memory, data.assets));
+            } else {
+                 setError('この想い出ページは存在しないか、まだ公開されていません。');
             }
         }
-
-        if (pageData) {
-            document.title = `${pageData.title} - 想い出リンク`;
-        }
         
-        setManifest(pageData);
         setLoading(false);
     }
     
-    if(pageId) {
-        loadPageData();
-    } else {
-        setLoading(false);
+    loadPageData();
+  }, [pageId, searchParams]);
+
+  useEffect(() => {
+    if (manifest?.title) {
+      document.title = `${manifest.title} - 想い出リンク`;
     }
-  }, [pageId]);
+  }, [manifest]);
 
   if (loading) {
     return (
@@ -261,15 +280,11 @@ export default function PublicPage() {
     )
   }
 
-  if (!manifest) {
+  if (error || !manifest) {
     return (
         <div className="flex min-h-screen flex-col items-center justify-center bg-gray-900 text-white text-center p-4">
             <h1 className="text-2xl font-bold">ページが見つかりません</h1>
-            <p className="mt-2 text-gray-300">
-                {pageId === 'preview' 
-                    ? 'プレビューデータが見つかりませんでした。編集画面から再度プレビューボタンを押してください。'
-                    : 'この想い出ページは存在しないか、まだ公開されていません。'}
-            </p>
+            <p className="mt-2 text-gray-300">{error || '不明なエラーが発生しました。'}</p>
         </div>
     );
   }
@@ -335,3 +350,14 @@ export default function PublicPage() {
   );
 }
 
+export default function PublicPage() {
+    return (
+        <Suspense fallback={
+             <div className="flex min-h-screen items-center justify-center bg-gray-900">
+                <Loader2 className="h-10 w-10 animate-spin text-white" />
+            </div>
+        }>
+            <PageContent />
+        </Suspense>
+    )
+}
