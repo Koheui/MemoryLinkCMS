@@ -190,7 +190,7 @@ const BlockRenderer = ({ block, design, setLightboxState }: { block: PublicPageB
     switch (block.type) {
         case 'album':
             return (
-                <Card style={cardStyle} className="overflow-hidden shadow-lg backdrop-blur-sm">
+                <Card style={cardStyle} className="overflow-hidden backdrop-blur-sm">
                     <CardHeader>
                         <div className="flex items-center gap-3">
                            <Milestone style={mutedTextStyle} className="h-5 w-5" />
@@ -222,7 +222,7 @@ const BlockRenderer = ({ block, design, setLightboxState }: { block: PublicPageB
             );
         case 'photo':
              return (
-                 <Card style={cardStyle} className="overflow-hidden shadow-lg backdrop-blur-sm">
+                 <Card style={cardStyle} className="overflow-hidden backdrop-blur-sm">
                     {block.photo?.src && (
                          <div className="aspect-video relative w-full">
                              <Image src={block.photo.src} alt={block.title || "Single photo"} fill className="object-cover" />
@@ -236,7 +236,7 @@ const BlockRenderer = ({ block, design, setLightboxState }: { block: PublicPageB
             );
         case 'video':
             return (
-                 <Card style={cardStyle} className="overflow-hidden shadow-lg group backdrop-blur-sm">
+                 <Card style={cardStyle} className="overflow-hidden group backdrop-blur-sm">
                     <div className="aspect-video relative w-full bg-black">
                         {block.video?.poster ? (
                              <Image src={block.video.poster} alt={block.title || "Video thumbnail"} fill className="object-cover opacity-80 group-hover:opacity-60 transition-opacity" />
@@ -252,7 +252,7 @@ const BlockRenderer = ({ block, design, setLightboxState }: { block: PublicPageB
             );
         case 'audio':
               return (
-                 <Card style={cardStyle} className="flex items-center gap-4 p-4 shadow-lg backdrop-blur-sm">
+                 <Card style={cardStyle} className="flex items-center gap-4 p-4 backdrop-blur-sm">
                     <div className="flex-shrink-0">
                         <Music style={mutedTextStyle} className="h-8 w-8" />
                     </div>
@@ -266,7 +266,7 @@ const BlockRenderer = ({ block, design, setLightboxState }: { block: PublicPageB
             );
         case 'text':
              return (
-               <a href="#" style={cardStyle} className="group block w-full rounded-xl p-2 shadow-lg ring-1 ring-black/10 backdrop-blur-sm transition-all duration-300 ease-in-out hover:scale-[1.02] hover:shadow-2xl">
+               <a href="#" style={cardStyle} className="group block w-full rounded-xl p-2 ring-1 ring-black/10 backdrop-blur-sm transition-all duration-300 ease-in-out hover:scale-[1.02]">
                     <div className="flex items-center gap-4 rounded-lg bg-transparent p-3">
                         <div style={mutedTextStyle} className="flex-shrink-0">
                            {blockIcons[block.icon || 'default'] || blockIcons.default}
@@ -393,7 +393,7 @@ function PageContent() {
 
       <div className="container mx-auto max-w-2xl px-4 py-8 sm:px-6 lg:py-12 relative z-10">
         <header className="relative">
-            <div className="relative h-48 w-full overflow-hidden rounded-xl shadow-lg md:h-56">
+            <div className="relative h-48 w-full overflow-hidden rounded-xl md:h-56">
                 <Image 
                   src={manifest.media.cover.url}
                   alt={manifest.title}
@@ -406,7 +406,7 @@ function PageContent() {
             </div>
             
             <div className="relative flex flex-col items-center -mt-20">
-                <div className="h-40 w-40 rounded-full z-10 bg-gray-800 border-4 border-background shadow-lg relative overflow-hidden shrink-0">
+                <div className="h-40 w-40 rounded-full z-10 bg-gray-800 border-4 border-background relative overflow-hidden shrink-0">
                     <Image 
                         src={manifest.media.profile.url}
                         alt="Profile"

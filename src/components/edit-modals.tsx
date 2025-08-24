@@ -156,7 +156,7 @@ const BlockRenderer = ({ block, design, setLightboxState }: { block: PublicPageB
     switch (block.type) {
         case 'album':
             return (
-                <Card style={cardStyle} className="overflow-hidden shadow-lg backdrop-blur-sm">
+                <Card style={cardStyle} className="overflow-hidden backdrop-blur-sm">
                     <CardHeader>
                         <div className="flex items-center gap-3">
                            <Milestone style={mutedTextStyle} className="h-5 w-5" />
@@ -188,7 +188,7 @@ const BlockRenderer = ({ block, design, setLightboxState }: { block: PublicPageB
             );
         case 'photo':
              return (
-                 <Card style={cardStyle} className="overflow-hidden shadow-lg backdrop-blur-sm">
+                 <Card style={cardStyle} className="overflow-hidden backdrop-blur-sm">
                     {block.photo?.src && (
                          <div className="aspect-video relative w-full">
                              <Image src={block.photo.src} alt={block.title || "Single photo"} fill className="object-cover" sizes="(max-width: 768px) 100vw, 50vw" />
@@ -202,7 +202,7 @@ const BlockRenderer = ({ block, design, setLightboxState }: { block: PublicPageB
             );
         case 'video':
             return (
-                 <Card style={cardStyle} className="overflow-hidden shadow-lg group backdrop-blur-sm">
+                 <Card style={cardStyle} className="overflow-hidden group backdrop-blur-sm">
                     <div className="aspect-video relative w-full bg-black">
                         {block.video?.poster ? (
                              <Image src={block.video.poster} alt={block.title || "Video thumbnail"} fill className="object-cover opacity-80 group-hover:opacity-60 transition-opacity" sizes="(max-width: 768px) 100vw, 50vw" />
@@ -218,7 +218,7 @@ const BlockRenderer = ({ block, design, setLightboxState }: { block: PublicPageB
             );
         case 'audio':
               return (
-                 <Card style={cardStyle} className="flex items-center gap-4 p-4 shadow-lg backdrop-blur-sm">
+                 <Card style={cardStyle} className="flex items-center gap-4 p-4 backdrop-blur-sm">
                     <div className="flex-shrink-0">
                         <Music style={mutedTextStyle} className="h-8 w-8" />
                     </div>
@@ -232,7 +232,7 @@ const BlockRenderer = ({ block, design, setLightboxState }: { block: PublicPageB
             );
         case 'text':
              return (
-               <a href="#" style={cardStyle} className="group block w-full rounded-xl p-2 shadow-lg ring-1 ring-black/10 backdrop-blur-sm transition-all duration-300 ease-in-out hover:scale-[1.02] hover:shadow-2xl">
+               <a href="#" style={cardStyle} className="group block w-full rounded-xl p-2 ring-1 ring-black/10 backdrop-blur-sm transition-all duration-300 ease-in-out hover:scale-[1.02]">
                     <div className="flex items-center gap-4 rounded-lg bg-transparent p-3">
                         <div style={mutedTextStyle} className="flex-shrink-0">
                            {blockIcons[block.icon || 'default'] || blockIcons.default}
@@ -307,7 +307,7 @@ export function PreviewModal({ isOpen, setIsOpen, memory, assets }: { isOpen: bo
                                 </div>
                                 
                                 <div className="relative flex flex-col items-center -mt-20 px-6">
-                                    <div className="h-40 w-40 rounded-full z-10 border-4 shadow-lg relative overflow-hidden shrink-0" style={{borderColor: manifest.design.bgColor || '#F9FAFB'}}>
+                                    <div className="h-40 w-40 rounded-full z-10 border-4 relative overflow-hidden shrink-0" style={{borderColor: manifest.design.bgColor || '#F9FAFB', backgroundColor: manifest.design.bgColor || '#F9FAFB'}}>
                                         <Image 
                                             src={manifest.media.profile.url}
                                             alt="Profile"
