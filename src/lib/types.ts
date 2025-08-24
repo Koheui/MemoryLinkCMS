@@ -1,3 +1,4 @@
+
 // src/lib/types.ts
 import type { Timestamp } from 'firebase/firestore';
 
@@ -96,10 +97,8 @@ export interface Order {
     memoryId: string;
     email: string;
     productType: string;
-    status: 'draft' | 'assets_uploaded' | 'model_ready' | 'selected' | 'paid' | 'delivered';
+    status: 'draft' | 'paid' | 'shipped' | 'delivered';
     note?: string;
-    candidateModelIds?: string[];
-    selectedModelId?: string | null;
     payment?: { method?: 'stripe' | 'invoice', linkUrl?: string, paidAt?: Timestamp };
     shipping?: { nfcWritten?: boolean, shippedAt?: Timestamp };
     createdAt: Timestamp | string; // Allow string for UI display

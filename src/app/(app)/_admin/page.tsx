@@ -1,3 +1,4 @@
+
 // src/app/(app)/_admin/page.tsx
 'use client';
 
@@ -21,19 +22,15 @@ import { apiClient } from "@/lib/api-client";
 
 const statusVariantMap: Record<Order['status'], 'default' | 'secondary' | 'destructive' | 'outline'> = {
     draft: 'secondary',
-    assets_uploaded: 'outline',
-    model_ready: 'default',
-    selected: 'default',
     paid: 'default',
+    shipped: 'default',
     delivered: 'default',
 };
 
 const statusTextMap: Record<Order['status'], string> = {
     draft: '下書き',
-    assets_uploaded: '素材アップロード済',
-    model_ready: 'モデル準備完了',
-    selected: 'モデル選択済',
     paid: '支払い済',
+    shipped: '発送済',
     delivered: '発送済',
 };
 
@@ -279,3 +276,4 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
+
