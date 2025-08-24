@@ -253,7 +253,7 @@ export function PreviewModal({ isOpen, setIsOpen, memory, assets }: { isOpen: bo
                     <DialogTitle>プレビュー</DialogTitle>
                 </DialogHeader>
                  <div className="flex-1 overflow-auto bg-muted/40">
-                     <div className="bg-background mx-auto max-w-2xl">
+                     <div className="bg-background mx-auto">
                              <header className="relative">
                                 <div className="relative aspect-[21/9] w-full overflow-hidden">
                                     <Image 
@@ -280,8 +280,8 @@ export function PreviewModal({ isOpen, setIsOpen, memory, assets }: { isOpen: bo
                                     </div>
                                     
                                     <div className="mt-4 text-center w-full">
-                                        <h1 className="text-xl font-bold text-foreground">{manifest.title}</h1>
-                                        <p className="mt-2 text-base text-muted-foreground max-w-prose mx-auto text-left">{manifest.about.text}</p>
+                                        <h1 className="text-3xl sm:text-4xl font-bold text-foreground">{manifest.title}</h1>
+                                        <p className="mt-2 text-base text-muted-foreground max-w-prose mx-auto">{manifest.about.text}</p>
                                     </div>
                                 </div>
                             </header>
