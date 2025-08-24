@@ -271,7 +271,7 @@ const BlockRenderer = ({ block, design, setLightboxState }: { block: PublicPageB
                         <div style={mutedTextStyle} className="flex-shrink-0">
                            {blockIcons[block.icon || 'default'] || blockIcons.default}
                         </div>
-                        <div style={textStyle} className="flex-grow text-left text-lg font-semibold">
+                        <div style={textStyle} className="flex-grow text-left font-semibold">
                             {block.title}
                         </div>
                          <div style={mutedTextStyle} className="flex-shrink-0 transition-transform group-hover:translate-x-1">
