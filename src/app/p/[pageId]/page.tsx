@@ -52,7 +52,7 @@ function convertMemoryToPublicPage(memory: Memory, assets: Asset[]): PublicPage 
         memoryId: memory.id,
         title: memory.title,
         about: {
-            text: memory.description,
+            text: memory.description || '',
             format: 'plain'
         },
         design: memory.design,
@@ -75,7 +75,10 @@ function convertMemoryToPublicPage(memory: Memory, assets: Asset[]): PublicPage 
                 newBlock.audio.src = getAssetUrlById(newBlock.audio.assetId);
             }
             if (newBlock.type === 'album' && newBlock.album?.assetIds) {
-                newBlock.album.items = newBlock.album.assetIds.map((id: string) => ({ src: getAssetUrlById(id) || '' }));
+                newBlock.album.items = newBlock.album.assetIds.map((id: string) => ({ 
+                    src: getAssetUrlById(id) || '',
+                    caption: assets.find(a => a.id === id)?.name || ''
+                }));
             }
             return newBlock;
         }),
@@ -265,7 +268,7 @@ export default function PublicPage() {
      className="min-h-screen text-white"
      >
       <div className="container mx-auto max-w-2xl px-4 py-8 sm:px-6 lg:py-12">
-        <header className="flex flex-col items-center">
+        <header className="relative">
             {/* Block 1: Cover Image */}
             <div className="relative h-48 w-full overflow-hidden rounded-xl shadow-lg md:h-56">
                 <Image 
@@ -278,23 +281,25 @@ export default function PublicPage() {
                   sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                 />
             </div>
-
-            {/* Block 2: Profile Image */}
-            <div className="h-40 w-40 rounded-full mx-auto -mt-20 z-10 bg-gray-800 border-4 border-background shadow-lg relative overflow-hidden">
-                <Image 
-                    src={manifest.media.profile.url}
-                    alt="Profile"
-                    fill
-                    data-ai-hint="portrait person"
-                    className="rounded-full object-cover"
-                    sizes="160px"
-                />
-            </div>
             
-            {/* Block 3: Text Content */}
-            <div className="mt-4 text-center">
-                <h1 className="text-5xl font-bold text-yellow-300">{manifest.title}</h1>
-                <p className="mt-2 text-xl text-blue-300 max-w-prose mx-auto">{manifest.about.text}</p>
+            <div className="relative flex flex-col items-center -mt-20">
+                {/* Block 2: Profile Image */}
+                <div className="h-40 w-40 rounded-full z-10 bg-gray-800 border-4 border-background shadow-lg relative overflow-hidden shrink-0">
+                    <Image 
+                        src={manifest.media.profile.url}
+                        alt="Profile"
+                        fill
+                        data-ai-hint="portrait person"
+                        className="rounded-full object-cover"
+                        sizes="160px"
+                    />
+                </div>
+                
+                {/* Block 3: Text Content */}
+                <div className="mt-4 text-center">
+                    <h1 className="text-5xl font-bold text-yellow-300">{manifest.title}</h1>
+                    <p className="mt-2 text-xl text-blue-300 max-w-prose mx-auto">{manifest.about.text}</p>
+                </div>
             </div>
         </header>
 
