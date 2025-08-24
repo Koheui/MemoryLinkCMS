@@ -77,7 +77,7 @@ export const generateThumbnail = onObjectFinalized({
         })
         .screenshots({
           timestamps: timestamps,
-          filename: "thumb-%s.jpg",
+          filename: `${assetId}_thumb-%s.jpg`,
           folder: tempThumbDir,
           size: "320x240",
         });
@@ -87,7 +87,7 @@ export const generateThumbnail = onObjectFinalized({
 
     const uploadPromises = screenshotFileNames.map((thumbFileName) => {
         const tempThumbPath = path.join(tempThumbDir, thumbFileName);
-        const thumbUploadPath = path.join(path.dirname(filePath), "thumbnails", `${assetId}_${thumbFileName}`);
+        const thumbUploadPath = path.join(path.dirname(filePath), "thumbnails", thumbFileName);
         return bucket.upload(tempThumbPath, {
             destination: thumbUploadPath,
             metadata: { contentType: "image/jpeg" },
