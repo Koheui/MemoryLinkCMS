@@ -8,7 +8,7 @@ const path = require('path');
 
 // Turbopack/Next.js's bundler can have issues with destructuring imports from 'firebase-admin/firestore'
 // Using require syntax for more stable imports in the API route environment.
-const { getFirestore, writeBatch, collection, query, where, getDocs } = require('firebase-admin/firestore');
+const { getFirestore, collection, query, where, getDocs } = require('firebase-admin/firestore');
 
 
 function err(status: number, msg: string) {
@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
         return err(403, "このページを削除する権限がありません。");
     }
     
-    const batch = writeBatch(db);
+    const batch = db.batch();
 
     // --- Step 1: Find all assets associated with this memory ---
     // Correctly query for assets belonging to the user and associated with the memory.

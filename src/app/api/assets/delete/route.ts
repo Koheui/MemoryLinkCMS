@@ -2,9 +2,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getUidFromRequest } from '../../_lib/auth';
 import { getAdminApp } from '@/lib/firebase/firebaseAdmin';
-import { getFirestore, writeBatch } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
 import type { Asset, Memory } from '@/lib/types';
+const { getFirestore, Filter } = require('firebase-admin/firestore');
 
 function err(status: number, msg: string) {
   return NextResponse.json({ error: msg }, { status });
@@ -42,12 +42,21 @@ export async function POST(req: NextRequest) {
     if (assetData.storagePath) {
         try {
             await storage.bucket().file(assetData.storagePath).delete();
-            // Also attempt to delete the thumbnail if it's a video
-            if (assetData.type === 'video') {
-                 const path = await import('path');
-                 const thumbFileName = `thumb_${path.parse(path.basename(assetData.storagePath)).name}.jpg`;
-                 const thumbUploadPath = path.join(path.dirname(assetData.storagePath), "thumbnails", thumbFileName);
-                 await storage.bucket().file(thumbUploadPath).delete().catch(e => console.warn(`Could not delete thumbnail ${thumbUploadPath}:`, e.message));
+            // Also attempt to delete all thumbnail candidates if it's a video
+            if (assetData.type === 'video' && assetData.thumbnailCandidates && assetData.thumbnailCandidates.length > 0) {
+                 const path = require('path');
+                 const thumbDir = path.join(path.dirname(assetData.storagePath), "thumbnails");
+                 assetData.thumbnailCandidates.forEach(async (thumbUrl) => {
+                     try {
+                        const url = new URL(thumbUrl);
+                        const pathname = decodeURIComponent(url.pathname);
+                        const fileName = path.basename(pathname);
+                        const thumbPath = path.join(thumbDir, fileName);
+                        await storage.bucket().file(thumbPath).delete().catch(e => console.warn(`Could not delete thumbnail ${thumbPath}:`, e.message));
+                     } catch(e) {
+                         console.error("Could not parse thumbnail URL to delete from storage:", thumbUrl, e)
+                     }
+                 });
             }
         } catch (storageError: any) {
             // Log but don't block if file deletion fails (e.g., already deleted)
@@ -55,7 +64,7 @@ export async function POST(req: NextRequest) {
         }
     }
 
-    const batch = writeBatch(db);
+    const batch = db.batch();
 
     // --- Step 2: Delete the asset document itself ---
     batch.delete(assetRef);
@@ -70,7 +79,7 @@ export async function POST(req: NextRequest) {
         ));
     
     const memoriesSnapshot = await memoriesUsingAssetQuery.get();
-    memoriesSnapshot.forEach(doc => {
+    memoriesSnapshot.forEach((doc: any) => {
         const memoryData = doc.data() as Memory;
         const updateData: any = {};
         if (memoryData.coverAssetId === assetId) {
@@ -99,5 +108,3 @@ export async function POST(req: NextRequest) {
     return err(500, 'サーバー内部でエラーが発生しました: ' + msg);
   }
 }
-// Firestore Filter helper needs to be imported or defined if not available globally
-const { Filter } = require('firebase-admin/firestore');
