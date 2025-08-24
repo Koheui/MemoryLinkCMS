@@ -1,4 +1,5 @@
 
+
 // src/app/(app)/memories/[memoryId]/page.tsx
 'use client';
 
@@ -258,18 +259,26 @@ export default function MemoryEditorPage() {
         };
         
         const jsonString = JSON.stringify(previewData);
-        // Using btoa for Base64 encoding, which is available in all modern browsers.
-        const encodedData = btoa(unescape(encodeURIComponent(jsonString)));
         
-        const url = `/p/preview?data=${encodedData}`;
-        window.open(url, '_blank');
+        // Open the new tab first.
+        const previewWindow = window.open('/p/preview', '_blank');
+        if (previewWindow) {
+            // Then set the data in localStorage.
+            localStorage.setItem('previewData', jsonString);
+        } else {
+            toast({
+                variant: 'destructive',
+                title: 'プレビュー失敗',
+                description: 'ポップアップがブロックされた可能性があります。'
+            });
+        }
 
     } catch (error) {
-        console.error("Failed to stringify or encode preview data:", error);
+        console.error("Failed to stringify preview data:", error);
         toast({
             variant: 'destructive',
             title: 'プレビュー失敗',
-            description: 'プレビューデータの生成中にエラーが発生しました。コンソールを確認してください。'
+            description: 'プレビューデータの生成中にエラーが発生しました。'
         });
     }
 };
