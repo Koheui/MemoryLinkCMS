@@ -233,6 +233,7 @@ export default function MemoryEditorPage() {
         const convertTimestamp = (timestamp: any): string => {
             if (!timestamp) return new Date().toISOString();
             if (timestamp instanceof Timestamp) return timestamp.toDate().toISOString();
+            if (timestamp._seconds) return new Date(timestamp._seconds * 1000).toISOString();
             if (typeof timestamp === 'string') return timestamp;
             if (timestamp.toDate && typeof timestamp.toDate === 'function') return timestamp.toDate().toISOString();
             return new Date(timestamp).toISOString();
@@ -536,3 +537,4 @@ function SortableBlockItem({ block, assets, onEdit, onDelete }: { block: PublicP
         </div>
     );
 }
+

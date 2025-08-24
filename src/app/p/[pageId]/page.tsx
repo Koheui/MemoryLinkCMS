@@ -1,3 +1,4 @@
+
 // src/app/p/[pageId]/page.tsx
 'use client';
 import { useState, useEffect, use } from 'react';
@@ -69,6 +70,15 @@ function convertMemoryToPublicPage(memory: Memory, assets: Asset[]): PublicPage 
         return newBlock;
     });
 
+    const convertTimestamp = (timestamp: any): Timestamp => {
+      if (!timestamp) return Timestamp.now();
+      if (timestamp instanceof Timestamp) return timestamp;
+      if (typeof timestamp === 'string') return Timestamp.fromDate(new Date(timestamp));
+      if (timestamp.toDate && typeof timestamp.toDate === 'function') return timestamp;
+      if (timestamp._seconds) return new Timestamp(timestamp._seconds, timestamp._nanoseconds);
+      return Timestamp.fromDate(new Date(timestamp));
+    };
+
     return {
         id: memory.id,
         memoryId: memory.id,
@@ -86,10 +96,10 @@ function convertMemoryToPublicPage(memory: Memory, assets: Asset[]): PublicPage 
         blocks: hydratedBlocks,
         publish: {
             status: 'published',
-            publishedAt: memory.updatedAt, // Use updatedAt for simplicity
+            publishedAt: convertTimestamp(memory.updatedAt), // Use updatedAt for simplicity
         },
-        createdAt: memory.createdAt,
-        updatedAt: memory.updatedAt,
+        createdAt: convertTimestamp(memory.createdAt),
+        updatedAt: convertTimestamp(memory.updatedAt),
     };
 }
 
@@ -214,12 +224,16 @@ export default function PublicPage() {
             if (storedPreviewData) {
                 try {
                     const parsedData = JSON.parse(storedPreviewData);
-                    pageData = convertMemoryToPublicPage(parsedData.memory, parsedData.assets);
+                    if (parsedData.memory && parsedData.assets) {
+                        pageData = convertMemoryToPublicPage(parsedData.memory, parsedData.assets);
+                    } else {
+                        console.error("Preview data is missing 'memory' or 'assets' keys.");
+                    }
                 } catch(e) {
                     console.error("Failed to parse preview data from localStorage", e);
                 }
             }
-        } else {
+        } else if (pageId) {
             const data = await fetchPublicPageData(pageId);
             if (data) {
                 pageData = convertMemoryToPublicPage(data.memory, data.assets);
@@ -319,3 +333,4 @@ export default function PublicPage() {
     </div>
   );
 }
+
