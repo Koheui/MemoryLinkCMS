@@ -4,7 +4,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/hooks/use-auth";
-import type { Memory } from "@/lib/types";
+import type { Memory, Asset } from "@/lib/types";
 import { PlusCircle, Edit, ExternalLink, Loader2, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -29,6 +29,7 @@ import {
 export default function DashboardPage() {
     const { user, loading: authLoading } = useAuth();
     const [memories, setMemories] = useState<Memory[]>([]);
+    const [assets, setAssets] = useState<Asset[]>([]);
     const [loading, setLoading] = useState(true);
     const [isCreating, setIsCreating] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
@@ -36,20 +37,47 @@ export default function DashboardPage() {
     const router = useRouter();
     const { toast } = useToast();
 
-    const fetchMemories = useCallback(async (uid: string) => {
+    const fetchMemoriesAndAssets = useCallback(async (uid: string) => {
         setLoading(true);
         try {
-            const q = query(
+            // Fetch memories and assets in parallel
+            const memoriesQuery = query(
                 collection(db, 'memories'),
                 where('ownerUid', '==', uid)
             );
-            const snapshot = await getDocs(q);
-            const userMemories = snapshot.docs.map(doc => {
+            const assetsQuery = query(
+                collection(db, 'assets'),
+                where('ownerUid', '==', uid)
+            );
+
+            const [memoriesSnapshot, assetsSnapshot] = await Promise.all([
+                getDocs(memoriesQuery),
+                getDocs(assetsQuery)
+            ]);
+
+            // Process assets first into a map for quick lookups
+            const userAssets = assetsSnapshot.docs.map(doc => {
+                const data = doc.data();
+                 return { 
+                    id: doc.id, 
+                    ...data,
+                } as Asset;
+            });
+            setAssets(userAssets);
+            
+            const getAssetUrl = (assetId: string | null) => {
+                if (!assetId) return null;
+                const asset = userAssets.find(a => a.id === assetId);
+                return asset?.url || null;
+            }
+
+            const userMemories = memoriesSnapshot.docs.map(doc => {
                 const data = doc.data();
                 return { 
                     id: doc.id, 
                     ...data,
-                    createdAt: (data.createdAt as Timestamp)?.toDate() || new Date()
+                    createdAt: (data.createdAt as Timestamp)?.toDate() || new Date(),
+                    coverImageUrl: getAssetUrl(data.coverAssetId)
                 } as Memory;
             });
             
@@ -61,7 +89,7 @@ export default function DashboardPage() {
 
             setMemories(userMemories);
         } catch (error) {
-            console.error("Error fetching memories:", error);
+            console.error("Error fetching data:", error);
             toast({ variant: 'destructive', title: 'エラー', description: 'ページの読み込みに失敗しました。'});
         } finally {
             setLoading(false);
@@ -70,11 +98,11 @@ export default function DashboardPage() {
 
     useEffect(() => {
         if (!authLoading && user) {
-            fetchMemories(user.uid);
+            fetchMemoriesAndAssets(user.uid);
         } else if (!authLoading && !user) {
             setLoading(false);
         }
-    }, [user, authLoading, fetchMemories]);
+    }, [user, authLoading, fetchMemoriesAndAssets]);
 
     const handleCreateNewMemory = async () => {
         if (!user) return;
@@ -207,8 +235,15 @@ export default function DashboardPage() {
                             <CardDescription>ID: {memory.id}</CardDescription>
                         </CardHeader>
                          <CardContent className="space-y-4 flex-grow">
-                            <div className="aspect-video bg-muted rounded-md flex items-center justify-center">
-                                <Image src="https://placehold.co/600x400.png" alt="placeholder" width={600} height={400} className="rounded-md object-cover" data-ai-hint="memorial" />
+                            <div className="aspect-video bg-muted rounded-md flex items-center justify-center relative overflow-hidden">
+                                <Image 
+                                    src={memory.coverImageUrl || "https://placehold.co/600x400.png"} 
+                                    alt={memory.title} 
+                                    fill
+                                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                                    className="rounded-md object-cover" 
+                                    data-ai-hint="memorial" 
+                                />
                             </div>
                         </CardContent>
                         <CardFooter className="flex gap-2">
