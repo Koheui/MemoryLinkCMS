@@ -5,7 +5,7 @@
 import { useState, useEffect, Suspense, useRef, useMemo } from 'react';
 import { useParams, notFound, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
-import type { PublicPage, PublicPageBlock, Memory, Asset, Design } from '@/lib/types';
+import type { PublicPageBlock, Memory, Asset, Design } from '@/lib/types';
 import { Globe, Phone, Mail, Link as LinkIcon, Music, Clapperboard, Milestone, Camera, Loader2, X } from 'lucide-react';
 import { FaXTwitter, FaInstagram, FaYoutube } from 'react-icons/fa6';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -339,7 +339,7 @@ function PageContent() {
 
   useEffect(() => {
     if (manifest?.title) {
-      document.title = `${manifest.title} - 想い出リンク`;
+      document.title = `${manifest.title} - 想い出クラウド`;
     }
   }, [manifest]);
 
@@ -434,7 +434,7 @@ function PageContent() {
         </main>
 
         <footer className="mt-12 text-center text-sm text-gray-400 pb-8">
-            <p>&copy; {new Date().getFullYear()}. Powered by MemoryLink</p>
+            <p>&copy; {new Date().getFullYear()}. Powered by 想い出クラウド</p>
         </footer>
       </div>
     </div>

@@ -4,8 +4,8 @@ import { cn } from '@/lib/utils';
 import { Toaster } from "@/components/ui/toaster"
 
 export const metadata: Metadata = {
-  title: '想い出リンク CMS',
-  description: '大切な人との想い出を、永遠の形に。',
+  title: '想い出クラウド',
+  description: '大切な想い出を、クラウドで永遠に。',
 };
 
 export default function RootLayout({

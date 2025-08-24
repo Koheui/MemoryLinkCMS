@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowRight, Heart } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import Image from 'next/image';
 
 export default function Home() {
@@ -9,8 +9,7 @@ export default function Home() {
     <div className="flex flex-col min-h-screen bg-background">
       <header className="container mx-auto px-4 md:px-6 h-20 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2 font-headline" prefetch={false}>
-          <Heart className="h-7 w-7 text-primary" />
-          <span className="text-2xl font-bold">想い出リンク</span>
+          <span className="text-2xl font-bold">想い出クラウド</span>
         </Link>
         <div className="flex items-center gap-2">
           <Button variant="ghost" asChild>
@@ -33,7 +32,7 @@ export default function Home() {
                   大切な人との想い出を、永遠の形に。
                 </h1>
                 <p className="mx-auto max-w-[700px] text-muted-foreground md:text-xl">
-                  「想い出リンク」は、写真や動画、音声、そして物語を組み合わせ、スマートフォンからいつでもアクセスできる美しい記念ページを作成するサービスです。ユニークなNFCタグに、大切な記憶を込めて。
+                  「想い出クラウド」は、写真や動画、音声、そして物語を組み合わせ、スマートフォンからいつでもアクセスできる美しい記念ページを作成するサービスです。ユニークなNFCタグに、大切な記憶を込めて。
                 </p>
               </div>
               <div className="flex flex-col gap-2 min-[400px]:flex-row">
@@ -83,7 +82,7 @@ export default function Home() {
 
       </main>
       <footer className="flex flex-col gap-2 sm:flex-row py-6 w-full shrink-0 items-center px-4 md:px-6 border-t">
-        <p className="text-xs text-muted-foreground">&copy; 2024 想い出リンク. All rights reserved.</p>
+        <p className="text-xs text-muted-foreground">&copy; 2024 想い出クラウド. All rights reserved.</p>
         <nav className="sm:ml-auto flex gap-4 sm:gap-6">
           <Link href="#" className="text-xs hover:underline underline-offset-4" prefetch={false}>
             利用規約
