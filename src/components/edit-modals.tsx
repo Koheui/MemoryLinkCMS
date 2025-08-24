@@ -5,7 +5,7 @@ import * as React from 'react';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import type { Memory, Asset, PublicPageBlock } from '@/lib/types';
 import { db } from '@/lib/firebase/client';
-import { doc, updateDoc, serverTimestamp, Timestamp } from 'firestore/lite';
+import { doc, updateDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -260,29 +260,31 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
     }
     
     useEffect(() => {
-      if (isOpen) {
-        if (isEditing && block) {
-            setBlockType(block.type);
-            setTitle(block.title || '');
-            if (block.type === 'text') setTextContent(block.text?.content || '');
-            if (block.type === 'photo') {
-                setSelectedAssetId(block.photo?.assetId);
-                setPhotoCaption(block.photo?.caption || '');
-            }
-            if (block.type === 'video') {
-                const videoAssetId = block.video?.assetId;
-                setSelectedAssetId(videoAssetId);
-                if (videoAssetId) {
-                    const asset = assets.find(a => a.id === videoAssetId);
-                    setSelectedThumbnail(asset?.thumbnailUrl);
+        // Only reset state if the modal is being opened for a new block,
+        // or if the block being edited changes.
+        if (isOpen && (block?.id !== (isEditing ? block.id : undefined))) {
+            if (isEditing && block) {
+                setBlockType(block.type);
+                setTitle(block.title || '');
+                if (block.type === 'text') setTextContent(block.text?.content || '');
+                if (block.type === 'photo') {
+                    setSelectedAssetId(block.photo?.assetId);
+                    setPhotoCaption(block.photo?.caption || '');
                 }
+                if (block.type === 'video') {
+                    const videoAssetId = block.video?.assetId;
+                    setSelectedAssetId(videoAssetId);
+                    if (videoAssetId) {
+                        const asset = assets.find(a => a.id === videoAssetId);
+                        setSelectedThumbnail(asset?.thumbnailUrl);
+                    }
+                }
+                if (block.type === 'audio') setSelectedAssetId(block.audio?.assetId);
+            } else {
+                resetState();
             }
-            if (block.type === 'audio') setSelectedAssetId(block.audio?.assetId);
-        } else {
-            resetState();
         }
-      }
-    }, [block, isOpen, isEditing]);
+    }, [block, isOpen, isEditing, assets]);
 
 
     useEffect(() => {
