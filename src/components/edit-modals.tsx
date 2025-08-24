@@ -7,7 +7,7 @@ import * as React from 'react';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import type { Memory, Asset, PublicPageBlock, PublicPage, Design } from '@/lib/types';
 import { db } from '@/lib/firebase/client';
-import { doc, updateDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
+import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -261,12 +261,16 @@ export function PreviewModal({ isOpen, setIsOpen, memory, assets }: { isOpen: bo
                 <DialogHeader className="p-4 border-b bg-background">
                     <DialogTitle>プレビュー</DialogTitle>
                 </DialogHeader>
-                 <div className="flex-1 overflow-auto">
+                 <div 
+                    className="flex-1 overflow-auto"
+                    style={{
+                        background: manifest.design.bgColor || '#F9FAFB',
+                        color: manifest.design.textColor || '#111827',
+                    }}
+                 >
                      <div 
                         className="mx-auto relative"
                         style={{
-                            background: manifest.design.bgColor || '#F9FAFB',
-                            color: manifest.design.textColor || '#111827',
                             fontFamily: manifest.design.fontFamily || 'sans-serif'
                         }}
                     >
@@ -821,21 +825,6 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
 }
 
 // --- Design Modal ---
-const presetColors = [
-    { name: 'Deep Ocean', value: 'linear-gradient(to top, #021B79, #0575E6)' },
-    { name: 'Sunset', value: 'linear-gradient(to top, #ff4e00, #ffb347)' },
-    { name: 'Lush', value: 'linear-gradient(to top, #134E5E, #71B280)' },
-    { name: 'Light', value: '#FFFFFF' },
-    { name: 'Grey', value: '#E0E0E0' },
-    { name: 'Dark', value: '#121212' },
-    { name: 'Canary', value: '#FFF275' },
-    { name: 'Sakura', value: '#FFC0CB' },
-    { name: 'Sky', value: '#A7D2CB' },
-    { name: 'Creamsicle', value: '#FFDAB9' },
-    { name: 'Magenta', value: '#E94560' },
-    { name: 'Royal', value: '#1652f0' },
-];
-
 export function DesignModal({ isOpen, setIsOpen, memory, assets, onUploadSuccess }: { isOpen: boolean, setIsOpen: (open: boolean) => void, memory: Memory, assets: Asset[], onUploadSuccess: (asset: Asset) => void }) {
     const [design, setDesign] = useState<Design>(memory.design);
     const [isSaving, setIsSaving] = useState(false);
@@ -892,17 +881,19 @@ export function DesignModal({ isOpen, setIsOpen, memory, assets, onUploadSuccess
                         <div className="space-y-4">
                              <div>
                                 <Label>背景色</Label>
-                                <div className="grid grid-cols-4 gap-2 mt-2">
-                                    {presetColors.map(color => (
-                                        <button 
-                                            key={color.name}
-                                            onClick={() => handleDesignChange('bgColor', color.value)}
-                                            className="relative aspect-[3/4] rounded-md transition-all duration-200"
-                                            style={{ background: color.value }}
-                                        >
-                                           {design.bgColor === color.value && <div className="absolute inset-0 ring-2 ring-primary ring-offset-2 ring-offset-background rounded-md" />}
-                                        </button>
-                                    ))}
+                                <div className="flex items-center gap-2 mt-2">
+                                     <Input
+                                        type="color"
+                                        value={design.bgColor || '#ffffff'}
+                                        onChange={(e) => handleDesignChange('bgColor', e.target.value)}
+                                        className="w-16 p-1 h-10"
+                                     />
+                                     <Input
+                                        type="text"
+                                        value={design.bgColor || ''}
+                                        onChange={(e) => handleDesignChange('bgColor', e.target.value)}
+                                        placeholder="#FFFFFF"
+                                    />
                                 </div>
                             </div>
                             <div>
@@ -933,18 +924,18 @@ export function DesignModal({ isOpen, setIsOpen, memory, assets, onUploadSuccess
                         <div className="space-y-4">
                              <div>
                                 <Label>テキスト色</Label>
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 mt-2">
                                     <Input 
                                       type="color" 
                                       value={design.textColor || '#000000'}
                                       onChange={(e) => handleDesignChange('textColor', e.target.value)}
-                                      className="w-16 p-1"
+                                      className="w-16 p-1 h-10"
                                     />
                                     <Input
                                         type="text"
                                         value={design.textColor || ''}
                                         onChange={(e) => handleDesignChange('textColor', e.target.value)}
-                                        placeholder="#FFFFFF"
+                                        placeholder="#000000"
                                     />
                                 </div>
                             </div>
@@ -979,4 +970,3 @@ export function DesignModal({ isOpen, setIsOpen, memory, assets, onUploadSuccess
         </Dialog>
     );
 }
-
