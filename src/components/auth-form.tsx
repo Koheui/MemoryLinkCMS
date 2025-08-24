@@ -118,7 +118,7 @@ export function AuthForm({ type }: AuthFormProps) {
         if (error.code) {
             switch (error.code) {
                 case 'auth/email-already-in-use':
-                    description = 'このメールアドレスは既に使用されています。';
+                    description = 'このメールアドレスは既に使用されています。ログイン画面からお進みください。';
                     break;
                 case 'auth/invalid-credential':
                      description = 'メールアドレスまたはパスワードが正しくありません。';
