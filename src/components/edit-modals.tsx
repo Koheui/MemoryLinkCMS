@@ -27,6 +27,47 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 
+// --- Album Detail Modal (Lightbox) ---
+function AlbumDetailModal({ isOpen, setIsOpen, items, startIndex }: { isOpen: boolean, setIsOpen: (open: boolean) => void, items: { src: string, caption?: string }[], startIndex: number }) {
+    const scrollRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (isOpen && scrollRef.current) {
+            const element = scrollRef.current.children[startIndex] as HTMLElement;
+            if (element) {
+                 setTimeout(() => element.scrollIntoView({ behavior: 'auto', block: 'center' }), 100);
+            }
+        }
+    }, [isOpen, startIndex]);
+
+    return (
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogContent className="max-w-4xl w-full h-full sm:h-[95vh] flex flex-col p-0 gap-0 bg-black/90 backdrop-blur-sm border-0">
+                <DialogHeader className="p-4 flex-row items-center justify-between border-b border-white/20 text-white">
+                    <DialogTitle>アルバム</DialogTitle>
+                     <DialogClose className="relative rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
+                        <X className="h-6 w-6" />
+                        <span className="sr-only">Close</span>
+                    </DialogClose>
+                </DialogHeader>
+                <div className="flex-1 overflow-auto p-4 sm:p-8">
+                    <div ref={scrollRef} className="space-y-8">
+                        {items.map((item, index) => (
+                            <div key={index} className="space-y-2">
+                                 <div className="relative w-full aspect-[4/3] rounded-lg overflow-hidden">
+                                    <Image src={item.src} alt={item.caption || 'Album image'} fill className="object-contain" sizes="(max-width: 1024px) 100vw, 80vw" />
+                                </div>
+                                {item.caption && <p className="text-center text-sm text-white/80">{item.caption}</p>}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </DialogContent>
+        </Dialog>
+    )
+}
+
+
 // --- Preview Modal ---
 // This modal reuses the rendering logic from the public page to show an accurate preview.
 
@@ -95,7 +136,7 @@ const blockIcons: { [key: string]: React.ReactNode } = {
   default: <LinkIcon className="h-6 w-6" />,
 };
 
-const BlockRenderer = ({ block }: { block: PublicPageBlock }) => {
+const BlockRenderer = ({ block, setLightboxState }: { block: PublicPageBlock, setLightboxState: (state: { isOpen: boolean, items: any[], startIndex: number }) => void }) => {
     switch (block.type) {
         case 'album':
             return (
@@ -106,19 +147,25 @@ const BlockRenderer = ({ block }: { block: PublicPageBlock }) => {
                            <h3 className="font-semibold text-card-foreground">{block.title}</h3>
                         </div>
                     </CardHeader>
-                    <CardContent className="px-2 sm:px-4">
-                        <Carousel opts={{ loop: true, align: "start" }} className="w-full">
-                            <CarouselContent className="-ml-2">
+                    <CardContent className="pl-4 sm:pl-6">
+                        <Carousel opts={{ align: "start", loop: false }} className="w-full">
+                            <CarouselContent className="-ml-4">
                                 {block.album?.items?.map((item, index) => (
-                                    <CarouselItem key={index} className="pl-2 md:basis-1/2">
-                                        <div className="aspect-video relative rounded-lg overflow-hidden">
-                                           {item.src && <Image src={item.src} alt={block.title || `Album image ${index+1}`} fill className="object-cover" sizes="(max-width: 768px) 50vw, 33vw" />}
-                                        </div>
+                                    <CarouselItem key={index} className="basis-2/3 md:basis-1/2 pl-4">
+                                        <button className="w-full block" onClick={() => setLightboxState({ isOpen: true, items: block.album?.items || [], startIndex: index })}>
+                                            <div className="aspect-square relative rounded-lg overflow-hidden group">
+                                            {item.src && <Image src={item.src} alt={block.title || `Album image ${index+1}`} fill className="object-cover group-hover:scale-105 transition-transform duration-300" sizes="(max-width: 768px) 66vw, 50vw" />}
+                                            </div>
+                                        </button>
                                     </CarouselItem>
                                 ))}
                             </CarouselContent>
-                            <CarouselPrevious className="ml-14 hidden sm:flex" />
-                            <CarouselNext className="mr-14 hidden sm:flex" />
+                             { (block.album?.items?.length || 0) > 1 && (
+                                <>
+                                    <CarouselPrevious className="ml-16 hidden sm:flex" />
+                                    <CarouselNext className="mr-16 hidden sm:flex" />
+                                </>
+                            )}
                         </Carousel>
                     </CardContent>
                 </Card>
@@ -190,9 +237,16 @@ const BlockRenderer = ({ block }: { block: PublicPageBlock }) => {
 
 export function PreviewModal({ isOpen, setIsOpen, memory, assets }: { isOpen: boolean, setIsOpen: (open: boolean) => void, memory: Memory, assets: Asset[] }) {
     const manifest = useMemo(() => convertMemoryToPublicPage(memory, assets), [memory, assets]);
-    const design = manifest.design || {};
+    const [lightboxState, setLightboxState] = useState({ isOpen: false, items: [], startIndex: 0 });
 
     return (
+        <>
+        <AlbumDetailModal 
+            isOpen={lightboxState.isOpen}
+            setIsOpen={(open) => setLightboxState(prev => ({...prev, isOpen: open}))}
+            items={lightboxState.items}
+            startIndex={lightboxState.startIndex}
+        />
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogContent className="max-w-2xl h-full flex flex-col p-0 gap-0 bg-background border-0 shadow-2xl sm:h-[90vh]">
                 <DialogHeader className="p-4 border-b">
@@ -237,7 +291,7 @@ export function PreviewModal({ isOpen, setIsOpen, memory, assets }: { isOpen: bo
                                     .filter(block => block.visibility === 'show')
                                     .sort((a,b) => a.order - b.order)
                                     .map(block => (
-                                <BlockRenderer key={block.id} block={block} />
+                                <BlockRenderer key={block.id} block={block} setLightboxState={setLightboxState} />
                                 ))}
                             </main>
 
@@ -251,6 +305,7 @@ export function PreviewModal({ isOpen, setIsOpen, memory, assets }: { isOpen: bo
                 </DialogFooter>
             </DialogContent>
         </Dialog>
+        </>
     );
 }
 

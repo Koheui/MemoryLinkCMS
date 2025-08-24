@@ -1,13 +1,14 @@
 
 // src/app/p/[pageId]/page.tsx
 'use client';
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, Suspense, useRef } from 'react';
 import { useParams, notFound, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import type { PublicPage, PublicPageBlock, Memory, Asset } from '@/lib/types';
-import { Globe, Phone, Mail, Link as LinkIcon, Music, Clapperboard, Milestone, Camera, Loader2 } from 'lucide-react';
+import { Globe, Phone, Mail, Link as LinkIcon, Music, Clapperboard, Milestone, Camera, Loader2, X } from 'lucide-react';
 import { FaXTwitter, FaInstagram, FaYoutube } from 'react-icons/fa6';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import { Badge } from '@/components/ui/badge';
 import { db } from '@/lib/firebase/client';
@@ -119,6 +120,46 @@ function convertMemoryToPublicPage(memory: Memory, assets: Asset[]): PublicPage 
     };
 }
 
+// --- Album Detail Modal (Lightbox) ---
+function AlbumDetailModal({ isOpen, setIsOpen, items, startIndex }: { isOpen: boolean, setIsOpen: (open: boolean) => void, items: { src: string, caption?: string }[], startIndex: number }) {
+    const scrollRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (isOpen && scrollRef.current) {
+            const element = scrollRef.current.children[startIndex] as HTMLElement;
+            if (element) {
+                 setTimeout(() => element.scrollIntoView({ behavior: 'auto', block: 'center' }), 100);
+            }
+        }
+    }, [isOpen, startIndex]);
+
+    return (
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogContent className="max-w-4xl w-full h-full sm:h-[95vh] flex flex-col p-0 gap-0 bg-black/90 backdrop-blur-sm border-0">
+                <DialogHeader className="p-4 flex-row items-center justify-between border-b border-white/20 text-white">
+                    <DialogTitle>アルバム</DialogTitle>
+                     <DialogClose className="relative rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
+                        <X className="h-6 w-6" />
+                        <span className="sr-only">Close</span>
+                    </DialogClose>
+                </DialogHeader>
+                <div className="flex-1 overflow-auto p-4 sm:p-8">
+                    <div ref={scrollRef} className="space-y-8">
+                        {items.map((item, index) => (
+                            <div key={index} className="space-y-2">
+                                 <div className="relative w-full aspect-[4/3] rounded-lg overflow-hidden">
+                                    <Image src={item.src} alt={item.caption || 'Album image'} fill className="object-contain" sizes="(max-width: 1024px) 100vw, 80vw" />
+                                </div>
+                                {item.caption && <p className="text-center text-sm text-white/80">{item.caption}</p>}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </DialogContent>
+        </Dialog>
+    )
+}
+
 
 const blockIcons: { [key: string]: React.ReactNode } = {
   globe: <Globe className="h-6 w-6" />,
@@ -130,7 +171,7 @@ const blockIcons: { [key: string]: React.ReactNode } = {
   default: <LinkIcon className="h-6 w-6" />,
 };
 
-const BlockRenderer = ({ block }: { block: PublicPageBlock }) => {
+const BlockRenderer = ({ block, setLightboxState }: { block: PublicPageBlock, setLightboxState: (state: { isOpen: boolean, items: any[], startIndex: number }) => void }) => {
     switch (block.type) {
         case 'album':
             return (
@@ -141,19 +182,25 @@ const BlockRenderer = ({ block }: { block: PublicPageBlock }) => {
                            <h3 className="font-semibold text-white">{block.title}</h3>
                         </div>
                     </CardHeader>
-                    <CardContent className="px-2 sm:px-4">
-                        <Carousel opts={{ loop: true, align: "start" }} className="w-full">
-                            <CarouselContent className="-ml-2">
+                    <CardContent className="pl-4 sm:pl-6">
+                        <Carousel opts={{ align: "start", loop: false }} className="w-full">
+                            <CarouselContent className="-ml-4">
                                 {block.album?.items?.map((item, index) => (
-                                    <CarouselItem key={index} className="pl-2 md:basis-1/2">
-                                        <div className="aspect-video relative rounded-lg overflow-hidden">
-                                           {item.src && <Image src={item.src} alt={block.title || `Album image ${index+1}`} fill className="object-cover" />}
-                                        </div>
+                                    <CarouselItem key={index} className="basis-2/3 md:basis-1/2 pl-4">
+                                        <button className="w-full block" onClick={() => setLightboxState({ isOpen: true, items: block.album?.items || [], startIndex: index })}>
+                                            <div className="aspect-square relative rounded-lg overflow-hidden group">
+                                               {item.src && <Image src={item.src} alt={block.title || `Album image ${index+1}`} fill className="object-cover group-hover:scale-105 transition-transform duration-300" sizes="(max-width: 768px) 66vw, 50vw" />}
+                                            </div>
+                                        </button>
                                     </CarouselItem>
                                 ))}
                             </CarouselContent>
-                            <CarouselPrevious className="ml-14 hidden sm:flex" />
-                            <CarouselNext className="mr-14 hidden sm:flex" />
+                            { (block.album?.items?.length || 0) > 1 && (
+                                <>
+                                    <CarouselPrevious className="ml-16 hidden sm:flex" />
+                                    <CarouselNext className="mr-16 hidden sm:flex" />
+                                </>
+                            )}
                         </Carousel>
                     </CardContent>
                 </Card>
@@ -230,6 +277,7 @@ function PageContent() {
   const [manifest, setManifest] = useState<PublicPage | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [lightboxState, setLightboxState] = useState({ isOpen: false, items: [], startIndex: 0 });
 
   useEffect(() => {
     async function loadPageData() {
@@ -296,6 +344,13 @@ function PageContent() {
 
   const design = manifest.design || {};
   return (
+    <>
+    <AlbumDetailModal 
+        isOpen={lightboxState.isOpen}
+        setIsOpen={(open) => setLightboxState(prev => ({...prev, isOpen: open}))}
+        items={lightboxState.items}
+        startIndex={lightboxState.startIndex}
+    />
     <div style={{ 
         backgroundColor: design.bgColor || '#111827', 
         fontFamily: design.fontFamily || 'sans-serif',
@@ -343,7 +398,7 @@ function PageContent() {
                 .filter(block => block.visibility === 'show')
                 .sort((a,b) => a.order - b.order)
                 .map(block => (
-               <BlockRenderer key={block.id} block={block} />
+               <BlockRenderer key={block.id} block={block} setLightboxState={setLightboxState} />
             ))}
         </main>
 
@@ -352,6 +407,7 @@ function PageContent() {
         </footer>
       </div>
     </div>
+    </>
   );
 }
 
