@@ -5,6 +5,7 @@ export interface UserProfile {
   id: string;
   email: string;
   displayName?: string;
+  userType?: 'memorial' | 'birth' | 'pet' | 'artist' | 'other'; // 流入経路を記録
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }

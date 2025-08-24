@@ -27,7 +27,7 @@ import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { Loader2 } from 'lucide-react';
 import type { UserProfile } from '@/lib/types';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 const formSchema = z.object({
   email: z.string().email({ message: '有効なメールアドレスを入力してください。' }),
@@ -46,6 +46,7 @@ export function AuthForm({ type }: AuthFormProps) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const form = useForm<AuthFormValues>({
     resolver: zodResolver(formSchema),
@@ -64,11 +65,14 @@ export function AuthForm({ type }: AuthFormProps) {
       if (type === 'signup') {
         userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
         const user = userCredential.user;
+        const userType = searchParams.get('type') || 'other';
 
         // Create user profile in 'users' collection
         const userRef = doc(db, 'users', user.uid);
         const userProfile: Omit<UserProfile, 'id'> = {
           email: user.email!,
+          // @ts-ignore
+          userType: userType, // Store the type from query param
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         };

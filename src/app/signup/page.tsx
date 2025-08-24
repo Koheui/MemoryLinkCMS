@@ -1,7 +1,12 @@
 import { AuthForm } from '@/components/auth-form';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import Link from 'next/link';
 import { Heart } from 'lucide-react';
+import { Suspense } from 'react';
+
+// AuthFormWrapper to use Suspense for useSearchParams
+function AuthFormWrapper() {
+  return <AuthForm type="signup" />;
+}
 
 export default function SignupPage() {
   return (
@@ -12,7 +17,9 @@ export default function SignupPage() {
           <span>想い出リンク CMS</span>
         </Link>
       </div>
-      <AuthForm type="signup" />;
+      <Suspense fallback={<div>読み込み中...</div>}>
+        <AuthFormWrapper />
+      </Suspense>
     </div>
   )
 }
