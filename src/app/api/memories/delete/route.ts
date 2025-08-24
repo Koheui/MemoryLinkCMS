@@ -2,10 +2,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getUidFromRequest } from '../../_lib/auth';
 import { getAdminApp } from '@/lib/firebase/firebaseAdmin';
-import { getFirestore, writeBatch, collection, query, where, getDocs } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
 import type { Memory, Asset } from '@/lib/types';
 const path = require('path');
+
+// Turbopack/Next.js's bundler can have issues with destructuring imports from 'firebase-admin/firestore'
+// Using require syntax for more stable imports in the API route environment.
+const { getFirestore, writeBatch, collection, query, where, getDocs } = require('firebase-admin/firestore');
+
 
 function err(status: number, msg: string) {
   return NextResponse.json({ error: msg }, { status });
@@ -52,22 +56,28 @@ export async function POST(req: NextRequest) {
     
     const deletionPromises: Promise<any>[] = [];
 
-    assetsSnapshot.forEach(doc => {
+    assetsSnapshot.forEach((doc: any) => {
         const asset = doc.data() as Asset;
         
         // Delete from Storage
         if (asset.storagePath) {
-            deletionPromises.push(storage.file(asset.storagePath).delete().catch(e => console.warn(`Could not delete file ${asset.storagePath}:`, e.message)));
+            deletionPromises.push(storage.file(asset.storagePath).delete().catch((e: any) => console.warn(`Could not delete file ${asset.storagePath}:`, e.message)));
             
             // Also attempt to delete all thumbnail candidates if it's a video
             if (asset.type === 'video' && asset.thumbnailCandidates && asset.thumbnailCandidates.length > 0) {
                  const thumbDir = path.join(path.dirname(asset.storagePath), "thumbnails");
-                 // This is a more aggressive deletion strategy, might need refinement.
-                 // It's safer to delete by known filenames if possible.
-                 // For now, we will assume convention `thumb-*.jpg` is not used and delete based on assetId
-                 const assetId = doc.id;
-                 deletionPromises.push(storage.file(`${thumbDir}/${assetId}_thumb-%s.jpg`).delete().catch(e => console.warn(`Could not delete thumbnail for asset ${assetId}:`, e.message)));
-
+                 asset.thumbnailCandidates.forEach(thumbUrl => {
+                     // Extract file name from URL for deletion
+                     try {
+                        const url = new URL(thumbUrl);
+                        const pathname = decodeURIComponent(url.pathname);
+                        const fileName = path.basename(pathname);
+                        const thumbPath = path.join(thumbDir, fileName);
+                        deletionPromises.push(storage.file(thumbPath).delete().catch((e: any) => console.warn(`Could not delete thumbnail ${thumbPath}:`, e.message)));
+                     } catch(e) {
+                         console.error("Could not parse thumbnail URL to delete from storage:", thumbUrl, e)
+                     }
+                 });
             }
         }
         // Delete asset document from Firestore
@@ -89,6 +99,6 @@ export async function POST(req: NextRequest) {
     if (msg.includes('UNAUTHENTICATED')) {
       return err(401, '認証に失敗しました。');
     }
-    return err(500, 'サーバー内部でエラーが発生しました: ' + msg);
+    return err(500, `サーバー内部でエラーが発生しました: ${msg}`);
   }
 }
