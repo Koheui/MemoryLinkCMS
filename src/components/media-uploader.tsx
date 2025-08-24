@@ -10,7 +10,8 @@ import type { Asset } from '@/lib/types';
 
 export interface MediaUploaderRef {
   triggerUpload: () => void;
-  uploadFile: (file: File) => Promise<Asset | null>;
+  uploadFile: (file: File, assetId: string) => Promise<Asset | null>;
+  createPlaceholderAsset: (file: File) => Promise<Asset | null>;
 }
 
 interface MediaUploaderProps {
@@ -28,41 +29,70 @@ export const MediaUploader = React.forwardRef<MediaUploaderRef, MediaUploaderPro
     const { toast } = useToast();
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const uploadFile = async (file: File): Promise<Asset | null> => {
+    const createPlaceholderAsset = async (file: File): Promise<Asset | null> => {
+        if (!user) {
+            toast({ variant: 'destructive', title: 'エラー', description: 'ログインしていません。' });
+            return null;
+        }
+
+        try {
+            const assetCollectionRef = collection(db, 'assets');
+            const assetData: Omit<Asset, 'id' | 'createdAt' | 'updatedAt'| 'url' | 'storagePath'> = {
+                ownerUid: user.uid,
+                memoryId: memoryId || null,
+                name: file.name,
+                type: file.type.startsWith('image') ? 'image' : file.type.startsWith('video') ? 'video' : 'audio',
+                size: file.size,
+            };
+
+            const docRef = await addDoc(assetCollectionRef, {
+                ...assetData,
+                url: '', // Initially empty
+                storagePath: '', // Initially empty
+                thumbnailUrl: null,
+                thumbnailCandidates: [],
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+            });
+
+            const placeholderSnapshot = await getDoc(docRef);
+            const placeholderDocData = placeholderSnapshot.data();
+            
+            const placeholderAsset: Asset = {
+                id: placeholderSnapshot.id,
+                 ...placeholderDocData,
+                createdAt: (placeholderDocData?.createdAt as Timestamp)?.toDate(),
+                updatedAt: (placeholderDocData?.updatedAt as Timestamp)?.toDate(),
+            } as Asset;
+
+            return placeholderAsset;
+
+        } catch (error: any) {
+            console.error("Placeholder asset creation failed:", error);
+            toast({ variant: 'destructive', title: 'エラー', description: `プレースホルダーの作成に失敗しました: ${error.message}` });
+            return null;
+        }
+    }
+
+    const uploadFile = async (file: File, assetId: string): Promise<Asset | null> => {
         if (!user) {
             toast({ variant: 'destructive', title: 'エラー', description: 'ログインしていません。' });
             return null;
         }
 
         const storagePath = memoryId
-            ? `users/${user.uid}/memories/${memoryId}/assets/${Date.now()}_${file.name}`
-            : `users/${user.uid}/library/${Date.now()}_${file.name}`;
+            ? `users/${user.uid}/memories/${memoryId}/assets/${assetId}_${file.name}`
+            : `users/${user.uid}/library/${assetId}_${file.name}`;
             
-        const assetCollectionRef = collection(db, 'assets');
+        const assetDocRef = doc(db, 'assets', assetId);
 
         try {
-            const assetData: Omit<Asset, 'id' | 'createdAt' | 'updatedAt' | 'url'> = {
-                ownerUid: user.uid,
-                memoryId: memoryId || null,
-                name: file.name,
-                type: file.type.startsWith('image') ? 'image' : file.type.startsWith('video') ? 'video' : 'audio',
-                size: file.size,
-                storagePath: storagePath,
-            };
-
-            const docRef = await addDoc(assetCollectionRef, {
-                ...assetData,
-                url: '',
-                thumbnailUrl: null, // Initialize as null
-                thumbnailCandidates: [], // Initialize as empty array
-                createdAt: serverTimestamp(),
-                updatedAt: serverTimestamp(),
-            });
+            await updateDoc(assetDocRef, { storagePath });
 
             const storageRef = ref(storage, storagePath);
             const metadata = { 
                 contentType: file.type,
-                customMetadata: { assetId: docRef.id }
+                customMetadata: { assetId: assetId }
             };
 
             return new Promise((resolve, reject) => {
@@ -73,17 +103,17 @@ export const MediaUploader = React.forwardRef<MediaUploaderRef, MediaUploaderPro
                     (error) => {
                         console.error("Upload failed:", error);
                         toast({ variant: 'destructive', title: 'アップロード失敗', description: error.message });
+                        // TODO: Maybe delete the placeholder doc here.
                         reject(error);
                     },
                     async () => {
                         const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-                        const finalAssetDoc = doc(db, 'assets', docRef.id);
-                        await updateDoc(finalAssetDoc, {
+                        await updateDoc(assetDocRef, {
                             url: downloadURL,
                             updatedAt: serverTimestamp(),
                         });
                         
-                        const finalAssetSnapshot = await getDoc(finalAssetDoc);
+                        const finalAssetSnapshot = await getDoc(assetDocRef);
                         const finalDocData = finalAssetSnapshot.data();
 
                         const finalAsset: Asset = { 
@@ -112,7 +142,8 @@ export const MediaUploader = React.forwardRef<MediaUploaderRef, MediaUploaderPro
       triggerUpload: () => {
         fileInputRef.current?.click();
       },
-      uploadFile
+      uploadFile,
+      createPlaceholderAsset,
     }));
 
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -122,7 +153,10 @@ export const MediaUploader = React.forwardRef<MediaUploaderRef, MediaUploaderPro
       if (onFileSelected) {
         onFileSelected(file);
       } else {
-        uploadFile(file);
+        // This direct upload is now discouraged in favor of the placeholder flow
+        createPlaceholderAsset(file).then(placeholder => {
+            if(placeholder) uploadFile(file, placeholder.id);
+        })
       }
       
       if (fileInputRef.current) fileInputRef.current.value = "";

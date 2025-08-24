@@ -231,13 +231,15 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
     const [blockType, setBlockType] = useState<PublicPageBlock['type'] | null>(null);
     const [title, setTitle] = useState('');
     const [selectedAssetId, setSelectedAssetId] = useState<string | undefined>(undefined);
-    const [fileToUpload, setFileToUpload] = useState<File | null>(null);
+    
+    // This state will hold the file while it's being prepared for upload.
+    const [pendingUpload, setPendingUpload] = useState<{file: File, tempId: string} | null>(null);
+
     const [textContent, setTextContent] = useState('');
     const [photoCaption, setPhotoCaption] = useState('');
     const [selectedThumbnail, setSelectedThumbnail] = useState<string | undefined>(undefined);
     
     const [isSaving, setIsSaving] = useState(false);
-    const [isUploading, setIsUploading] = useState(false);
     const { toast } = useToast();
     const isEditing = block !== null;
     const uploaderRef = useRef<MediaUploaderRef>(null);
@@ -254,9 +256,8 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
         setPhotoCaption('');
         setSelectedAssetId(undefined);
         setSelectedThumbnail(undefined);
-        setFileToUpload(null);
+        setPendingUpload(null);
         setIsSaving(false);
-        setIsUploading(false);
     }
 
     useEffect(() => {
@@ -289,20 +290,37 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
             setSelectedThumbnail(selectedAsset.thumbnailUrl);
         }
     }, [selectedAsset]);
-    
-    const handleUploadSuccess = (asset: Asset) => {
-        onUploadSuccess(asset);
-        setSelectedAssetId(asset.id);
-        toast({ title: "アップロード完了", description: "メディアを選択しました。"});
-    }
 
+    const handleFileSelectedForUpload = async (file: File) => {
+        if (!uploaderRef.current) {
+            toast({variant: 'destructive', title: "エラー", description: "アップローダーの準備ができていません。"});
+            return;
+        }
+
+        try {
+            // Create a placeholder asset in Firestore first to get an ID.
+            const placeholderAsset = await uploaderRef.current.createPlaceholderAsset(file);
+            if(placeholderAsset) {
+                onUploadSuccess(placeholderAsset); // Add to local state immediately
+                setSelectedAssetId(placeholderAsset.id);
+                setPendingUpload({file, tempId: placeholderAsset.id});
+                
+                // Start the actual upload in the background.
+                uploaderRef.current.uploadFile(file, placeholderAsset.id);
+            }
+        } catch (error: any) {
+             console.error("Placeholder creation failed:", error);
+             toast({variant: 'destructive', title: "エラー", description: `アップロードの準備に失敗しました: ${error.message}`});
+        }
+    };
+    
     const handleSave = async () => {
         if (!blockType) {
             toast({ variant: 'destructive', title: 'エラー', description: 'ブロックタイプを選択してください。' });
             return;
         }
 
-        if (['photo', 'video', 'audio'].includes(blockType) && !selectedAssetId && !fileToUpload) {
+        if (['photo', 'video', 'audio'].includes(blockType) && !selectedAssetId) {
              toast({ variant: 'destructive', title: 'エラー', description: 'メディアファイルを選択またはアップロードしてください。' });
             return;
         }
@@ -312,28 +330,14 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
         try {
             let finalAssetId = selectedAssetId;
 
-            // If a new file is selected, upload it first.
-            if (fileToUpload) {
-                setIsUploading(true);
-                const newAsset = await uploaderRef.current?.uploadFile(fileToUpload);
-                if (!newAsset) throw new Error("アップロードに失敗しました。");
-                
-                finalAssetId = newAsset.id;
-                onUploadSuccess(newAsset);
-                setIsUploading(false);
-            }
-
-            if (!finalAssetId && ['photo', 'video', 'audio'].includes(blockType)) {
-                throw new Error("アセットIDがありません。");
-            }
-
             const newBlockData: any = { type: blockType, title, visibility: 'show' };
             if (blockType === 'text') newBlockData.text = { content: textContent };
             if (blockType === 'photo') newBlockData.photo = { assetId: finalAssetId, caption: photoCaption };
             if (blockType === 'video') newBlockData.video = { assetId: finalAssetId };
             if (blockType === 'audio') newBlockData.audio = { assetId: finalAssetId };
             
-            if (blockType === 'video' && finalAssetId && selectedThumbnail && selectedAsset?.thumbnailUrl !== selectedThumbnail) {
+            // If a thumbnail for an existing video was changed, update it.
+            if (blockType === 'video' && finalAssetId && !pendingUpload && selectedThumbnail && selectedAsset?.thumbnailUrl !== selectedThumbnail) {
                 const assetRef = doc(db, 'assets', finalAssetId);
                 await updateDoc(assetRef, { thumbnailUrl: selectedThumbnail });
                 onUploadSuccess({...selectedAsset, thumbnailUrl: selectedThumbnail} as Asset);
@@ -347,7 +351,6 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
             toast({ variant: 'destructive', title: 'エラー', description: error.message || 'ブロックの保存に失敗しました。' });
         } finally {
             setIsSaving(false);
-            setIsUploading(false);
         }
     };
     
@@ -359,31 +362,29 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
         <div className="space-y-2">
             <Label>メディア選択</Label>
             <div className="flex gap-2">
-                <Select onValueChange={(value) => { setSelectedAssetId(value || undefined); setFileToUpload(null); }} value={selectedAssetId}>
+                <Select onValueChange={(value) => { setSelectedAssetId(value || undefined); setPendingUpload(null); }} value={selectedAssetId}>
                     <SelectTrigger><SelectValue placeholder={placeholder} /></SelectTrigger>
                     <SelectContent>
-                        {availableAssets.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+                        {availableAssets.map(a => <SelectItem key={a.id} value={a.id} disabled={!a.url}>{a.name}{!a.url && " (処理中...)"}</SelectItem>)}
                     </SelectContent>
                 </Select>
-                <MediaUploader
+                 <MediaUploader
                     ref={uploaderRef}
                     assetType={type}
                     accept={`${type}/*`}
                     memoryId={memory.id}
-                    onFileSelected={(file) => {
-                        setFileToUpload(file);
-                        setSelectedAssetId(undefined); // Unset existing selection
-                    }}
-                    onUploadSuccess={handleUploadSuccess}
+                    onFileSelected={handleFileSelectedForUpload}
+                    onUploadSuccess={onUploadSuccess}
                 >
                     <Button type="button" variant="outline" size="icon">
                         <Upload className="h-4 w-4"/>
                     </Button>
                 </MediaUploader>
             </div>
-             {fileToUpload && (
-                <div className="mt-2 text-sm text-muted-foreground p-2 bg-muted rounded-md">
-                    選択中のファイル: {fileToUpload.name}
+             {pendingUpload && pendingUpload.tempId === selectedAssetId && (
+                <div className="mt-2 text-sm text-muted-foreground p-2 bg-muted rounded-md flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>アップロード中: {pendingUpload.file.name}</span>
                 </div>
             )}
         </div>
@@ -407,7 +408,7 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
             specificFields = (
                  <div className="space-y-4">
                     {renderAssetSelector('image', imageAssets, '写真を選択...')}
-                    {(selectedAsset?.url && !fileToUpload) && (
+                    {(selectedAsset?.url) && (
                          <div className="mt-2 rounded-md overflow-hidden aspect-video relative bg-muted flex items-center justify-center">
                             <Image src={selectedAsset.url} alt="Preview" fill sizes="(max-width: 768px) 100vw, 50vw" className="object-cover" />
                         </div>
@@ -422,10 +423,10 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
             specificFields = (
                  <div className="space-y-4">
                     {renderAssetSelector('video', videoAssets, '動画を選択...')}
-                    {(selectedAsset && !fileToUpload) && (
+                    {(selectedAsset) && (
                          <div className="space-y-2">
                              <Label>サムネイル選択</Label>
-                             <div className="flex gap-2 items-center">
+                             <div className="flex gap-2 items-center flex-wrap">
                                  {(selectedAsset.thumbnailCandidates && selectedAsset.thumbnailCandidates.length > 0) ? (
                                     selectedAsset.thumbnailCandidates.map((url, index) => (
                                         <div key={index} className="relative cursor-pointer" onClick={() => setSelectedThumbnail(url)}>
@@ -436,7 +437,7 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
                                  ) : (
                                     <div className="w-full text-center py-4 text-sm text-muted-foreground bg-muted rounded-md flex items-center justify-center gap-2">
                                         <Loader2 className="h-4 w-4 animate-spin"/>
-                                        サムネイル候補を生成中...
+                                        { selectedAsset.url ? "サムネイル候補を生成中..." : "動画をアップロード中..."}
                                     </div>
                                  )}
                              </div>
@@ -448,10 +449,11 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
              specificFields = (
                  <div className="space-y-4">
                     {renderAssetSelector('audio', audioAssets, '音声を選択...')}
-                    {(selectedAsset && !fileToUpload) && (
+                    {(selectedAsset) && (
                         <div className="mt-2 rounded-md p-4 bg-muted flex items-center gap-3 text-muted-foreground">
                             <Music className="w-6 h-6" />
                             <p className="text-sm font-medium">{selectedAsset.name}</p>
+                            {!selectedAsset.url && <Loader2 className="h-4 w-4 animate-spin ml-auto" />}
                         </div>
                     )}
                  </div>
@@ -478,7 +480,6 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
     };
     
     const getSaveButtonText = () => {
-        if (isUploading) return "アップロード中...";
         if (isSaving) return "保存中...";
         return "保存";
     }
@@ -499,8 +500,8 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
                     <DialogFooter>
                         {!isEditing && <Button variant="ghost" onClick={() => setBlockType(null)}>戻る</Button>}
                         <DialogClose asChild><Button variant="outline">キャンセル</Button></DialogClose>
-                        <Button onClick={handleSave} disabled={isSaving || isUploading}>
-                            {(isSaving || isUploading) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        <Button onClick={handleSave} disabled={isSaving}>
+                            {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             {getSaveButtonText()}
                         </Button>
                     </DialogFooter>
