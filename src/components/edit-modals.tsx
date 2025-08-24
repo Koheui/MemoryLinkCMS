@@ -138,15 +138,29 @@ const blockIcons: { [key: string]: React.ReactNode } = {
   default: <LinkIcon className="h-6 w-6" />,
 };
 
-const BlockRenderer = ({ block, setLightboxState }: { block: PublicPageBlock, setLightboxState: (state: { isOpen: boolean, items: any[], startIndex: number }) => void }) => {
+const BlockRenderer = ({ block, design, setLightboxState }: { block: PublicPageBlock, design: Design, setLightboxState: (state: { isOpen: boolean, items: any[], startIndex: number }) => void }) => {
+    const cardStyle = {
+        backgroundColor: design.cardBgColor,
+        color: design.cardTextColor,
+    };
+    
+    const textStyle = {
+        color: design.cardTextColor
+    }
+    
+    const mutedTextStyle = {
+        color: design.cardTextColor,
+        opacity: 0.7,
+    }
+
     switch (block.type) {
         case 'album':
             return (
-                <Card className="overflow-hidden bg-card/80 border-border shadow-lg backdrop-blur-sm">
+                <Card style={cardStyle} className="overflow-hidden shadow-lg backdrop-blur-sm">
                     <CardHeader>
                         <div className="flex items-center gap-3">
-                           <Milestone className="h-5 w-5 text-muted-foreground" />
-                           <h3 className="font-semibold text-card-foreground">{block.title}</h3>
+                           <Milestone style={mutedTextStyle} className="h-5 w-5" />
+                           <h3 style={textStyle} className="font-semibold">{block.title}</h3>
                         </div>
                     </CardHeader>
                     <CardContent className="pl-4 sm:pl-6">
@@ -174,21 +188,21 @@ const BlockRenderer = ({ block, setLightboxState }: { block: PublicPageBlock, se
             );
         case 'photo':
              return (
-                 <Card className="overflow-hidden bg-card/80 border-border shadow-lg backdrop-blur-sm">
+                 <Card style={cardStyle} className="overflow-hidden shadow-lg backdrop-blur-sm">
                     {block.photo?.src && (
                          <div className="aspect-video relative w-full">
                              <Image src={block.photo.src} alt={block.title || "Single photo"} fill className="object-cover" sizes="(max-width: 768px) 100vw, 50vw" />
                          </div>
                     )}
                     <CardContent className="p-4">
-                        <h3 className="font-semibold text-card-foreground">{block.title}</h3>
-                        {block.photo?.caption && <p className="text-sm text-muted-foreground mt-1">{block.photo.caption}</p>}
+                        <h3 style={textStyle} className="font-semibold">{block.title}</h3>
+                        {block.photo?.caption && <p style={mutedTextStyle} className="text-sm mt-1">{block.photo.caption}</p>}
                     </CardContent>
                 </Card>
             );
         case 'video':
             return (
-                 <Card className="overflow-hidden bg-card/80 border-border shadow-lg group backdrop-blur-sm">
+                 <Card style={cardStyle} className="overflow-hidden shadow-lg group backdrop-blur-sm">
                     <div className="aspect-video relative w-full bg-black">
                         {block.video?.poster ? (
                              <Image src={block.video.poster} alt={block.title || "Video thumbnail"} fill className="object-cover opacity-80 group-hover:opacity-60 transition-opacity" sizes="(max-width: 768px) 100vw, 50vw" />
@@ -198,35 +212,35 @@ const BlockRenderer = ({ block, setLightboxState }: { block: PublicPageBlock, se
                         </div>
                     </div>
                     <CardContent className="p-4">
-                        <h3 className="font-semibold text-card-foreground">{block.title}</h3>
+                        <h3 style={textStyle} className="font-semibold">{block.title}</h3>
                     </CardContent>
                 </Card>
             );
         case 'audio':
               return (
-                 <Card className="flex items-center gap-4 p-4 bg-card/80 border-border shadow-lg backdrop-blur-sm">
+                 <Card style={cardStyle} className="flex items-center gap-4 p-4 shadow-lg backdrop-blur-sm">
                     <div className="flex-shrink-0">
-                        <Music className="h-8 w-8 text-muted-foreground" />
+                        <Music style={mutedTextStyle} className="h-8 w-8" />
                     </div>
                     <div className="flex-grow">
-                        <h3 className="font-semibold text-card-foreground">{block.title}</h3>
+                        <h3 style={textStyle} className="font-semibold">{block.title}</h3>
                     </div>
                     <div className="flex-shrink-0">
-                       <Badge variant="outline" className="text-foreground border-border">再生</Badge>
+                       <Badge variant="outline" className="border-current">再生</Badge>
                     </div>
                 </Card>
             );
         case 'text':
              return (
-               <a href="#" className="group block w-full rounded-xl bg-card/80 p-2 shadow-lg ring-1 ring-border backdrop-blur-sm transition-all duration-300 ease-in-out hover:scale-[1.02] hover:bg-accent hover:shadow-2xl hover:ring-accent">
+               <a href="#" style={cardStyle} className="group block w-full rounded-xl p-2 shadow-lg ring-1 ring-black/10 backdrop-blur-sm transition-all duration-300 ease-in-out hover:scale-[1.02] hover:shadow-2xl">
                     <div className="flex items-center gap-4 rounded-lg bg-transparent p-3">
-                        <div className="flex-shrink-0 text-muted-foreground group-hover:text-accent-foreground">
+                        <div style={mutedTextStyle} className="flex-shrink-0">
                            {blockIcons[block.icon || 'default'] || blockIcons.default}
                         </div>
-                        <div className="flex-grow text-left text-lg font-semibold text-card-foreground group-hover:text-accent-foreground">
+                        <div style={textStyle} className="flex-grow text-left text-lg font-semibold">
                             {block.title}
                         </div>
-                         <div className="flex-shrink-0 text-muted-foreground/50 transition-transform group-hover:text-accent-foreground/60 group-hover:translate-x-1">
+                         <div style={mutedTextStyle} className="flex-shrink-0 transition-transform group-hover:translate-x-1">
                             <LinkIcon className="h-5 w-5" />
                         </div>
                     </div>
@@ -263,16 +277,14 @@ export function PreviewModal({ isOpen, setIsOpen, memory, assets }: { isOpen: bo
                 </DialogHeader>
                  <div 
                     className="flex-1 overflow-auto"
-                    style={{
-                        background: manifest.design.bgColor || '#F9FAFB',
-                        color: manifest.design.textColor || '#111827',
-                    }}
                  >
                      <div 
                         className="mx-auto relative"
                         style={{
+                            backgroundColor: manifest.design.bgColor,
+                            color: manifest.design.textColor,
                             fontFamily: manifest.design.fontFamily || 'sans-serif'
-                        }}
+                        } as React.CSSProperties}
                     >
                          {backgroundImage && (
                             <div className="absolute inset-0 z-0">
@@ -318,7 +330,7 @@ export function PreviewModal({ isOpen, setIsOpen, memory, assets }: { isOpen: bo
                                     .filter(block => block.visibility === 'show')
                                     .sort((a,b) => a.order - b.order)
                                     .map(block => (
-                                <BlockRenderer key={block.id} block={block} setLightboxState={setLightboxState} />
+                                <BlockRenderer key={block.id} block={block} design={manifest.design} setLightboxState={setLightboxState} />
                                 ))}
                             </main>
 
@@ -874,13 +886,14 @@ export function DesignModal({ isOpen, setIsOpen, memory, assets, onUploadSuccess
                 <Tabs defaultValue="background" className="py-4">
                     <TabsList>
                         <TabsTrigger value="background">背景</TabsTrigger>
+                        <TabsTrigger value="card">カード</TabsTrigger>
                         <TabsTrigger value="text">テキスト</TabsTrigger>
                         <TabsTrigger value="theme">テーマ</TabsTrigger>
                     </TabsList>
                     <TabsContent value="background" className="mt-4">
                         <div className="space-y-4">
                              <div>
-                                <Label>背景色</Label>
+                                <Label>ページ背景色</Label>
                                 <div className="flex items-center gap-2 mt-2">
                                      <Input
                                         type="color"
@@ -897,7 +910,7 @@ export function DesignModal({ isOpen, setIsOpen, memory, assets, onUploadSuccess
                                 </div>
                             </div>
                             <div>
-                                <Label>背景画像</Label>
+                                <Label>ページ背景画像</Label>
                                  <div className="flex gap-2">
                                      <Select onValueChange={(value) => handleDesignChange('backgroundImageAssetId', value !== 'no-selection' ? value : null)} value={design.backgroundImageAssetId ?? 'no-selection'}>
                                         <SelectTrigger><SelectValue placeholder="背景画像を選択..." /></SelectTrigger>
@@ -920,10 +933,48 @@ export function DesignModal({ isOpen, setIsOpen, memory, assets, onUploadSuccess
                             </div>
                         </div>
                     </TabsContent>
+                    <TabsContent value="card" className="mt-4">
+                         <div className="space-y-4">
+                            <div>
+                                <Label>カード背景色</Label>
+                                <div className="flex items-center gap-2 mt-2">
+                                    <Input 
+                                      type="color" 
+                                      value={design.cardBgColor || '#FFFFFF'}
+                                      onChange={(e) => handleDesignChange('cardBgColor', e.target.value)}
+                                      className="w-16 p-1 h-10"
+                                    />
+                                    <Input
+                                        type="text"
+                                        value={design.cardBgColor || ''}
+                                        onChange={(e) => handleDesignChange('cardBgColor', e.target.value)}
+                                        placeholder="#FFFFFF"
+                                    />
+                                </div>
+                            </div>
+                             <div>
+                                <Label>カード文字色</Label>
+                                <div className="flex items-center gap-2 mt-2">
+                                    <Input 
+                                      type="color" 
+                                      value={design.cardTextColor || '#000000'}
+                                      onChange={(e) => handleDesignChange('cardTextColor', e.target.value)}
+                                      className="w-16 p-1 h-10"
+                                    />
+                                    <Input
+                                        type="text"
+                                        value={design.cardTextColor || ''}
+                                        onChange={(e) => handleDesignChange('cardTextColor', e.target.value)}
+                                        placeholder="#000000"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </TabsContent>
                     <TabsContent value="text" className="mt-4">
                         <div className="space-y-4">
                              <div>
-                                <Label>テキスト色</Label>
+                                <Label>ページ全体 文字色</Label>
                                 <div className="flex items-center gap-2 mt-2">
                                     <Input 
                                       type="color" 

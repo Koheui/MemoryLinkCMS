@@ -14,6 +14,8 @@ export interface Design {
   accentColor?: string;
   bgColor?: string;
   textColor?: string;
+  cardBgColor?: string;
+  cardTextColor?: string;
   backgroundImageAssetId?: string;
   fontScale: number;
   fontFamily?: string;
