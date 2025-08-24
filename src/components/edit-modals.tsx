@@ -227,7 +227,7 @@ export function AboutModal({ isOpen, setIsOpen, memory, assets, onUploadSuccess,
 export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, onUploadSuccess }: { isOpen: boolean, setIsOpen: (open: boolean) => void, memory: Memory, assets: Asset[], block: PublicPageBlock | null, onSave: (data: Omit<PublicPageBlock, 'id'|'order'|'createdAt'|'updatedAt'>, block?: PublicPageBlock | null) => void, onUploadSuccess: (asset: Asset) => void }) {
     const [blockType, setBlockType] = useState<PublicPageBlock['type'] | null>(null);
     const [title, setTitle] = useState('');
-    const [selectedAssetId, setSelectedAssetId] = useState<string | undefined>(undefined);
+    const [selectedAsset, setSelectedAsset] = useState<Asset | undefined>(undefined);
     
     const [textContent, setTextContent] = useState('');
     const [photoCaption, setPhotoCaption] = useState('');
@@ -239,42 +239,41 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
     const imageAssets = useMemo(() => assets.filter(a => a.type === 'image'), [assets]);
     const videoAssets = useMemo(() => assets.filter(a => a.type === 'video'), [assets]);
     const audioAssets = useMemo(() => assets.filter(a => a.type === 'audio'), [assets]);
-    const selectedAsset = useMemo(() => assets.find(a => a.id === selectedAssetId), [selectedAssetId, assets]);
 
     const resetState = (retainBlockType = false) => {
         if (!retainBlockType) setBlockType(null);
         setTitle('');
         setTextContent('');
         setPhotoCaption('');
-        setSelectedAssetId(undefined);
+        setSelectedAsset(undefined);
         setIsSaving(false);
     }
     
     useEffect(() => {
         if (isOpen) {
-            const isDifferentBlock = isEditing && block && block.id !== (block && block.id);
-            if (!isEditing || isDifferentBlock) {
-                 if (!blockType) { // Only reset fully if no type is selected yet
-                    resetState();
+            if (isEditing && block) {
+                if (blockType !== block.type) { // only reset fully if type changes
+                     resetState();
                 }
-            } else if (isEditing && block) {
                 setBlockType(block.type);
                 setTitle(block.title || '');
                 if (block.type === 'text') setTextContent(block.text?.content || '');
                 if (block.type === 'photo') {
-                    setSelectedAssetId(block.photo?.assetId);
+                    setSelectedAsset(assets.find(a => a.id === block.photo?.assetId));
                     setPhotoCaption(block.photo?.caption || '');
                 }
-                if (block.type === 'video') setSelectedAssetId(block.video?.assetId);
-                if (block.type === 'audio') setSelectedAssetId(block.audio?.assetId);
+                if (block.type === 'video') setSelectedAsset(assets.find(a => a.id === block.video?.assetId));
+                if (block.type === 'audio') setSelectedAsset(assets.find(a => a.id === block.audio?.assetId));
+            } else if (!isEditing && !blockType) {
+                 resetState();
             }
         }
-    }, [block, isOpen, isEditing, blockType]);
+    }, [block, isOpen, isEditing, assets, blockType]);
 
 
     const handleUploadCompleted = (newAsset: Asset) => {
         onUploadSuccess(newAsset);
-        setSelectedAssetId(newAsset.id);
+        setSelectedAsset(newAsset);
         toast({ title: 'アップロード完了', description: `${newAsset.name}がライブラリに追加されました。` });
     }
 
@@ -284,7 +283,7 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
             return;
         }
 
-        if (['photo', 'video', 'audio'].includes(blockType) && !selectedAssetId) {
+        if (['photo', 'video', 'audio'].includes(blockType) && !selectedAsset?.id) {
              toast({ variant: 'destructive', title: 'エラー', description: 'メディアファイルを選択またはアップロードしてください。' });
             return;
         }
@@ -294,9 +293,9 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
         try {
             const newBlockData: any = { type: blockType, title, visibility: 'show' };
             if (blockType === 'text') newBlockData.text = { content: textContent };
-            if (blockType === 'photo') newBlockData.photo = { assetId: selectedAssetId, caption: photoCaption };
-            if (blockType === 'video') newBlockData.video = { assetId: selectedAssetId };
-            if (blockType === 'audio') newBlockData.audio = { assetId: selectedAssetId };
+            if (blockType === 'photo') newBlockData.photo = { assetId: selectedAsset!.id, caption: photoCaption };
+            if (blockType === 'video') newBlockData.video = { assetId: selectedAsset!.id };
+            if (blockType === 'audio') newBlockData.audio = { assetId: selectedAsset!.id };
             
             await onSave(newBlockData, block);
             
@@ -317,7 +316,7 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
         <div className="space-y-2">
             <Label>メディア選択</Label>
             <div className="flex gap-2">
-                <Select onValueChange={(value) => { setSelectedAssetId(value || undefined); }} value={selectedAssetId}>
+                <Select onValueChange={(value) => { setSelectedAsset(assets.find(a => a.id === value)); }} value={selectedAsset?.id}>
                     <SelectTrigger><SelectValue placeholder={placeholder} /></SelectTrigger>
                     <SelectContent>
                         {availableAssets.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
@@ -379,7 +378,7 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
                                  ) : (
                                      <div className="text-muted-foreground flex flex-col items-center gap-2">
                                        <Loader2 className="h-6 w-6 animate-spin"/>
-                                       <span className="text-xs">サムネイル生成中...</span>
+                                       <span className="text-xs">サムネイル準備中...</span>
                                      </div>
                                  )}
                              </div>
