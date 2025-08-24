@@ -372,7 +372,7 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
                     {(selectedAsset) && (
                          <div className="space-y-2">
                              <Label>サムネイルプレビュー</Label>
-                             <div className="w-full aspect-video bg-muted rounded-md flex items-center justify-center">
+                             <div className="w-full aspect-video bg-muted rounded-md flex items-center justify-center relative">
                                  {selectedAsset.thumbnailUrl ? (
                                     <Image src={selectedAsset.thumbnailUrl} alt="サムネイル" fill sizes="(max-width: 768px) 100vw, 50vw" className="object-cover rounded-md" />
                                  ) : (
@@ -451,3 +451,4 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
         </Dialog>
     );
 }
+
