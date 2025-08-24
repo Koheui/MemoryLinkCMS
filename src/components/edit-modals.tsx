@@ -298,15 +298,11 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
         }
 
         try {
-            // Create a placeholder asset in Firestore first to get an ID.
             const placeholderAsset = await uploaderRef.current.createPlaceholderAsset(file);
             if(placeholderAsset) {
-                onUploadSuccess(placeholderAsset); // Add to local state immediately
+                onUploadSuccess(placeholderAsset);
                 setSelectedAssetId(placeholderAsset.id);
                 setPendingUpload({file, tempId: placeholderAsset.id});
-                
-                // Start the actual upload in the background.
-                uploaderRef.current.uploadFile(file, placeholderAsset.id);
             }
         } catch (error: any) {
              console.error("Placeholder creation failed:", error);
@@ -320,7 +316,7 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
             return;
         }
 
-        if (['photo', 'video', 'audio'].includes(blockType) && !selectedAssetId) {
+        if (['photo', 'video', 'audio'].includes(blockType) && !selectedAssetId && !pendingUpload) {
              toast({ variant: 'destructive', title: 'エラー', description: 'メディアファイルを選択またはアップロードしてください。' });
             return;
         }
@@ -329,6 +325,13 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
 
         try {
             let finalAssetId = selectedAssetId;
+
+            // If a file is pending upload, start the upload process and use its ID.
+            if (pendingUpload && uploaderRef.current) {
+                finalAssetId = pendingUpload.tempId;
+                // Start upload but don't wait for it to finish.
+                uploaderRef.current.uploadFile(pendingUpload.file, pendingUpload.tempId);
+            }
 
             const newBlockData: any = { type: blockType, title, visibility: 'show' };
             if (blockType === 'text') newBlockData.text = { content: textContent };
