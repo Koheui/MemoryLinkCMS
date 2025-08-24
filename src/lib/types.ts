@@ -13,6 +13,8 @@ export interface Design {
   theme: 'light' | 'dark' | 'cream' | 'ink';
   accentColor?: string;
   bgColor?: string;
+  textColor?: string;
+  backgroundImageAssetId?: string;
   fontScale: number;
   fontFamily?: string;
   headlineFontFamily?: string;

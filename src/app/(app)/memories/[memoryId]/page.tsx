@@ -8,14 +8,14 @@ import { db } from '@/lib/firebase/client';
 import { doc, getDoc, Timestamp, updateDoc, serverTimestamp, collection, getDocs, query, where, onSnapshot } from 'firebase/firestore';
 import { notFound, useParams } from 'next/navigation';
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { Eye, Loader2, PlusCircle, Edit, Image as ImageIcon, Trash2, GripVertical, Type as TypeIcon, Video as VideoIcon, Mic, Album, Clapperboard } from 'lucide-react';
+import { Eye, Loader2, PlusCircle, Edit, Image as ImageIcon, Trash2, GripVertical, Type as TypeIcon, Video as VideoIcon, Mic, Album, Clapperboard, Palette } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
-import { AboutModal, CoverPhotoModal, BlockModal, PreviewModal } from '@/components/edit-modals';
+import { AboutModal, CoverPhotoModal, BlockModal, PreviewModal, DesignModal } from '@/components/edit-modals';
 import { v4 as uuidv4 } from 'uuid';
 import {
   AlertDialog,
@@ -45,6 +45,7 @@ export default function MemoryEditorPage() {
   const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
   const [isBlockModalOpen, setIsBlockModalOpen] = useState(false);
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
+  const [isDesignModalOpen, setIsDesignModalOpen] = useState(false);
   const [editingBlock, setEditingBlock] = useState<PublicPageBlock | null>(null);
   const [blockToDelete, setBlockToDelete] = useState<PublicPageBlock | null>(null);
 
@@ -281,6 +282,15 @@ export default function MemoryEditorPage() {
             assets={assets}
         />
        )}
+        {isDesignModalOpen && memory && (
+            <DesignModal
+                isOpen={isDesignModalOpen}
+                setIsOpen={setIsDesignModalOpen}
+                memory={memory}
+                assets={assets}
+                onUploadSuccess={handleAssetUpdate}
+            />
+        )}
         <AlertDialog open={blockToDelete !== null} onOpenChange={(open) => !open && setBlockToDelete(null)}>
           <AlertDialogContent>
             <AlertDialogHeader>
@@ -303,6 +313,10 @@ export default function MemoryEditorPage() {
            <p className="text-sm text-muted-foreground">ビジュアルエディタ</p>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => setIsDesignModalOpen(true)}>
+              <Palette className="mr-2 h-4 w-4" />
+              デザイン
+          </Button>
           <Button variant="outline" onClick={() => setIsPreviewModalOpen(true)}>
               <Eye className="mr-2 h-4 w-4" />
               プレビュー
@@ -351,10 +365,8 @@ export default function MemoryEditorPage() {
                        className="group relative pt-4 text-center px-4 cursor-pointer"
                        onClick={() => setIsAboutModalOpen(true)}
                    >
-                        <div className="inline-block relative">
-                           <h1 className="text-3xl font-bold sm:text-4xl">{memory.title}</h1>
-                           <p className="mt-2 text-base text-muted-foreground max-w-prose">{memory.description || "紹介文を編集..."}</p>
-                       </div>
+                        <h1 className="text-3xl font-bold sm:text-4xl">{memory.title}</h1>
+                        <p className="mt-2 text-base text-muted-foreground max-w-prose">{memory.description || "紹介文を編集..."}</p>
                    </div>
                 </div>
 

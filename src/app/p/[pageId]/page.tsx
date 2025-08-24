@@ -1,10 +1,10 @@
 
 // src/app/p/[pageId]/page.tsx
 'use client';
-import { useState, useEffect, Suspense, useRef } from 'react';
+import { useState, useEffect, Suspense, useRef, useMemo } from 'react';
 import { useParams, notFound, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
-import type { PublicPage, PublicPageBlock, Memory, Asset } from '@/lib/types';
+import type { PublicPage, PublicPageBlock, Memory, Asset, Design } from '@/lib/types';
 import { Globe, Phone, Mail, Link as LinkIcon, Music, Clapperboard, Milestone, Camera, Loader2, X } from 'lucide-react';
 import { FaXTwitter, FaInstagram, FaYoutube } from 'react-icons/fa6';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -179,14 +179,14 @@ const BlockRenderer = ({ block, setLightboxState }: { block: PublicPageBlock, se
                     <CardHeader>
                         <div className="flex items-center gap-3">
                            <Milestone className="h-5 w-5 text-gray-300" />
-                           <h3 className="font-semibold text-white">{block.title}</h3>
+                           <h3 className="font-semibold">{block.title}</h3>
                         </div>
                     </CardHeader>
                     <CardContent className="pl-4 sm:pl-6">
                         <Carousel opts={{ align: "start", loop: false }} className="w-full">
                             <CarouselContent className="-ml-4">
                                 {block.album?.items?.map((item, index) => (
-                                    <CarouselItem key={index} className="basis-2/3 pl-4">
+                                    <CarouselItem key={index} className="basis-2/3">
                                         <button className="w-full block" onClick={() => setLightboxState({ isOpen: true, items: block.album?.items || [], startIndex: index })}>
                                             <div className="aspect-square relative rounded-lg overflow-hidden group">
                                                {item.src && <Image src={item.src} alt={block.title || `Album image ${index+1}`} fill className="object-cover group-hover:scale-105 transition-transform duration-300" sizes="(max-width: 768px) 66vw, 50vw" />}
@@ -214,7 +214,7 @@ const BlockRenderer = ({ block, setLightboxState }: { block: PublicPageBlock, se
                          </div>
                     )}
                     <CardContent className="p-4">
-                        <h3 className="font-semibold text-white">{block.title}</h3>
+                        <h3 className="font-semibold">{block.title}</h3>
                         {block.photo?.caption && <p className="text-sm text-gray-300 mt-1">{block.photo.caption}</p>}
                     </CardContent>
                 </Card>
@@ -231,7 +231,7 @@ const BlockRenderer = ({ block, setLightboxState }: { block: PublicPageBlock, se
                         </div>
                     </div>
                     <CardContent className="p-4">
-                        <h3 className="font-semibold text-white">{block.title}</h3>
+                        <h3 className="font-semibold">{block.title}</h3>
                     </CardContent>
                 </Card>
             );
@@ -242,7 +242,7 @@ const BlockRenderer = ({ block, setLightboxState }: { block: PublicPageBlock, se
                         <Music className="h-8 w-8 text-gray-300" />
                     </div>
                     <div className="flex-grow">
-                        <h3 className="font-semibold text-white">{block.title}</h3>
+                        <h3 className="font-semibold">{block.title}</h3>
                     </div>
                     <div className="flex-shrink-0">
                        <Badge variant="outline" className="text-white/70 border-white/20">再生</Badge>
@@ -256,7 +256,7 @@ const BlockRenderer = ({ block, setLightboxState }: { block: PublicPageBlock, se
                         <div className="flex-shrink-0 text-white">
                            {blockIcons[block.icon || 'default'] || blockIcons.default}
                         </div>
-                        <div className="flex-grow text-left text-lg font-semibold text-white">
+                        <div className="flex-grow text-left text-lg font-semibold">
                             {block.title}
                         </div>
                          <div className="flex-shrink-0 text-white/30 transition-transform group-hover:text-white/60 group-hover:translate-x-1">
@@ -278,6 +278,7 @@ function PageContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lightboxState, setLightboxState] = useState({ isOpen: false, items: [], startIndex: 0 });
+  const [assets, setAssets] = useState<Asset[]>([]);
 
   useEffect(() => {
     async function loadPageData() {
@@ -292,6 +293,7 @@ function PageContent() {
                     if (parsedData.memory && parsedData.assets) {
                         const pageData = convertMemoryToPublicPage(parsedData.memory, parsedData.assets);
                         setManifest(pageData);
+                        setAssets(parsedData.assets);
                     } else {
                         throw new Error("Invalid preview data structure in localStorage.");
                     }
@@ -309,6 +311,7 @@ function PageContent() {
             const data = await fetchPublicPageData(pageId);
             if (data) {
                 setManifest(convertMemoryToPublicPage(data.memory, data.assets));
+                setAssets(data.assets);
             } else {
                  setError('この想い出ページは存在しないか、まだ公開されていません。');
             }
@@ -324,6 +327,13 @@ function PageContent() {
       document.title = `${manifest.title} - 想い出リンク`;
     }
   }, [manifest]);
+
+  const backgroundImage = useMemo(() => {
+    if (manifest?.design.backgroundImageAssetId) {
+        return assets.find(a => a.id === manifest.design.backgroundImageAssetId)?.url;
+    }
+    return null;
+  }, [manifest, assets]);
 
   if (loading) {
     return (
@@ -343,6 +353,7 @@ function PageContent() {
   }
 
   const design = manifest.design || {};
+  
   return (
     <>
     <AlbumDetailModal 
@@ -352,14 +363,21 @@ function PageContent() {
         startIndex={lightboxState.startIndex}
     />
     <div style={{ 
-        backgroundColor: design.bgColor || '#111827', 
+        background: design.bgColor || '#111827', 
+        color: design.textColor || '#FFFFFF',
         fontFamily: design.fontFamily || 'sans-serif',
      } as React.CSSProperties}
-     className="min-h-screen text-white"
+     className="min-h-screen relative"
      >
-      <div className="container mx-auto max-w-2xl px-4 py-8 sm:px-6 lg:py-12">
+      {backgroundImage && (
+        <div className="absolute inset-0 z-0">
+            <Image src={backgroundImage} alt="Background" fill className="object-cover" />
+            <div className="absolute inset-0 bg-black/30" />
+        </div>
+      )}
+
+      <div className="container mx-auto max-w-2xl px-4 py-8 sm:px-6 lg:py-12 relative z-10">
         <header className="relative">
-            {/* Block 1: Cover Image */}
             <div className="relative h-48 w-full overflow-hidden rounded-xl shadow-lg md:h-56">
                 <Image 
                   src={manifest.media.cover.url}
@@ -373,7 +391,6 @@ function PageContent() {
             </div>
             
             <div className="relative flex flex-col items-center -mt-20">
-                {/* Block 2: Profile Image */}
                 <div className="h-40 w-40 rounded-full z-10 bg-gray-800 border-4 border-background shadow-lg relative overflow-hidden shrink-0">
                     <Image 
                         src={manifest.media.profile.url}
@@ -385,10 +402,9 @@ function PageContent() {
                     />
                 </div>
                 
-                {/* Block 3: Text Content */}
                 <div className="mt-4 text-center">
-                    <h1 className="text-5xl font-bold text-yellow-300">{manifest.title}</h1>
-                    <p className="mt-2 text-xl text-blue-300 max-w-prose mx-auto">{manifest.about.text}</p>
+                    <h1 className="text-5xl font-bold">{manifest.title}</h1>
+                    <p className="mt-2 text-xl max-w-prose mx-auto">{manifest.about.text}</p>
                 </div>
             </div>
         </header>

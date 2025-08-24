@@ -4,7 +4,7 @@
 
 import * as React from 'react';
 import { useState, useEffect, useMemo, useRef } from 'react';
-import type { Memory, Asset, PublicPageBlock, PublicPage } from '@/lib/types';
+import type { Memory, Asset, PublicPageBlock, PublicPage, Design } from '@/lib/types';
 import { db } from '@/lib/firebase/client';
 import { doc, updateDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
@@ -14,7 +14,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Save, Image as ImageIcon, Video, Mic, Type, Album, Upload, Clapperboard, Music, CheckCircle, Globe, Phone, Mail, Link as LinkIcon, Milestone, Camera, X } from 'lucide-react';
+import { Loader2, Save, Image as ImageIcon, Video, Mic, Type, Album, Upload, Clapperboard, Music, CheckCircle, Globe, Phone, Mail, Link as LinkIcon, Milestone, Camera, X, Check } from 'lucide-react';
 import { FaXTwitter, FaInstagram, FaYoutube } from 'react-icons/fa6';
 import Image from 'next/image';
 import { MediaUploader } from './media-uploader';
@@ -25,6 +25,7 @@ import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 
 // --- Album Detail Modal (Lightbox) ---
@@ -151,7 +152,7 @@ const BlockRenderer = ({ block, setLightboxState }: { block: PublicPageBlock, se
                         <Carousel opts={{ align: "start", loop: false }} className="w-full">
                             <CarouselContent className="-ml-4">
                                 {block.album?.items?.map((item, index) => (
-                                    <CarouselItem key={index} className="basis-2/3 pl-4">
+                                    <CarouselItem key={index} className="basis-2/3">
                                         <button className="w-full block" onClick={() => setLightboxState({ isOpen: true, items: block.album?.items || [], startIndex: index })}>
                                             <div className="aspect-square relative rounded-lg overflow-hidden group">
                                             {item.src && <Image src={item.src} alt={block.title || `Album image ${index+1}`} fill className="object-cover group-hover:scale-105 transition-transform duration-300" sizes="(max-width: 768px) 66vw, 50vw" />}
@@ -238,6 +239,13 @@ const BlockRenderer = ({ block, setLightboxState }: { block: PublicPageBlock, se
 export function PreviewModal({ isOpen, setIsOpen, memory, assets }: { isOpen: boolean, setIsOpen: (open: boolean) => void, memory: Memory, assets: Asset[] }) {
     const manifest = useMemo(() => convertMemoryToPublicPage(memory, assets), [memory, assets]);
     const [lightboxState, setLightboxState] = useState({ isOpen: false, items: [], startIndex: 0 });
+    const backgroundImage = useMemo(() => {
+        if (manifest.design.backgroundImageAssetId) {
+            const asset = assets.find(a => a.id === manifest.design.backgroundImageAssetId);
+            return asset?.url;
+        }
+        return null;
+    }, [manifest, assets]);
 
     return (
         <>
@@ -253,7 +261,20 @@ export function PreviewModal({ isOpen, setIsOpen, memory, assets }: { isOpen: bo
                     <DialogTitle>プレビュー</DialogTitle>
                 </DialogHeader>
                  <div className="flex-1 overflow-auto bg-muted/40">
-                     <div className="bg-background mx-auto">
+                     <div 
+                        className="bg-background mx-auto"
+                        style={{
+                            backgroundColor: manifest.design.bgColor,
+                            color: manifest.design.textColor || 'inherit',
+                        }}
+                    >
+                         {backgroundImage && (
+                            <div className="absolute inset-0 z-0">
+                                <Image src={backgroundImage} alt="Background" fill className="object-cover" />
+                                <div className="absolute inset-0 bg-black/30" />
+                            </div>
+                         )}
+                         <div className="relative z-10">
                              <header className="relative">
                                 <div className="relative aspect-[21/9] w-full overflow-hidden">
                                     <Image 
@@ -280,8 +301,8 @@ export function PreviewModal({ isOpen, setIsOpen, memory, assets }: { isOpen: bo
                                     </div>
                                     
                                     <div className="mt-4 text-center w-full">
-                                        <h1 className="text-3xl sm:text-4xl font-bold text-foreground">{manifest.title}</h1>
-                                        <p className="mt-2 text-base text-muted-foreground max-w-prose mx-auto">{manifest.about.text}</p>
+                                        <h1 className="text-3xl sm:text-4xl font-bold">{manifest.title}</h1>
+                                        <p className="mt-2 text-base max-w-prose mx-auto">{manifest.about.text}</p>
                                     </div>
                                 </div>
                             </header>
@@ -295,9 +316,10 @@ export function PreviewModal({ isOpen, setIsOpen, memory, assets }: { isOpen: bo
                                 ))}
                             </main>
 
-                            <footer className="mt-8 text-center text-xs text-gray-500 pb-8 px-4">
+                            <footer className="mt-8 text-center text-xs text-muted-foreground/80 pb-8 px-4">
                                 <p>&copy; {new Date().getFullYear()}. Powered by MemoryLink</p>
                             </footer>
+                        </div>
                     </div>
                 </div>
                 <DialogFooter className="p-4 border-t bg-background">
@@ -791,6 +813,166 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
                         </Button>
                     </DialogFooter>
                 )}
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+// --- Design Modal ---
+const presetColors = [
+    { name: 'Deep Ocean', value: 'linear-gradient(to top, #021B79, #0575E6)' },
+    { name: 'Sunset', value: 'linear-gradient(to top, #ff4e00, #ffb347)' },
+    { name: 'Lush', value: 'linear-gradient(to top, #134E5E, #71B280)' },
+    { name: 'Light', value: '#FFFFFF' },
+    { name: 'Grey', value: '#E0E0E0' },
+    { name: 'Dark', value: '#121212' },
+    { name: 'Canary', value: '#FFF275' },
+    { name: 'Sakura', value: '#FFC0CB' },
+    { name: 'Sky', value: '#A7D2CB' },
+    { name: 'Creamsicle', value: '#FFDAB9' },
+    { name: 'Magenta', value: '#E94560' },
+    { name: 'Royal', value: '#1652f0' },
+];
+
+export function DesignModal({ isOpen, setIsOpen, memory, assets, onUploadSuccess }: { isOpen: boolean, setIsOpen: (open: boolean) => void, memory: Memory, assets: Asset[], onUploadSuccess: (asset: Asset) => void }) {
+    const [design, setDesign] = useState<Design>(memory.design);
+    const [isSaving, setIsSaving] = useState(false);
+    const { toast } = useToast();
+
+    useEffect(() => {
+        if (isOpen) {
+            setDesign(memory.design);
+        }
+    }, [memory, isOpen]);
+
+    const handleDesignChange = (key: keyof Design, value: any) => {
+        setDesign(prev => ({ ...prev, [key]: value }));
+    };
+
+    const handleSave = async () => {
+        setIsSaving(true);
+        try {
+            const memoryRef = doc(db, 'memories', memory.id);
+            await updateDoc(memoryRef, { design, updatedAt: serverTimestamp() });
+            toast({ title: '成功', description: 'デザインを更新しました。' });
+            setIsOpen(false);
+        } catch (error) {
+            console.error("Failed to save design:", error);
+            toast({ variant: 'destructive', title: 'エラー', description: 'デザインの更新に失敗しました。' });
+        } finally {
+            setIsSaving(false);
+        }
+    };
+    
+    const handleBackgroundUploadSuccess = (asset: Asset) => {
+        onUploadSuccess(asset);
+        handleDesignChange('backgroundImageAssetId', asset.id);
+        toast({ title: "アップロード完了", description: "背景画像に設定しました。" });
+    };
+    
+    const imageAssets = useMemo(() => assets.filter(a => a.type === 'image'), [assets]);
+
+    return (
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                    <DialogTitle>デザインを編集</DialogTitle>
+                    <DialogDescription>ページの見た目をカスタマイズします。</DialogDescription>
+                </DialogHeader>
+                
+                <Tabs defaultValue="background" className="py-4">
+                    <TabsList>
+                        <TabsTrigger value="background">背景</TabsTrigger>
+                        <TabsTrigger value="text">テキスト</TabsTrigger>
+                        <TabsTrigger value="theme">テーマ</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="background" className="mt-4">
+                        <div className="space-y-4">
+                             <div>
+                                <Label>背景色</Label>
+                                <div className="grid grid-cols-4 gap-2 mt-2">
+                                    {presetColors.map(color => (
+                                        <button 
+                                            key={color.name}
+                                            onClick={() => handleDesignChange('bgColor', color.value)}
+                                            className="relative aspect-[3/4] rounded-md transition-all duration-200"
+                                            style={{ background: color.value }}
+                                        >
+                                           {design.bgColor === color.value && <div className="absolute inset-0 ring-2 ring-primary ring-offset-2 ring-offset-background rounded-md" />}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                            <div>
+                                <Label>背景画像</Label>
+                                 <div className="flex gap-2">
+                                     <Select onValueChange={(value) => handleDesignChange('backgroundImageAssetId', value !== 'no-selection' ? value : null)} value={design.backgroundImageAssetId ?? 'no-selection'}>
+                                        <SelectTrigger><SelectValue placeholder="背景画像を選択..." /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="no-selection">なし</SelectItem>
+                                            {imageAssets.map(asset => <SelectItem key={asset.id} value={asset.id}>{asset.name}</SelectItem>)}
+                                        </SelectContent>
+                                    </Select>
+                                     <MediaUploader
+                                        assetType="image"
+                                        accept="image/*"
+                                        memoryId={memory.id}
+                                        onUploadSuccess={handleBackgroundUploadSuccess}
+                                    >
+                                        <Button type="button" variant="outline" size="icon">
+                                            <Upload className="h-4 w-4"/>
+                                        </Button>
+                                    </MediaUploader>
+                                </div>
+                            </div>
+                        </div>
+                    </TabsContent>
+                    <TabsContent value="text" className="mt-4">
+                        <div className="space-y-4">
+                             <div>
+                                <Label>テキスト色</Label>
+                                <div className="flex items-center gap-2">
+                                    <Input 
+                                      type="color" 
+                                      value={design.textColor || '#000000'}
+                                      onChange={(e) => handleDesignChange('textColor', e.target.value)}
+                                      className="w-16 p-1"
+                                    />
+                                    <Input
+                                        type="text"
+                                        value={design.textColor || ''}
+                                        onChange={(e) => handleDesignChange('textColor', e.target.value)}
+                                        placeholder="#FFFFFF"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </TabsContent>
+                     <TabsContent value="theme" className="mt-4">
+                        <div className="space-y-4">
+                            <div>
+                                <Label>基本テーマ</Label>
+                                 <Select onValueChange={(value) => handleDesignChange('theme', value)} value={design.theme}>
+                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="light">ライト</SelectItem>
+                                        <SelectItem value="dark">ダーク</SelectItem>
+                                        <SelectItem value="cream">クリーム</SelectItem>
+                                        <SelectItem value="ink">インク</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+                    </TabsContent>
+                </Tabs>
+
+                <DialogFooter>
+                    <DialogClose asChild><Button variant="outline">キャンセル</Button></DialogClose>
+                    <Button onClick={handleSave} disabled={isSaving}>
+                        {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                        保存
+                    </Button>
+                </DialogFooter>
             </DialogContent>
         </Dialog>
     );
