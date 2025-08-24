@@ -84,16 +84,17 @@ export function CoverPhotoModal({ isOpen, setIsOpen, memory, assets, onUploadSuc
                                     {imageAssets.map(asset => <SelectItem key={asset.id} value={asset.id}>{asset.name}</SelectItem>)}
                                 </SelectContent>
                             </Select>
-                            <Button type="button" variant="outline" size="icon" onClick={() => uploaderRef.current?.triggerUpload()}>
-                                <Upload className="h-4 w-4"/>
-                            </Button>
-                             <MediaUploader
+                            <MediaUploader
                                 ref={uploaderRef}
                                 assetType="image"
                                 accept="image/*"
                                 memoryId={memory.id}
                                 onUploadSuccess={handleCoverUploadSuccess}
-                            />
+                            >
+                                <Button type="button" variant="outline" size="icon">
+                                    <Upload className="h-4 w-4"/>
+                                </Button>
+                            </MediaUploader>
                         </div>
                         <div className="mt-2 rounded-md overflow-hidden aspect-video relative bg-muted flex items-center justify-center">
                             {coverImageUrl ? <Image src={coverImageUrl} alt="Cover preview" fill sizes="(max-width: 768px) 100vw, 50vw" className="object-cover" /> : <ImageIcon className="text-muted-foreground" />}
@@ -196,16 +197,17 @@ export function AboutModal({ isOpen, setIsOpen, memory, assets, onUploadSuccess,
                                     {imageAssets.map(asset => <SelectItem key={asset.id} value={asset.id}>{asset.name}</SelectItem>)}
                                 </SelectContent>
                             </Select>
-                            <Button type="button" variant="outline" size="icon" onClick={() => uploaderRef.current?.triggerUpload()}>
-                                <Upload className="h-4 w-4"/>
-                            </Button>
-                             <MediaUploader
+                            <MediaUploader
                                 ref={uploaderRef}
                                 assetType="image"
                                 accept="image/*"
                                 memoryId={memory.id}
                                 onUploadSuccess={handleProfileUploadSuccess}
-                            />
+                            >
+                                <Button type="button" variant="outline" size="icon">
+                                    <Upload className="h-4 w-4"/>
+                                </Button>
+                            </MediaUploader>
                         </div>
                          <div className="mt-2 rounded-full overflow-hidden relative w-24 h-24 bg-muted flex items-center justify-center">
                             {profileImageUrl ? <Image src={profileImageUrl} alt="Profile preview" fill className="object-cover" sizes="96px" /> : <ImageIcon className="text-muted-foreground" />}
@@ -287,6 +289,12 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
             setSelectedThumbnail(selectedAsset.thumbnailUrl);
         }
     }, [selectedAsset]);
+    
+    const handleUploadSuccess = (asset: Asset) => {
+        onUploadSuccess(asset);
+        setSelectedAssetId(asset.id);
+        toast({ title: "アップロード完了", description: "メディアを選択しました。"});
+    }
 
     const handleSave = async () => {
         if (!blockType) {
@@ -357,9 +365,6 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
                         {availableAssets.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
                     </SelectContent>
                 </Select>
-                <Button type="button" variant="outline" size="icon" onClick={() => uploaderRef.current?.triggerUpload()}>
-                    <Upload className="h-4 w-4"/>
-                </Button>
                 <MediaUploader
                     ref={uploaderRef}
                     assetType={type}
@@ -369,7 +374,12 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
                         setFileToUpload(file);
                         setSelectedAssetId(undefined); // Unset existing selection
                     }}
-                />
+                    onUploadSuccess={handleUploadSuccess}
+                >
+                    <Button type="button" variant="outline" size="icon">
+                        <Upload className="h-4 w-4"/>
+                    </Button>
+                </MediaUploader>
             </div>
              {fileToUpload && (
                 <div className="mt-2 text-sm text-muted-foreground p-2 bg-muted rounded-md">

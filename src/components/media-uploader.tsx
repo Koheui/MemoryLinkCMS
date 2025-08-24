@@ -1,12 +1,11 @@
 // src/components/media-uploader.tsx
 'use client';
-import * as React from 'react';
-import { useRef, useState, useImperativeHandle } from 'react';
+import React, { useRef, useState, useImperativeHandle } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
-import { storage, db, serverTimestamp } from '@/lib/firebase/client';
+import { storage, db } from '@/lib/firebase/client';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { collection, addDoc, doc, updateDoc, getDoc, Timestamp } from 'firebase/firestore';
+import { collection, addDoc, doc, updateDoc, getDoc, Timestamp, serverTimestamp } from 'firebase/firestore';
 import type { Asset } from '@/lib/types';
 
 export interface MediaUploaderRef {
@@ -20,10 +19,11 @@ interface MediaUploaderProps {
   onUploadSuccess?: (asset: Asset) => void;
   onFileSelected?: (file: File) => void;
   memoryId?: string;
+  children?: React.ReactNode;
 }
 
 export const MediaUploader = React.forwardRef<MediaUploaderRef, MediaUploaderProps>(
-  ({ assetType, accept, onUploadSuccess, onFileSelected, memoryId }, ref) => {
+  ({ assetType, accept, onUploadSuccess, onFileSelected, memoryId, children }, forwardRef) => {
     const { user } = useAuth();
     const { toast } = useToast();
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -53,7 +53,8 @@ export const MediaUploader = React.forwardRef<MediaUploaderRef, MediaUploaderPro
             const docRef = await addDoc(assetCollectionRef, {
                 ...assetData,
                 url: '',
-                thumbnailUrl: '',
+                thumbnailUrl: null, // Initialize as null
+                thumbnailCandidates: [], // Initialize as empty array
                 createdAt: serverTimestamp(),
                 updatedAt: serverTimestamp(),
             });
@@ -91,19 +92,23 @@ export const MediaUploader = React.forwardRef<MediaUploaderRef, MediaUploaderPro
                             createdAt: (finalDocData?.createdAt as Timestamp)?.toDate(),
                             updatedAt: (finalDocData?.updatedAt as Timestamp)?.toDate(),
                         } as Asset;
+                        
+                        if (onUploadSuccess) {
+                           onUploadSuccess(finalAsset);
+                        }
 
                         resolve(finalAsset);
                     }
                 );
             });
-        } catch (error) {
+        } catch (error: any) {
             console.error("Upload process failed:", error);
-            toast({ variant: 'destructive', title: 'エラー', description: 'アップロード処理中にエラーが発生しました。' });
+            toast({ variant: 'destructive', title: 'エラー', description: `アップロード処理中にエラーが発生しました: ${error.message}` });
             return null;
         }
     };
     
-    useImperativeHandle(ref, () => ({
+    useImperativeHandle(forwardRef, () => ({
       triggerUpload: () => {
         fileInputRef.current?.click();
       },
@@ -116,26 +121,30 @@ export const MediaUploader = React.forwardRef<MediaUploaderRef, MediaUploaderPro
 
       if (onFileSelected) {
         onFileSelected(file);
-      } else if (onUploadSuccess) {
-        // Fallback to old behavior if onFileSelected is not provided
-        uploadFile(file).then(asset => {
-          if (asset) {
-            onUploadSuccess(asset);
-          }
-        });
+      } else {
+        uploadFile(file);
       }
       
       if (fileInputRef.current) fileInputRef.current.value = "";
     };
+    
+    const trigger = children ? (
+        React.cloneElement(children as React.ReactElement, {
+            onClick: () => fileInputRef.current?.click(),
+        })
+    ) : null;
 
     return (
-      <input
-        type="file"
-        ref={fileInputRef}
-        onChange={handleFileChange}
-        accept={accept}
-        style={{ display: 'none' }}
-      />
+      <>
+        {trigger}
+        <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileChange}
+            accept={accept}
+            style={{ display: 'none' }}
+        />
+      </>
     );
   }
 );
