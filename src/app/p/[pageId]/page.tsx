@@ -1,7 +1,7 @@
 // src/app/p/[pageId]/page.tsx
 'use client';
 import { useState, useEffect, use } from 'react';
-import { useParams, notFound } from 'next/navigation';
+import { useParams, notFound, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import type { PublicPage, PublicPageBlock, Memory, Asset } from '@/lib/types';
 import { Globe, Phone, Mail, Link as LinkIcon, Music, Clapperboard, Milestone, Camera, Loader2 } from 'lucide-react';
@@ -265,7 +265,7 @@ export default function PublicPage() {
      className="min-h-screen text-white"
      >
       <div className="container mx-auto max-w-2xl px-4 py-8 sm:px-6 lg:py-12">
-        <header>
+        <header className="flex flex-col items-center">
             {/* Block 1: Cover Image */}
             <div className="relative h-48 w-full overflow-hidden rounded-xl shadow-lg md:h-56">
                 <Image 
@@ -280,14 +280,14 @@ export default function PublicPage() {
             </div>
             
             {/* Block 2: Profile Image */}
-            <div className="relative z-10 -mt-20 flex justify-center">
-                 <div className="relative h-40 w-40 flex-shrink-0">
+            <div className="flex justify-center w-full">
+                 <div className="relative h-40 w-40 flex-shrink-0 -mt-20">
                     <Image 
                         src={manifest.media.profile.url}
                         alt="Profile"
                         fill
                         data-ai-hint="portrait person"
-                        className="rounded-full border-4 border-gray-900/50 object-cover shadow-lg backdrop-blur-sm"
+                        className="rounded-full border-4 border-background object-cover shadow-lg"
                         sizes="160px"
                     />
                  </div>
