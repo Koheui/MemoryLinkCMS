@@ -24,16 +24,24 @@ const generateVideoThumbnail = (file: File): Promise<Blob> => {
         video.preload = 'metadata';
         video.src = URL.createObjectURL(file);
         video.muted = true;
+        video.playsInline = true;
+
+        const cleanup = () => {
+            video.removeEventListener('loadedmetadata', onLoadedMetadata);
+            video.removeEventListener('seeked', onSeeked);
+            video.removeEventListener('error', onError);
+            URL.revokeObjectURL(video.src);
+        };
 
         const onLoadedMetadata = () => {
-            // Ensure video dimensions are available before seeking
-            if (video.videoWidth === 0 || video.videoHeight === 0) {
-                 cleanup();
-                 // Use a timeout to ensure the error event is caught
-                 setTimeout(() => reject(new Error('Video metadata (dimensions) could not be loaded.')), 0);
-                 return;
-            }
-            video.currentTime = 1; // Seek to 1 second
+             // Use a small timeout to give browser time to calculate video dimensions
+            setTimeout(() => {
+                if (video.videoWidth === 0 || video.videoHeight === 0) {
+                     console.warn('Video dimensions not available after loadedmetadata.');
+                     // Fallback or try seeking anyway
+                }
+                video.currentTime = Math.min(1, video.duration / 2); // Seek to 1s or midpoint
+            }, 100);
         };
 
         const onSeeked = () => {
@@ -62,16 +70,10 @@ const generateVideoThumbnail = (file: File): Promise<Blob> => {
             reject(new Error(`Video loading failed: ${errorMessage}`));
         };
 
-        const cleanup = () => {
-            video.removeEventListener('loadedmetadata', onLoadedMetadata);
-            video.removeEventListener('seeked', onSeeked);
-            video.removeEventListener('error', onError);
-            URL.revokeObjectURL(video.src);
-        };
-
         video.addEventListener('loadedmetadata', onLoadedMetadata, { once: true });
         video.addEventListener('seeked', onSeeked, { once: true });
         video.addEventListener('error', onError, { once: true });
+        video.play().catch(onError); // Some browsers require play() to properly load frames
     });
 };
 

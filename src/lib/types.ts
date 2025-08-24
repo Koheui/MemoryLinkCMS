@@ -10,7 +10,7 @@ export interface UserProfile {
 }
 
 export interface Design {
-  theme: 'light' | 'dark' | 'cream' | 'ink';
+  theme: 'light' | 'dark' | 'cream';
   accentColor?: string;
   bgColor?: string;
   textColor?: string;
@@ -88,31 +88,6 @@ export interface Asset {
   thumbnailUrl?: string;
   thumbnailCandidates?: string[];
 }
-
-
-export interface PublicPage {
-    id: string;
-    memoryId: string;
-    title: string;
-    about: { 
-        text: string, 
-        format: "md" | "plain" 
-    };
-    design: Design;
-    media: {
-        cover: { url: string, width: number, height: number };
-        profile: { url: string, width: number, height: number };
-    };
-    ordering: "custom" | "dateDesc";
-    blocks: PublicPageBlock[];
-    publish: {
-        status: "draft" | "published";
-        publishedAt?: Timestamp;
-    }
-    createdAt: Timestamp;
-    updatedAt: Timestamp;
-}
-
 
 export interface Order {
     id: string;

@@ -99,14 +99,15 @@ export default function MediaLibraryPage() {
     fetchAssets(user.uid);
   }, [user, authLoading, fetchAssets]);
 
-  const handleDeleteAsset = async () => {
-    if (!assetToDelete || !user) return;
+  const handleDeleteAssets = async (assetIds: string[]) => {
+    if (!user || assetIds.length === 0) return;
 
     setIsDeleting(true);
     try {
+        const assetsToDelete = assets.filter(a => assetIds.includes(a.id));
         const res = await apiClient.fetch('/api/assets/delete', {
             method: 'POST',
-            body: JSON.stringify({ assetId: assetToDelete.id }),
+            body: JSON.stringify({ assetIds: assetIds }),
         });
 
         if (!res.ok) {
@@ -114,17 +115,20 @@ export default function MediaLibraryPage() {
             throw new Error(errorData.error || 'サーバーでアセットの削除に失敗しました。');
         }
         
-        setAssets(prev => prev.filter(a => a.id !== assetToDelete.id));
-        setTotalSize(prev => prev - (assetToDelete.size || 0));
-        setStoragePercentage(((totalSize - (assetToDelete.size || 0)) / TOTAL_STORAGE_LIMIT_BYTES) * 100);
+        // Update local state
+        setAssets(prev => prev.filter(a => !assetIds.includes(a.id)));
+        const deletedSize = assetsToDelete.reduce((sum, a) => sum + (a.size || 0), 0);
+        setTotalSize(prev => prev - deletedSize);
+        setStoragePercentage(((totalSize - deletedSize) / TOTAL_STORAGE_LIMIT_BYTES) * 100);
 
-        toast({ title: "成功", description: `${assetToDelete.name}を削除しました。` });
+        toast({ title: "成功", description: `${assetIds.length}件のアセットを削除しました。` });
     } catch (error: any) {
-        console.error("Failed to delete asset:", error);
+        console.error("Failed to delete asset(s):", error);
         toast({ variant: 'destructive', title: "削除失敗", description: error.message });
     } finally {
         setIsDeleting(false);
-        setAssetToDelete(null);
+        setAssetToDelete(null); // Close single-delete dialog if open
+        setSelectedAssets([]); // Clear selection
     }
   };
 
@@ -260,7 +264,7 @@ export default function MediaLibraryPage() {
             </AlertDialogHeader>
             <AlertDialogFooter>
                 <AlertDialogCancel>キャンセル</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDeleteAsset} disabled={isDeleting} className="bg-destructive hover:bg-destructive/90">
+                <AlertDialogAction onClick={() => handleDeleteAssets(assetToDelete ? [assetToDelete.id] : [])} disabled={isDeleting} className="bg-destructive hover:bg-destructive/90">
                     {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                     削除
                 </AlertDialogAction>
@@ -308,15 +312,15 @@ export default function MediaLibraryPage() {
                  <div>
                     <CardTitle className="font-headline">メディアカテゴリ</CardTitle>
                     <CardDescription>
-                        カテゴリを選択してメディアを管理します。写真は複数選択してアルバムを作成できます。
+                        カテゴリを選択してメディアを管理します。写真は複数選択して一括操作できます。
                     </CardDescription>
                 </div>
                  {selectedAssets.length > 0 && (
                     <div className="flex items-center gap-4">
                         <span className="text-sm font-medium text-primary">{selectedAssets.length}件の写真を選択中</span>
-                        <Button>
-                            <PlusCircle className="mr-2 h-4 w-4" />
-                            アルバムを作成
+                        <Button variant="destructive" onClick={() => handleDeleteAssets(selectedAssets)} disabled={isDeleting}>
+                            {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+                            選択した項目を削除
                         </Button>
                     </div>
                  )}

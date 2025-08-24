@@ -18,86 +18,84 @@ export async function POST(req: NextRequest) {
     }
     
     const body = await req.json();
-    const { assetId } = body;
+    const { assetIds } = body;
 
-    if (!assetId) {
-        return err(400, "リクエストに assetId がありません。");
+    if (!assetIds || !Array.isArray(assetIds) || assetIds.length === 0) {
+        return err(400, "リクエストに assetIds (配列) がありません。");
     }
 
     const db = getFirestore(getAdminApp());
     const storage = getStorage(getAdminApp());
-    const assetRef = db.collection('assets').doc(assetId);
     
-    const assetDoc = await assetRef.get();
-    if (!assetDoc.exists) {
-        return err(404, "指定されたアセットが見つかりません。");
+    const assetsRef = db.collection('assets');
+    const assetsToDeleteSnapshot = await assetsRef.where('ownerUid', '==', uid).where(admin.firestore.FieldPath.documentId(), 'in', assetIds).get();
+
+    if (assetsToDeleteSnapshot.empty) {
+        return err(404, "削除対象のアセットが見つからないか、権限がありません。");
     }
 
-    const assetData = assetDoc.data() as Asset;
-    if (assetData.ownerUid !== uid) {
-        return err(403, "このアセットを削除する権限がありません。");
-    }
-    
-    // --- Step 1: Delete file from Storage ---
-    if (assetData.storagePath) {
-        try {
-            await storage.bucket().file(assetData.storagePath).delete();
-            // Also attempt to delete all thumbnail candidates if it's a video
+    const storageDeletionPromises: Promise<any>[] = [];
+    const firestoreBatch = db.batch();
+
+    assetsToDeleteSnapshot.forEach((doc: any) => {
+        const assetData = doc.data() as Asset;
+        
+        // --- Step 1: Schedule Storage file deletions ---
+        if (assetData.storagePath) {
+            const file = storage.bucket().file(assetData.storagePath);
+            storageDeletionPromises.push(file.delete().catch(e => console.warn(`Could not delete file ${assetData.storagePath}:`, e.message)));
+            
             if (assetData.type === 'video' && assetData.thumbnailCandidates && assetData.thumbnailCandidates.length > 0) {
                  const path = require('path');
                  const thumbDir = path.join(path.dirname(assetData.storagePath), "thumbnails");
-                 assetData.thumbnailCandidates.forEach(async (thumbUrl) => {
+                 assetData.thumbnailCandidates.forEach((thumbUrl) => {
                      try {
                         const url = new URL(thumbUrl);
                         const pathname = decodeURIComponent(url.pathname);
                         const fileName = path.basename(pathname);
                         const thumbPath = path.join(thumbDir, fileName);
-                        await storage.bucket().file(thumbPath).delete().catch(e => console.warn(`Could not delete thumbnail ${thumbPath}:`, e.message));
+                        const thumbFile = storage.bucket().file(thumbPath);
+                        storageDeletionPromises.push(thumbFile.delete().catch(e => console.warn(`Could not delete thumbnail ${thumbPath}:`, e.message)));
                      } catch(e) {
                          console.error("Could not parse thumbnail URL to delete from storage:", thumbUrl, e)
                      }
                  });
             }
-        } catch (storageError: any) {
-            // Log but don't block if file deletion fails (e.g., already deleted)
-            console.warn(`Storage file deletion failed for ${assetData.storagePath}, but continuing:`, storageError.message);
         }
-    }
+        // --- Step 2: Schedule Firestore document deletion ---
+        firestoreBatch.delete(doc.ref);
+    });
 
-    const batch = db.batch();
-
-    // --- Step 2: Delete the asset document itself ---
-    batch.delete(assetRef);
-    
-    // --- Step 3: Remove this asset from any memory that uses it ---
-    // Remove from coverAssetId or profileAssetId
+    // --- Step 3: Remove assetIds from any memory that uses them ---
     const memoriesUsingAssetQuery = db.collection('memories')
         .where('ownerUid', '==', uid)
         .where(Filter.or(
-            Filter.where('coverAssetId', '==', assetId),
-            Filter.where('profileAssetId', '==', assetId)
+            Filter.where('coverAssetId', 'in', assetIds),
+            Filter.where('profileAssetId', 'in', assetIds)
         ));
     
     const memoriesSnapshot = await memoriesUsingAssetQuery.get();
     memoriesSnapshot.forEach((doc: any) => {
         const memoryData = doc.data() as Memory;
         const updateData: any = {};
-        if (memoryData.coverAssetId === assetId) {
+        if (memoryData.coverAssetId && assetIds.includes(memoryData.coverAssetId)) {
             updateData.coverAssetId = null;
         }
-        if (memoryData.profileAssetId === assetId) {
+        if (memoryData.profileAssetId && assetIds.includes(memoryData.profileAssetId)) {
             updateData.profileAssetId = null;
         }
-        batch.update(doc.ref, updateData);
+        firestoreBatch.update(doc.ref, updateData);
     });
 
-    // Remove from blocks (this part is more complex, handle via block-delete)
-    // For now, we assume this is for library assets not in blocks.
-    // A more complete solution would query memories containing this asset in blocks.
+    // A more complex operation would be to remove assetIds from blocks array in all memories.
+    // This is computationally expensive. It's often better to handle broken links on the client.
+    // For now, we are leaving this part out as per standard asset library functionality.
 
-    await batch.commit();
+    // --- Step 4: Execute all scheduled operations ---
+    await Promise.all(storageDeletionPromises);
+    await firestoreBatch.commit();
 
-    return NextResponse.json({ ok: true, message: "アセットが正常に削除されました。" }, { status: 200 });
+    return NextResponse.json({ ok: true, message: `${assetIds.length}件のアセットが正常に削除されました。` }, { status: 200 });
 
   } catch (e: any) {
     const msg = String(e?.message || e);
