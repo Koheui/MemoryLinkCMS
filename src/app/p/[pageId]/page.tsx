@@ -186,7 +186,7 @@ const BlockRenderer = ({ block, setLightboxState }: { block: PublicPageBlock, se
                         <Carousel opts={{ align: "start", loop: false }} className="w-full">
                             <CarouselContent className="-ml-4">
                                 {block.album?.items?.map((item, index) => (
-                                    <CarouselItem key={index} className="basis-2/3 md:basis-1/2 pl-4">
+                                    <CarouselItem key={index} className="basis-2/3 pl-4">
                                         <button className="w-full block" onClick={() => setLightboxState({ isOpen: true, items: block.album?.items || [], startIndex: index })}>
                                             <div className="aspect-square relative rounded-lg overflow-hidden group">
                                                {item.src && <Image src={item.src} alt={block.title || `Album image ${index+1}`} fill className="object-cover group-hover:scale-105 transition-transform duration-300" sizes="(max-width: 768px) 66vw, 50vw" />}
