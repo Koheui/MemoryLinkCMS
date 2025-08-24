@@ -354,9 +354,6 @@ export default function MemoryEditorPage() {
                         <div className="inline-block relative">
                            <h1 className="text-3xl font-bold sm:text-4xl">{memory.title}</h1>
                            <p className="mt-2 text-base text-muted-foreground max-w-prose">{memory.description || "紹介文を編集..."}</p>
-                            <Button variant="outline" size="sm" className="absolute -top-2 -right-12 opacity-0 group-hover:opacity-100 transition-opacity">
-                               <Edit className="h-4 w-4"/>
-                           </Button>
                        </div>
                    </div>
                 </div>
