@@ -229,44 +229,50 @@ export default function MemoryEditorPage() {
     if (!memory) return;
 
     const convertTimestamp = (timestamp: any): string | null => {
-        if (timestamp instanceof Timestamp) {
-            return timestamp.toDate().toISOString();
-        }
-        if (timestamp && typeof timestamp.toDate === 'function') {
-             return timestamp.toDate().toISOString();
-        }
-        if (typeof timestamp === 'string') {
-            return timestamp; // Already a string
-        }
-        if(timestamp) {
-            // It might be a plain JS Date object from a previous serialization attempt
-             try {
-                return new Date(timestamp).toISOString();
-             } catch (e) {
-                // fall through
-             }
-        }
-        return new Date().toISOString(); // Fallback
+      if (!timestamp) return new Date().toISOString();
+      if (timestamp instanceof Timestamp) {
+        return timestamp.toDate().toISOString();
+      }
+      if (typeof timestamp === 'string') {
+        return timestamp; // Already a string
+      }
+      if (timestamp.toDate && typeof timestamp.toDate === 'function') {
+        return timestamp.toDate().toISOString();
+      }
+      try {
+        return new Date(timestamp).toISOString();
+      } catch (e) {
+        return new Date().toISOString();
+      }
     };
     
-    // Create a serializable version of the memory data including assets
+    // Create a serializable version of the data for localStorage
     const serializableMemory = {
       ...memory,
       createdAt: convertTimestamp(memory.createdAt),
       updatedAt: convertTimestamp(memory.updatedAt),
-      blocks: memory.blocks.map(block => ({
+      blocks: undefined, // remove blocks from memory object to avoid duplication
+    };
+    
+    const serializableBlocks = memory.blocks.map(block => ({
         ...block,
         createdAt: convertTimestamp(block.createdAt),
         updatedAt: convertTimestamp(block.updatedAt),
-      })),
-      assets: assets.map(asset => ({
-        ...asset,
-        createdAt: convertTimestamp(asset.createdAt),
-        updatedAt: convertTimestamp(asset.updatedAt),
-      }))
+    }));
+
+    const serializableAssets = assets.map(asset => ({
+      ...asset,
+      createdAt: convertTimestamp(asset.createdAt),
+      updatedAt: convertTimestamp(asset.updatedAt),
+    }));
+
+    const previewData = {
+        memory: serializableMemory,
+        assets: serializableAssets,
+        blocks: serializableBlocks,
     };
     
-    localStorage.setItem('memory-preview', JSON.stringify(serializableMemory));
+    localStorage.setItem('memory-preview', JSON.stringify(previewData));
     window.open(`/p/preview`, '_blank');
   };
 

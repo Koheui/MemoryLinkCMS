@@ -14,7 +14,7 @@ import { doc, getDoc, collection, query, where, getDocs, Timestamp } from 'fireb
 
 
 // This function fetches both the memory and its associated assets for a real public page
-async function fetchPublicPageData(pageId: string): Promise<{ memory: Memory, assets: Asset[] } | null> {
+async function fetchPublicPageData(pageId: string): Promise<{ memory: Memory, assets: Asset[], blocks: PublicPageBlock[] } | null> {
     try {
         const memoryDoc = await getDoc(doc(db, "memories", pageId));
         if (!memoryDoc.exists()) {
@@ -22,13 +22,14 @@ async function fetchPublicPageData(pageId: string): Promise<{ memory: Memory, as
             return null;
         }
         const memoryData = { id: memoryDoc.id, ...memoryDoc.data() } as Memory;
+        const blocks = memoryData.blocks || [];
 
         // Fetch all assets owned by the user. This is a simplification.
         // A better approach would be to query assets where memoryId matches.
         const assetSnapshots = await getDocs(query(collection(db, "assets"), where("ownerUid", "==", memoryData.ownerUid)));
         const assets = assetSnapshots.docs.map(d => ({ id: d.id, ...d.data() } as Asset));
 
-        return { memory: memoryData, assets };
+        return { memory: memoryData, assets, blocks };
 
     } catch (error) {
         console.error(`Error fetching page data for ${pageId}:`, error);
@@ -37,7 +38,7 @@ async function fetchPublicPageData(pageId: string): Promise<{ memory: Memory, as
 }
 
 // Convert Memory to PublicPage for rendering. This is used for previewing and for real pages.
-function convertMemoryToPublicPage(memory: Memory, assets: Asset[]): PublicPage {
+function convertMemoryToPublicPage(memory: Memory, assets: Asset[], blocks: PublicPageBlock[]): PublicPage {
     const getAssetUrlById = (assetId: string | null): string | undefined => {
         if (!assetId) return undefined;
         return assets.find((a: Asset) => a.id === assetId)?.url;
@@ -46,6 +47,28 @@ function convertMemoryToPublicPage(memory: Memory, assets: Asset[]): PublicPage 
         if (!assetId) return undefined;
         return assets.find((a: Asset) => a.id === assetId);
     }
+
+    const hydratedBlocks = (blocks || []).map((block: PublicPageBlock) => {
+        const newBlock = { ...block };
+        if (newBlock.type === 'photo' && newBlock.photo?.assetId) {
+            newBlock.photo.src = getAssetUrlById(newBlock.photo.assetId);
+        }
+        if (newBlock.type === 'video' && newBlock.video?.assetId) {
+            const asset = getAssetById(newBlock.video.assetId);
+            newBlock.video.src = asset?.url;
+            newBlock.video.poster = asset?.thumbnailUrl;
+        }
+        if (newBlock.type === 'audio' && newBlock.audio?.assetId) {
+            newBlock.audio.src = getAssetUrlById(newBlock.audio.assetId);
+        }
+        if (newBlock.type === 'album' && newBlock.album?.assetIds) {
+            newBlock.album.items = newBlock.album.assetIds.map((id: string) => ({ 
+                src: getAssetUrlById(id) || '',
+                caption: assets.find(a => a.id === id)?.name || ''
+            }));
+        }
+        return newBlock;
+    });
 
     return {
         id: memory.id,
@@ -61,27 +84,7 @@ function convertMemoryToPublicPage(memory: Memory, assets: Asset[]): PublicPage 
             profile: { url: getAssetUrlById(memory.profileAssetId) || "https://placehold.co/400x400.png", width: 400, height: 400 },
         },
         ordering: 'custom',
-        blocks: (memory.blocks || []).map((block: PublicPageBlock) => {
-            const newBlock = { ...block };
-            if (newBlock.type === 'photo' && newBlock.photo?.assetId) {
-                newBlock.photo.src = getAssetUrlById(newBlock.photo.assetId);
-            }
-            if (newBlock.type === 'video' && newBlock.video?.assetId) {
-                const asset = getAssetById(newBlock.video.assetId);
-                newBlock.video.src = asset?.url;
-                newBlock.video.poster = asset?.thumbnailUrl;
-            }
-            if (newBlock.type === 'audio' && newBlock.audio?.assetId) {
-                newBlock.audio.src = getAssetUrlById(newBlock.audio.assetId);
-            }
-            if (newBlock.type === 'album' && newBlock.album?.assetIds) {
-                newBlock.album.items = newBlock.album.assetIds.map((id: string) => ({ 
-                    src: getAssetUrlById(id) || '',
-                    caption: assets.find(a => a.id === id)?.name || ''
-                }));
-            }
-            return newBlock;
-        }),
+        blocks: hydratedBlocks,
         publish: {
             status: 'published',
             publishedAt: memory.updatedAt, // Use updatedAt for simplicity
@@ -212,8 +215,8 @@ export default function PublicPage() {
             if (storedPreviewData) {
                 try {
                     const parsedData = JSON.parse(storedPreviewData);
-                    // The stored data now includes assets, so pass them to the converter
-                    pageData = convertMemoryToPublicPage(parsedData, parsedData.assets);
+                    // The stored data now includes memory, assets, and blocks separately
+                    pageData = convertMemoryToPublicPage(parsedData.memory, parsedData.assets, parsedData.blocks);
                 } catch(e) {
                     console.error("Failed to parse preview data from localStorage", e);
                 }
@@ -222,7 +225,7 @@ export default function PublicPage() {
             // This is a live page, fetch from Firestore.
             const data = await fetchPublicPageData(pageId);
             if (data) {
-                pageData = convertMemoryToPublicPage(data.memory, data.assets);
+                pageData = convertMemoryToPublicPage(data.memory, data.assets, data.blocks);
             }
         }
 
