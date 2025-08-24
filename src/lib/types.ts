@@ -10,7 +10,7 @@ export interface UserProfile {
 }
 
 export interface Design {
-  theme: 'light' | 'dark' | 'cream' | 'ink';
+  theme: 'light' | 'dark' | 'cream' | 'ink' | 'Bauhaus' | 'Swiss' | 'Memphis' | 'Brutalism' | 'Abstract' | 'Geometric';
   accentColor?: string;
   bgColor?: string;
   textColor?: string;

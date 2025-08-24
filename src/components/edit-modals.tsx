@@ -254,10 +254,10 @@ const BlockRenderer = ({ block, design, setLightboxState }: { block: PublicPageB
 export function PreviewModal({ isOpen, setIsOpen, memory, assets }: { isOpen: boolean, setIsOpen: (open: boolean) => void, memory: Memory, assets: Asset[] }) {
     const manifest = useMemo(() => convertMemoryToPublicPage(memory, assets), [memory, assets]);
     const [lightboxState, setLightboxState] = useState({ isOpen: false, items: [], startIndex: 0 });
+    
     const backgroundImage = useMemo(() => {
-        if (manifest.design.backgroundImageAssetId) {
-            const asset = assets.find(a => a.id === manifest.design.backgroundImageAssetId);
-            return asset?.url;
+        if (manifest?.design.backgroundImageAssetId) {
+            return assets.find(a => a.id === manifest.design.backgroundImageAssetId)?.url;
         }
         return null;
     }, [manifest, assets]);
@@ -275,10 +275,10 @@ export function PreviewModal({ isOpen, setIsOpen, memory, assets }: { isOpen: bo
                 <DialogHeader className="p-4 border-b bg-background">
                     <DialogTitle>プレビュー</DialogTitle>
                 </DialogHeader>
-                 <div 
+                <div 
                     className="flex-1 overflow-auto"
-                 >
-                     <div 
+                >
+                    <div 
                         className="mx-auto relative"
                         style={{
                             backgroundColor: manifest.design.bgColor,
@@ -836,6 +836,39 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
     );
 }
 
+const PRESET_THEMES: Record<string, Partial<Design>> = {
+    'Bauhaus': {
+        bgColor: '#F0E7D8', textColor: '#1A1A1A',
+        cardBgColor: '#FFFFFF', cardTextColor: '#1A1A1A',
+        accentColor: '#E60000',
+    },
+    'Swiss': {
+        bgColor: '#FFFFFF', textColor: '#000000',
+        cardBgColor: '#F5F5F5', cardTextColor: '#000000',
+        accentColor: '#FF0000',
+    },
+    'Memphis': {
+        bgColor: '#F5F5F5', textColor: '#000000',
+        cardBgColor: '#FFFFFF', cardTextColor: '#000000',
+        accentColor: '#FF6F61',
+    },
+    'Brutalism': {
+        bgColor: '#FFFFFF', textColor: '#000000',
+        cardBgColor: '#FFFFFF', cardTextColor: '#000000',
+        accentColor: '#0000FF',
+    },
+    'Abstract': {
+        bgColor: '#E6E6FA', textColor: '#333333',
+        cardBgColor: '#FFFFFF', cardTextColor: '#333333',
+        accentColor: '#6A5ACD',
+    },
+    'Geometric': {
+        bgColor: '#F0F8FF', textColor: '#2F4F4F',
+        cardBgColor: '#FFFFFF', cardTextColor: '#2F4F4F',
+        accentColor: '#4682B4',
+    }
+};
+
 // --- Design Modal ---
 export function DesignModal({ isOpen, setIsOpen, memory, assets, onUploadSuccess }: { isOpen: boolean, setIsOpen: (open: boolean) => void, memory: Memory, assets: Asset[], onUploadSuccess: (asset: Asset) => void }) {
     const [design, setDesign] = useState<Design>(memory.design);
@@ -851,6 +884,20 @@ export function DesignModal({ isOpen, setIsOpen, memory, assets, onUploadSuccess
     const handleDesignChange = (key: keyof Design, value: any) => {
         setDesign(prev => ({ ...prev, [key]: value }));
     };
+    
+    const handleThemeChange = (themeName: string) => {
+        const theme = PRESET_THEMES[themeName];
+        if (theme) {
+            setDesign(prev => ({
+                ...prev,
+                ...theme,
+                theme: themeName as Design['theme'],
+            }));
+        } else {
+             handleDesignChange('theme', themeName as Design['theme']);
+        }
+    };
+
 
     const handleSave = async () => {
         setIsSaving(true);
@@ -883,13 +930,34 @@ export function DesignModal({ isOpen, setIsOpen, memory, assets, onUploadSuccess
                     <DialogDescription>ページの見た目をカスタマイズします。</DialogDescription>
                 </DialogHeader>
                 
-                <Tabs defaultValue="background" className="py-4">
+                <Tabs defaultValue="theme" className="py-4">
                     <TabsList>
+                        <TabsTrigger value="theme">テーマ</TabsTrigger>
                         <TabsTrigger value="background">背景</TabsTrigger>
                         <TabsTrigger value="card">カード</TabsTrigger>
                         <TabsTrigger value="text">テキスト</TabsTrigger>
-                        <TabsTrigger value="theme">テーマ</TabsTrigger>
                     </TabsList>
+                     <TabsContent value="theme" className="mt-4">
+                        <div className="space-y-4">
+                            <div>
+                                <Label>プリセットテーマ</Label>
+                                 <Select onValueChange={handleThemeChange} value={design.theme}>
+                                    <SelectTrigger><SelectValue placeholder="テーマを選択..." /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="light">ライト (デフォルト)</SelectItem>
+                                        <SelectItem value="dark">ダーク</SelectItem>
+                                        <SelectItem value="cream">クリーム</SelectItem>
+                                        <SelectItem value="Bauhaus">Bauhaus</SelectItem>
+                                        <SelectItem value="Swiss">Swiss</SelectItem>
+                                        <SelectItem value="Memphis">Memphis</SelectItem>
+                                        <SelectItem value="Brutalism">Brutalism</SelectItem>
+                                        <SelectItem value="Abstract">Abstract</SelectItem>
+                                        <SelectItem value="Geometric">Geometric</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+                    </TabsContent>
                     <TabsContent value="background" className="mt-4">
                         <div className="space-y-4">
                              <div>
@@ -989,22 +1057,6 @@ export function DesignModal({ isOpen, setIsOpen, memory, assets, onUploadSuccess
                                         placeholder="#000000"
                                     />
                                 </div>
-                            </div>
-                        </div>
-                    </TabsContent>
-                     <TabsContent value="theme" className="mt-4">
-                        <div className="space-y-4">
-                            <div>
-                                <Label>基本テーマ</Label>
-                                 <Select onValueChange={(value) => handleDesignChange('theme', value)} value={design.theme}>
-                                    <SelectTrigger><SelectValue /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="light">ライト</SelectItem>
-                                        <SelectItem value="dark">ダーク</SelectItem>
-                                        <SelectItem value="cream">クリーム</SelectItem>
-                                        <SelectItem value="ink">インク</SelectItem>
-                                    </SelectContent>
-                                </Select>
                             </div>
                         </div>
                     </TabsContent>
