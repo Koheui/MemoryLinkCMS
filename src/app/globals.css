@@ -4,7 +4,7 @@
 
 @layer base {
   :root {
-    --background: 255 100% 95%; /* Very light lavender */
+    --background: 240 60% 97%; /* Brighter lavender blue for verification */
     --foreground: 275 100% 10%;
     --card: 255 100% 95%;
     --card-foreground: 275 100% 10%;
