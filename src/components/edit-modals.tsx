@@ -253,7 +253,7 @@ const BlockRenderer = ({ block, design, setLightboxState }: { block: PublicPageB
 
 export function PreviewModal({ isOpen, setIsOpen, memory, assets }: { isOpen: boolean, setIsOpen: (open: boolean) => void, memory: Memory, assets: Asset[] }) {
     const manifest = useMemo(() => convertMemoryToPublicPage(memory, assets), [memory, assets]);
-    const [lightboxState, setLightboxState] = useState({ isOpen: false, items: [], startIndex: 0 });
+    const [lightboxState, setLightboxState] = useState<{ isOpen: boolean; items: any[]; startIndex: number; }>({ isOpen: false, items: [], startIndex: 0 });
     
     const backgroundImage = useMemo(() => {
         if (manifest?.design.backgroundImageAssetId) {
