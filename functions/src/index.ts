@@ -29,7 +29,7 @@ export const generateThumbnail = onObjectFinalized({
   const filePath = event.data.name;
   const contentType = event.data.contentType;
   const customMetadata = event.data.metadata;
-  
+
   const assetId = customMetadata?.assetId;
 
   if (!filePath || !filePath.startsWith("users/") || !assetId) {
@@ -41,7 +41,7 @@ export const generateThumbnail = onObjectFinalized({
     logger.info(`Not a video, skipping: ${filePath} (${contentType})`);
     return;
   }
-  
+
   const fileName = path.basename(filePath);
   if (fileName.startsWith("thumb_")) {
     logger.info(`Already a thumbnail, skipping: ${filePath}`);
@@ -51,10 +51,10 @@ export const generateThumbnail = onObjectFinalized({
   const bucket = admin.storage().bucket(fileBucket);
   const tempFilePath = path.join(os.tmpdir(), fileName);
   const tempThumbDir = path.join(os.tmpdir(), `thumbs_${assetId}`);
-  
+
   // Clean up previous temp directories if they exist
   if (fs.existsSync(tempThumbDir)) {
-    fs.rmSync(tempThumbDir, { recursive: true, force: true });
+    fs.rmSync(tempThumbDir, {recursive: true, force: true});
   }
   fs.mkdirSync(tempThumbDir, {recursive: true});
 
@@ -71,7 +71,7 @@ export const generateThumbnail = onObjectFinalized({
         .on("filenames", (filenames) => {
           logger.info("Generated filenames:", filenames);
           // Correctly push filenames to the array
-          screenshotFileNames.push(...filenames.map(name => `${assetId}_${name}`));
+          screenshotFileNames.push(...filenames.map((name) => `${assetId}_${name}`));
         })
         .on("end", () => {
           logger.info("Thumbnail generation finished.");
@@ -89,29 +89,29 @@ export const generateThumbnail = onObjectFinalized({
           size: "320x240",
         });
     });
-    
+
     // The filenames from ffmpeg might not be what we expect, so re-read the directory
     const actualFilenames = fs.readdirSync(tempThumbDir);
     logger.info("Successfully generated screenshots:", actualFilenames);
 
     const uploadPromises = actualFilenames.map((thumbFileName) => {
-        const tempThumbPath = path.join(tempThumbDir, thumbFileName);
-        const thumbUploadPath = path.join(path.dirname(filePath), "thumbnails", thumbFileName);
-        return bucket.upload(tempThumbPath, {
-            destination: thumbUploadPath,
-            metadata: { contentType: "image/jpeg" },
-        });
+      const tempThumbPath = path.join(tempThumbDir, thumbFileName);
+      const thumbUploadPath = path.join(path.dirname(filePath), "thumbnails", thumbFileName);
+      return bucket.upload(tempThumbPath, {
+        destination: thumbUploadPath,
+        metadata: {contentType: "image/jpeg"},
+      });
     });
-    
+
     const uploadedFiles = await Promise.all(uploadPromises);
     logger.info("All thumbnails uploaded successfully.");
-    
+
     const expires = new Date("2100-01-01");
-    const urlPromises = uploadedFiles.map(([uploadedFile]) => 
-        uploadedFile.getSignedUrl({
-            action: "read",
-            expires: expires,
-        })
+    const urlPromises = uploadedFiles.map(([uploadedFile]) =>
+      uploadedFile.getSignedUrl({
+        action: "read",
+        expires: expires,
+      })
     );
 
     const thumbnailUrls = (await Promise.all(urlPromises)).flat();
@@ -119,16 +119,15 @@ export const generateThumbnail = onObjectFinalized({
 
     const db = admin.firestore();
     const assetRef = db.collection("assets").doc(assetId);
-    
+
     // The first thumbnail is set as the default, user can change it.
     await assetRef.update({
-      thumbnailUrl: thumbnailUrls[0] || null, 
+      thumbnailUrl: thumbnailUrls[0] || null,
       thumbnailCandidates: thumbnailUrls,
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
     logger.info("Firestore document updated for asset:", assetId);
-
   } catch (error) {
     logger.error("Function failed:", error);
   } finally {
