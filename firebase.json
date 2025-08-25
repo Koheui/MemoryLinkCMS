@@ -45,22 +45,5 @@
       "functions"
     ],
     "alwaysDeployFromSource": true
-  },
-  "hosting": {
-    "public": "public",
-    "ignore": [
-      "firebase.json",
-      "**/.*",
-      "**/node_modules/**"
-    ],
-    "rewrites": [
-      {
-        "source": "**",
-        "run": {
-          "serviceId": "memory-link-be-01",
-          "region": "us-central1"
-        }
-      }
-    ]
   }
 }
