@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense, useRef, useMemo } from 'react';
 import { useParams, notFound, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
-import type { PublicPageBlock, Memory, Asset, Design } from '@/lib/types';
+import type { PublicPageBlock, Memory, Asset, Design, PublicPage } from '@/lib/types';
 import { Globe, Phone, Mail, Link as LinkIcon, Music, Clapperboard, Milestone, Camera, Loader2, X } from 'lucide-react';
 import { FaXTwitter, FaInstagram, FaYoutube } from 'react-icons/fa6';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';

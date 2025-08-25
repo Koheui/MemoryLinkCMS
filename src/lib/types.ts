@@ -1,4 +1,3 @@
-
 // src/lib/types.ts
 import type { Timestamp } from 'firebase/firestore';
 
@@ -75,6 +74,24 @@ export interface Memory {
   updatedAt: Timestamp;
   publicUrl?: string;
 }
+
+export interface PublicPage {
+    id: string;
+    memoryId: string;
+    title: string;
+    about: { text: string, format: 'plain' | 'markdown' };
+    media: {
+        cover: { url: string; width: number; height: number; };
+        profile: { url: string; width: number; height: number; };
+    };
+    design: Design;
+    ordering: 'custom' | 'chronological';
+    blocks: PublicPageBlock[];
+    publish: { status: 'published' | 'draft', publishedAt: Timestamp | null };
+    createdAt: Timestamp;
+    updatedAt: Timestamp;
+}
+
 
 export interface Asset {
   id: string;
