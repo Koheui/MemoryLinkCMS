@@ -19,12 +19,10 @@ import {
   signInWithEmailAndPassword,
   sendEmailVerification
 } from 'firebase/auth';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { useState, Suspense } from 'react';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
-import type { UserProfile } from '@/lib/types';
 
 
 interface AuthFormProps {
@@ -33,7 +31,6 @@ interface AuthFormProps {
 
 export function AuthForm({ type }: AuthFormProps) {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -51,34 +48,17 @@ export function AuthForm({ type }: AuthFormProps) {
 
     try {
       if (type === 'signup') {
-        const userType = searchParams.get('type') || 'other';
-
+        // Step 1: Only perform authentication.
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        const user = userCredential.user;
+        
+        // Firestore user profile creation is removed from here to prevent race conditions.
+        // It should be handled idempotently elsewhere, e.g., in a global auth hook or on the first page load after signup.
 
-        // Create user profile in Firestore
-        const userProfile: Omit<UserProfile, 'id' | 'createdAt' | 'updatedAt'> = {
-          email: user.email!,
-          userType: userType as UserProfile['userType'],
-        };
-        await setDoc(doc(db, 'users', user.uid), {
-            ...userProfile,
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-        });
+        // Email verification is disabled for now for a smoother DX.
+        // await sendEmailVerification(userCredential.user);
         
-        // Temporarily disabled for smoother development
-        // await sendEmailVerification(user);
-        // toast({
-        //   title: '確認メールを送信しました',
-        //   description: 'ご登録のメールアドレスをご確認ください。',
-        // });
-        
-        // Redirect to a page that informs the user to check their email
-        // router.push('/verify-email');
         toast({ title: '登録完了', description: 'ようこそ！ダッシュボードへ移動します。' });
         router.push('/dashboard');
-
 
       } else {
         // Login
