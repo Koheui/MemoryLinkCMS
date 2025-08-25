@@ -7,6 +7,7 @@
  * See a full list of supported triggers at https://firebase.google.com/docs/functions
  */
 
+/*
 import {onObjectFinalized} from "firebase-functions/v2/storage";
 import * as logger from "firebase-functions/logger";
 import * as admin from "firebase-admin";
@@ -137,3 +138,4 @@ export const generateThumbnail = onObjectFinalized({
     logger.info("Cleaned up temporary files.");
   }
 });
+*/
