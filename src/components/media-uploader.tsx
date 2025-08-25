@@ -137,7 +137,7 @@ export const MediaUploader = React.forwardRef<unknown, MediaUploaderProps>(
                 type: file.type.startsWith('image') ? 'image' : file.type.startsWith('video') ? 'video' : 'audio',
                 storagePath: mainFileStoragePath,
                 url: mainDownloadURL,
-                thumbnailUrl: thumbDownloadURL, // This will be null for non-videos, or if thumb generation failed
+                thumbnailUrl: thumbDownloadURL ?? undefined, // This will be null for non-videos, or if thumb generation failed
                 size: file.size,
                 createdAt: serverTimestamp() as Timestamp,
                 updatedAt: serverTimestamp() as Timestamp,
