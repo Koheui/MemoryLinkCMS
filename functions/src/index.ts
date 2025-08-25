@@ -68,16 +68,16 @@ export const generateThumbnail = onObjectFinalized({
 
     await new Promise<void>((resolve, reject) => {
       ffmpeg(tempFilePath)
-        .on("filenames", (filenames) => {
+        .on("filenames", (filenames: string[]) => {
           logger.info("Generated filenames:", filenames);
           // Correctly push filenames to the array
-          screenshotFileNames.push(...filenames.map((name) => `${assetId}_${name}`));
+          screenshotFileNames.push(...filenames.map((name: string) => `${assetId}_${name}`));
         })
         .on("end", () => {
           logger.info("Thumbnail generation finished.");
           resolve();
         })
-        .on("error", (err) => {
+        .on("error", (err: Error) => {
           logger.error("Error generating thumbnails:", err);
           reject(err);
         })
