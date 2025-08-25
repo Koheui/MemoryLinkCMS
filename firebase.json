@@ -34,6 +34,18 @@
       ]
     }
   ],
+  "hosting": {
+    "source": ".",
+    "rewrites": [
+      {
+        "source": "**",
+        "appHosting": {
+          "backendId": "memory-link-be-01",
+          "region": "us-central1"
+        }
+      }
+    ]
+  },
   "apphosting": {
     "backendId": "memory-link-be-01",
     "rootDir": "/",
