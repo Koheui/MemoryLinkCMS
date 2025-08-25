@@ -85,14 +85,23 @@ export default function MemoryEditorPage() {
             const data = d.data();
             return {
                 id: d.id,
-                ...data,
-                createdAt: (data.createdAt as Timestamp)?.toDate() || new Date()
+                ownerUid: data.ownerUid,
+                memoryId: data.memoryId,
+                name: data.name,
+                type: data.type,
+                storagePath: data.storagePath,
+                url: data.url,
+                size: data.size,
+                thumbnailUrl: data.thumbnailUrl,
+                thumbnailCandidates: data.thumbnailCandidates,
+                createdAt: data.createdAt,
+                updatedAt: data.updatedAt,
             } as Asset;
         });
 
         fetchedAssets.sort((a, b) => {
-            const dateA = a.createdAt instanceof Date ? a.createdAt.getTime() : 0;
-            const dateB = b.createdAt instanceof Date ? b.createdAt.getTime() : 0;
+            const dateA = a.createdAt ? (a.createdAt as Timestamp).toMillis() : 0;
+            const dateB = b.createdAt ? (b.createdAt as Timestamp).toMillis() : 0;
             return dateB - dateA;
         });
         setAssets(fetchedAssets);
@@ -152,8 +161,8 @@ export default function MemoryEditorPage() {
             // Add new asset and re-sort
             const newAssets = [...prevAssets, asset];
             newAssets.sort((a, b) => {
-                const dateA = a.createdAt instanceof Date ? a.createdAt.getTime() : 0;
-                const dateB = b.createdAt instanceof Date ? b.createdAt.getTime() : 0;
+                const dateA = a.createdAt ? (a.createdAt as Timestamp).toMillis() : 0;
+                const dateB = b.createdAt ? (b.createdAt as Timestamp).toMillis() : 0;
                 return dateB - dateA;
             });
             return newAssets;
@@ -531,3 +540,5 @@ function SortableBlockItem({ block, assets, onEdit, onDelete }: { block: PublicP
         </div>
     );
 }
+
+    
