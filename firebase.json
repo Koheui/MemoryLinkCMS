@@ -56,7 +56,7 @@
     "rewrites": [
       {
         "source": "**",
-        "destination": "/index.html"
+        "appHostingBackend": "memory-link-be-01"
       }
     ]
   }
