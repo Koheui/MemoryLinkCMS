@@ -15,14 +15,6 @@ const nextConfig = {
       }
     ],
   },
-  typescript: {
-    // ビルドエラーを回避するための最終手段
-    ignoreBuildErrors: true,
-  },
-  eslint: {
-    // ビルドエラーを回避するための最終手段
-    ignoreBuildErrors: true,
-  },
 };
 
 module.exports = nextConfig;

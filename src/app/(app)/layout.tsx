@@ -17,8 +17,6 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 
-export const dynamic = 'force-dynamic';
-
 function AppLayoutContent({ children }: { children: React.ReactNode }) {
   const { user, loading, isAdmin, handleLogout } = useAuth();
   const pathname = usePathname();
