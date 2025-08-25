@@ -74,15 +74,25 @@ export default function DashboardPage() {
                 const data = doc.data();
                 return { 
                     id: doc.id, 
-                    ...data,
+                    ownerUid: data.ownerUid,
+                    title: data.title,
+                    type: data.type,
+                    status: data.status,
+                    publicPageId: data.publicPageId,
+                    coverAssetId: data.coverAssetId,
+                    profileAssetId: data.profileAssetId,
+                    description: data.description,
+                    design: data.design,
+                    blocks: data.blocks,
+                    updatedAt: data.updatedAt,
                     createdAt: (data.createdAt as Timestamp)?.toDate() || new Date(),
                     coverImageUrl: getAssetUrl(data.coverAssetId)
                 } as Memory;
             });
             
             userMemories.sort((a, b) => {
-                const dateA = a.createdAt instanceof Date ? a.createdAt.getTime() : 0;
-                const dateB = b.createdAt instanceof Date ? b.createdAt.getTime() : 0;
+                const dateA = a.createdAt instanceof Date ? a.createdAt.getTime() : (a.createdAt as unknown as Timestamp).toMillis();
+                const dateB = b.createdAt instanceof Date ? b.createdAt.getTime() : (b.createdAt as unknown as Timestamp).toMillis();
                 return dateB - dateA;
             });
 
@@ -231,7 +241,7 @@ export default function DashboardPage() {
                         <CardContent className="p-0">
                             <div className="aspect-video bg-muted relative">
                                 <Image 
-                                    src={memory.coverImageUrl || "https://placehold.co/600x400.png"} 
+                                    src={(memory as any).coverImageUrl || "https://placehold.co/600x400.png"} 
                                     alt={memory.title} 
                                     fill
                                     sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
