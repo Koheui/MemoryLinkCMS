@@ -1,7 +1,6 @@
-
 // src/app/api/memories/create/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { getUidFromRequest } from '../_lib/auth';
+import { getUidFromRequest } from '../../_lib/auth';
 import { getAdminApp } from '@/lib/firebase/firebaseAdmin';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import type { Memory } from '@/lib/types';
