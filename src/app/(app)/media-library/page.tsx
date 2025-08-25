@@ -48,7 +48,7 @@ export default function MediaLibraryPage() {
   const [selectedAssets, setSelectedAssets] = useState<string[]>([]);
   const { toast } = useToast();
 
-  const TOTAL_STORAGE_LIMIT_MB = 200;
+  const TOTAL_STORAGE_LIMIT_MB = 1000 * 1000; // Effectively unlimited for testing
   const TOTAL_STORAGE_LIMIT_BYTES = TOTAL_STORAGE_LIMIT_MB * 1024 * 1024;
 
   const fetchAssets = useCallback(async (uid: string) => {
@@ -64,12 +64,9 @@ export default function MediaLibraryPage() {
 
       let currentTotalSize = 0;
       const resolvedAssets = snapshot.docs.map((docSnapshot) => {
-        const data = docSnapshot.data();
+        const data = docSnapshot.data() as Asset;
         currentTotalSize += data.size || 0;
-        return {
-          id: docSnapshot.id,
-          ...data,
-        } as Asset;
+        return data;
       });
 
       setAssets(resolvedAssets);
@@ -86,7 +83,7 @@ export default function MediaLibraryPage() {
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [toast, TOTAL_STORAGE_LIMIT_BYTES]);
 
 
   useEffect(() => {
@@ -116,8 +113,9 @@ export default function MediaLibraryPage() {
         // Update local state
         setAssets(prev => prev.filter(a => !assetIds.includes(a.id)));
         const deletedSize = assetsToDelete.reduce((sum, a) => sum + (a.size || 0), 0);
-        setTotalSize(prev => prev - deletedSize);
-        setStoragePercentage(((totalSize - deletedSize) / TOTAL_STORAGE_LIMIT_BYTES) * 100);
+        const newTotalSize = totalSize - deletedSize;
+        setTotalSize(newTotalSize);
+        setStoragePercentage(((newTotalSize) / TOTAL_STORAGE_LIMIT_BYTES) * 100);
 
         toast({ title: "成功", description: `${assetIds.length}件のアセットを削除しました。` });
     } catch (error: any) {
@@ -222,7 +220,7 @@ export default function MediaLibraryPage() {
                     <TableRow key={asset.id}>
                         <TableCell className="font-medium truncate max-w-xs">{asset.name}</TableCell>
                         <TableCell className="font-mono text-xs">{asset.memoryId || 'N/A'}</TableCell>
-                        <TableCell>{asset.createdAt && format(asset.createdAt.toDate(), 'yyyy/MM/dd')}</TableCell>
+                        <TableCell>{asset.createdAt && format((asset.createdAt as Timestamp).toDate(), 'yyyy/MM/dd')}</TableCell>
                         <TableCell>{formatBytes(asset.size || 0)}</TableCell>
                         <TableCell className="text-right">
                             <Button variant="ghost" size="icon" onClick={() => setAssetToDelete(asset)}>
@@ -296,7 +294,7 @@ export default function MediaLibraryPage() {
             <CardHeader>
                 <CardTitle className="font-headline">ストレージ使用量</CardTitle>
                 <CardDescription>
-                    合計 {formatBytes(totalSize)} / {TOTAL_STORAGE_LIMIT_MB}MB を使用中
+                    合計 {formatBytes(totalSize)} / 無制限 を使用中
                 </CardDescription>
             </CardHeader>
             <CardContent>
