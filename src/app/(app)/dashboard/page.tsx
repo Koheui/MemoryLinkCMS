@@ -73,7 +73,7 @@ export default function DashboardPage() {
             const userMemories = memoriesSnapshot.docs.map(doc => {
                 const data = doc.data();
                 return { 
-                    id: doc.id, 
+                    id: doc.id,
                     ownerUid: data.ownerUid,
                     title: data.title,
                     type: data.type,
@@ -85,14 +85,14 @@ export default function DashboardPage() {
                     design: data.design,
                     blocks: data.blocks,
                     updatedAt: data.updatedAt,
-                    createdAt: (data.createdAt as Timestamp)?.toDate() || new Date(),
+                    createdAt: data.createdAt,
                     coverImageUrl: getAssetUrl(data.coverAssetId)
                 } as Memory;
             });
             
             userMemories.sort((a, b) => {
-                const dateA = a.createdAt instanceof Date ? a.createdAt.getTime() : (a.createdAt as unknown as Timestamp).toMillis();
-                const dateB = b.createdAt instanceof Date ? b.createdAt.getTime() : (b.createdAt as unknown as Timestamp).toMillis();
+                const dateA = a.createdAt ? (a.createdAt as Timestamp).toMillis() : 0;
+                const dateB = b.createdAt ? (b.createdAt as Timestamp).toMillis() : 0;
                 return dateB - dateA;
             });
 
