@@ -5,7 +5,7 @@
 // can secure the 'assets' collection.
 // We are leaving the file here for potential future use (e.g. server-side validation).
 import { NextRequest, NextResponse } from 'next/server';
-import { getUidFromRequest } from '../../app/api/_lib/auth';
+import { getUidFromRequest } from '@/app/api/_lib/auth';
 import { getAdminApp } from '@/lib/firebase/firebaseAdmin';
 import { getFirestore } from 'firebase-admin/firestore';
 
