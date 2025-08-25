@@ -5,8 +5,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 9002",
-    "build": "npm run build-production || exit 0",
-    "build-production": "next build",
+    "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit"
