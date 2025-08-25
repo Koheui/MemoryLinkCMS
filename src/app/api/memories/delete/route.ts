@@ -1,6 +1,6 @@
 // src/app/api/memories/delete/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { getUidFromRequest } from '../../_lib/auth';
+import { getUidFromRequest } from '@/app/api/_lib/auth';
 import { getAdminApp } from '@/lib/firebase/firebaseAdmin';
 import { getStorage } from 'firebase-admin/storage';
 import type { Memory, Asset } from '@/lib/types';

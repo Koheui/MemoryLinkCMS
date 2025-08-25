@@ -1,10 +1,11 @@
 // src/app/api/assets/delete/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { getUidFromRequest } from '../../_lib/auth';
+import { getUidFromRequest } from '@/app/api/_lib/auth';
 import { getAdminApp } from '@/lib/firebase/firebaseAdmin';
 import { getStorage } from 'firebase-admin/storage';
 import type { Asset, Memory } from '@/lib/types';
 const { getFirestore, Filter } = require('firebase-admin/firestore');
+import admin from 'firebase-admin';
 
 function err(status: number, msg: string) {
   return NextResponse.json({ error: msg }, { status });
