@@ -6,17 +6,26 @@ env:
   - variable: FIREBASE_SERVICE_ACCOUNT_JSON
     secret: FIREBASE_SERVICE_ACCOUNT_JSON
   - variable: NEXT_PUBLIC_FIREBASE_API_KEY
-    value: "AIzaSyBT2MzmlNzOvqx-v8Stz9mesXAX9MERLds"
+    availability:
+      - BUILD
+      - RUNTIME
   - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
-    value: "memorylink-cms.firebaseapp.com"
+    availability:
+      - BUILD
+      - RUNTIME
   - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
-    value: "memorylink-cms"
+    availability:
+      - BUILD
+      - RUNTIME
   - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
-    value: "memorylink-cms.appspot.com"
+    availability:
+      - BUILD
+      - RUNTIME
   - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
-    value: "115478197771"
+    availability:
+      - BUILD
+      - RUNTIME
   - variable: NEXT_PUBLIC_FIREBASE_APP_ID
-    value: "1:115478197771:web:c075c0b401a8ecf597f90e"
     availability:
       - BUILD
       - RUNTIME
