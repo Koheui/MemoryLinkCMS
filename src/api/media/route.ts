@@ -1,3 +1,4 @@
+
 // src/app/api/media/route.ts
 // This route is not currently used by the new MediaUploader component,
 // as it writes directly to Firestore from the client.
