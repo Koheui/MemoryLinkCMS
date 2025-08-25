@@ -69,8 +69,6 @@ export default function MediaLibraryPage() {
         return {
           id: docSnapshot.id,
           ...data,
-          createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(data.createdAt),
-          updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate() : new Date(data.updatedAt),
         } as Asset;
       });
 
@@ -224,7 +222,7 @@ export default function MediaLibraryPage() {
                     <TableRow key={asset.id}>
                         <TableCell className="font-medium truncate max-w-xs">{asset.name}</TableCell>
                         <TableCell className="font-mono text-xs">{asset.memoryId || 'N/A'}</TableCell>
-                        <TableCell>{format(new Date(asset.createdAt as any), 'yyyy/MM/dd')}</TableCell>
+                        <TableCell>{asset.createdAt && format(asset.createdAt.toDate(), 'yyyy/MM/dd')}</TableCell>
                         <TableCell>{formatBytes(asset.size || 0)}</TableCell>
                         <TableCell className="text-right">
                             <Button variant="ghost" size="icon" onClick={() => setAssetToDelete(asset)}>
