@@ -1,5 +1,3 @@
-
-
 // src/app/p/[pageId]/page.tsx
 'use client';
 import { useState, useEffect, Suspense, useRef, useMemo } from 'react';
@@ -15,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { db } from '@/lib/firebase/client';
 import { doc, getDoc, collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
 
+export const dynamic = 'force-dynamic';
 
 // This function fetches both the memory and its associated assets for a real public page
 async function fetchPublicPageData(pageId: string): Promise<{ memory: Memory, assets: Asset[] } | null> {
