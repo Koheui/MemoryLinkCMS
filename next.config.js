@@ -1,19 +1,2 @@
-/** @type {import('next').NextConfig} */
-const nextConfig = {
-  images: {
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'placehold.co',
-        port: '',
-        pathname: '/**',
-      },
-      {
-        protocol: 'https',
-        hostname: 'firebasestorage.googleapis.com',
-      }
-    ],
-  },
-};
-
-module.exports = nextConfig;
+// This file is deprecated and has been removed to resolve build conflicts.
+// Please use next.config.ts instead.
