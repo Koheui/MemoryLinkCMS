@@ -33,6 +33,12 @@ Follow these steps to get the project running.
   - Enable **Email/Password**.
   - Go to Authentication -> Settings -> Authorized domains.
   - Add `localhost` and your app's domain (e.g., `app.example.com`).
+- **APIキーのセキュリティ設定**:
+  - Google Cloud Consoleの[認証情報ページ](https://console.cloud.google.com/apis/credentials)に移動します。
+  - 使用するAPIキー（通常は "Browser key"）を選択して編集画面を開きます。
+  - 「アプリケーションの制限」で「**ウェブサイト**」を選択します。
+  - 「ウェブサイトの制限」セクションで、開発用に `http://localhost:9002` のようなローカル開発URLを追加します。
+  - **⚠️【超重要】将来、本番用のドメインを取得したら、必ずこの設定に戻り、本番ドメイン（例: `https://app.example.com`）を追加してください。これを忘れると、本番環境でアプリが動作しません。**
 - **App Check**: For the MVP, it's recommended to keep App Check OFF. If you enable it, you must configure the web key and implement the SDK.
 
 ### 2. Environment Variables
