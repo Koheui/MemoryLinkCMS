@@ -92,7 +92,6 @@ export const MediaUploader = React.forwardRef<unknown, MediaUploaderProps>(
 
         const assetId = uuidv4();
         const toastInstance = toast({
-            id: `upload-${assetId}`,
             title: 'アップロード開始',
             description: `${file.name}のアップロード処理を開始します...`,
         });
@@ -104,20 +103,20 @@ export const MediaUploader = React.forwardRef<unknown, MediaUploaderProps>(
             // --- Step 1 (Conditional): Generate and upload thumbnail for videos ---
             if (isVideo) {
                 try {
-                    toastInstance.update({ description: `動画のサムネイルを生成中...` });
+                    toastInstance.update({ id: toastInstance.id, description: `動画のサムネイルを生成中...` });
                     const thumbnailBlob = await generateVideoThumbnail(file);
                     const thumbFileStoragePath = `users/${user.uid}/library/thumbnails/${assetId}_thumb.jpg`;
                     const thumbFileRef = ref(storage, thumbFileStoragePath);
                     const thumbUploadTask = await uploadBytes(thumbFileRef, thumbnailBlob, { contentType: 'image/jpeg' });
                     thumbDownloadURL = await getDownloadURL(thumbUploadTask.ref);
-                    toastInstance.update({ description: `サムネイル生成完了。メインファイルをアップロード中...` });
+                    toastInstance.update({ id: toastInstance.id, description: `サムネイル生成完了。メインファイルをアップロード中...` });
                 } catch (thumbError: any) {
                     console.error("Thumbnail generation or upload failed:", thumbError);
-                    toastInstance.update({ variant: 'destructive', title: 'サムネイル生成失敗', description: thumbError.message });
+                    toastInstance.update({ id: toastInstance.id, variant: 'destructive', title: 'サムネイル生成失敗', description: thumbError.message });
                     // Continue without a thumbnail
                 }
             } else {
-                 toastInstance.update({ description: `ファイルをアップロード中...` });
+                 toastInstance.update({ id: toastInstance.id, description: `ファイルをアップロード中...` });
             }
 
             // --- Step 2: Upload main file ---
@@ -127,7 +126,7 @@ export const MediaUploader = React.forwardRef<unknown, MediaUploaderProps>(
             const mainFileRef = ref(storage, mainFileStoragePath);
             const mainUploadTask = await uploadBytes(mainFileRef, file, { contentType: file.type });
             const mainDownloadURL = await getDownloadURL(mainUploadTask.ref);
-            toastInstance.update({ description: `ファイルのアップロード完了。データベースに保存中...` });
+            toastInstance.update({ id: toastInstance.id, description: `ファイルのアップロード完了。データベースに保存中...` });
 
 
             // --- Step 3: Create final document in Firestore ---
@@ -153,12 +152,12 @@ export const MediaUploader = React.forwardRef<unknown, MediaUploaderProps>(
                 updatedAt: new Date() as any,
             };
             
-            toastInstance.update({ variant: "default", title: '成功', description: 'アップロードが完了しました。' });
+            toastInstance.update({ id: toastInstance.id, variant: "default", title: '成功', description: 'アップロードが完了しました。' });
             onUploadSuccess(finalAsset);
 
         } catch (error: any) {
             console.error("Upload process failed:", error);
-            toastInstance.update({ variant: 'destructive', title: 'アップロード失敗', description: error.message });
+            toastInstance.update({ id: toastInstance.id, variant: 'destructive', title: 'アップロード失敗', description: error.message });
         }
     };
     
