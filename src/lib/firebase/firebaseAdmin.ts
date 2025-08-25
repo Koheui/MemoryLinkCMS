@@ -8,8 +8,11 @@ export function getAdminApp() {
   if (app) return app;
 
   const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
-  if (!raw) {
-    throw new Error('FIREBASE_SERVICE_ACCOUNT_JSON is missing in .env.local');
+  
+  // Add a more robust check to prevent JSON.parse(undefined)
+  if (!raw || typeof raw !== 'string' || raw.trim() === '') {
+    console.error('Firebase Admin SDK Error: FIREBASE_SERVICE_ACCOUNT_JSON environment variable is not set or is empty.');
+    throw new Error('FIREBASE_SERVICE_ACCOUNT_JSON is not configured correctly. Please check your environment variables.');
   }
 
   try {
