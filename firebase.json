@@ -44,8 +44,8 @@
     "rewrites": [
       {
         "source": "**",
-        "appHosting": {
-          "backendId": "memory-link-be-01",
+        "run": {
+          "serviceId": "memory-link-be-01",
           "region": "us-central1"
         }
       }
