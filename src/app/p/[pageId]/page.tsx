@@ -291,7 +291,7 @@ function PageContent() {
   const [manifest, setManifest] = useState<PublicPage | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [lightboxState, setLightboxState] = useState({ isOpen: false, items: [], startIndex: 0 });
+  const [lightboxState, setLightboxState] = useState<{isOpen: boolean, items: any[], startIndex: number}>({ isOpen: false, items: [], startIndex: 0 });
   const [assets, setAssets] = useState<Asset[]>([]);
 
   useEffect(() => {
