@@ -309,14 +309,14 @@ function PageContent() {
                         const pageData = convertMemoryToPublicPage(parsedData.memory, parsedData.assets);
                         setManifest(pageData);
                         setAssets(parsedData.assets);
+                        // Only remove data on successful load
+                        localStorage.removeItem('previewData'); 
                     } else {
                         throw new Error("Invalid preview data structure in localStorage.");
                     }
                 } catch (e: any) {
                     console.error("Failed to parse preview data from localStorage:", e);
                     setError('プレビューデータの解析に失敗しました。データが破損している可能性があります。');
-                } finally {
-                    localStorage.removeItem('previewData');
                 }
             } else {
                  setError('プレビューデータが見つかりませんでした。編集画面から再度プレビューボタンを押してください。');
@@ -325,7 +325,8 @@ function PageContent() {
         } else if (pageId) {
             const data = await fetchPublicPageData(pageId);
             if (data) {
-                setManifest(convertMemoryToPublicPage(data.memory, data.assets));
+                const pageData = convertMemoryToPublicPage(data.memory, data.assets);
+                setManifest(pageData);
                 setAssets(data.assets);
             } else {
                  setError('この想い出ページは存在しないか、まだ公開されていません。');
@@ -351,7 +352,7 @@ function PageContent() {
     return null;
   }, [manifest, assets]);
 
-  if (loading || !manifest) {
+  if (loading) {
     return (
         <div className="flex min-h-screen items-center justify-center bg-gray-900">
             <Loader2 className="h-10 w-10 animate-spin text-white" />
@@ -367,6 +368,16 @@ function PageContent() {
         </div>
     );
   }
+  
+  if (!manifest) {
+    // This case handles when loading is done but manifest is still null (e.g., failed preview load without error set)
+     return (
+        <div className="flex min-h-screen items-center justify-center bg-gray-900">
+            <Loader2 className="h-10 w-10 animate-spin text-white" />
+        </div>
+    )
+  }
+
 
   const design = manifest.design || {};
   
