@@ -255,13 +255,6 @@ export function PreviewModal({ isOpen, setIsOpen, memory, assets }: { isOpen: bo
         return assets.find(a => a.id === manifest.design.backgroundImageAssetId)?.url;
     }, [manifest, assets]);
 
-    useEffect(() => {
-        if (isOpen) {
-            localStorage.setItem(`preview_memory_${memory.id}`, JSON.stringify(memory));
-            localStorage.setItem(`preview_assets_${memory.id}`, JSON.stringify(assets));
-        }
-    }, [isOpen, memory, assets]);
-
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogContent className="max-w-4xl w-full h-[95vh] flex flex-col p-0 gap-0">
