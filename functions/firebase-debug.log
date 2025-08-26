@@ -1,0 +1,73 @@
+[debug] [2025-08-25T06:21:06.843Z] ----------------------------------------------------------------------
+[debug] [2025-08-25T06:21:06.847Z] Command:       /nix/store/ws50yvm6vzlzf7jzz6n7xh4szddrack1-nodejs-20.19.1/bin/node /home/user/.global_modules/bin/firebase deploy --project memolylink-cms
+[debug] [2025-08-25T06:21:06.847Z] CLI Version:   14.12.1
+[debug] [2025-08-25T06:21:06.848Z] Platform:      linux
+[debug] [2025-08-25T06:21:06.848Z] Node Version:  v20.19.1
+[debug] [2025-08-25T06:21:06.848Z] Time:          Mon Aug 25 2025 06:21:06 GMT+0000 (Coordinated Universal Time)
+[debug] [2025-08-25T06:21:06.848Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2025-08-25T06:21:07.297Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform","https://www.googleapis.com/auth/userinfo.email"]
+[debug] [2025-08-25T06:21:07.297Z] > authorizing via signed-in user (cafegolazo@gmail.com)
+[debug] [2025-08-25T06:21:07.298Z] [iam] checking project memolylink-cms for permissions ["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","cloudsql.databases.create","cloudsql.databases.update","cloudsql.instances.connect","cloudsql.instances.create","cloudsql.instances.get","cloudsql.instances.list","cloudsql.instances.update","cloudsql.users.create","datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get","firebasedataconnect.connectors.create","firebasedataconnect.connectors.delete","firebasedataconnect.connectors.list","firebasedataconnect.connectors.update","firebasedataconnect.operations.get","firebasedataconnect.schemas.create","firebasedataconnect.schemas.delete","firebasedataconnect.schemas.list","firebasedataconnect.schemas.update","firebasedataconnect.services.create","firebasedataconnect.services.delete","firebasedataconnect.services.list","firebasedataconnect.services.update","firebasehosting.sites.update",null]
+[debug] [2025-08-25T06:21:07.299Z] Checked if tokens are valid: true, expires at: 1756106216175
+[debug] [2025-08-25T06:21:07.299Z] Checked if tokens are valid: true, expires at: 1756106216175
+[debug] [2025-08-25T06:21:07.301Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/memolylink-cms:testIamPermissions [none]
+[debug] [2025-08-25T06:21:07.301Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/memolylink-cms:testIamPermissions x-goog-quota-user=projects/memolylink-cms
+[debug] [2025-08-25T06:21:07.301Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/memolylink-cms:testIamPermissions {"permissions":["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","cloudsql.databases.create","cloudsql.databases.update","cloudsql.instances.connect","cloudsql.instances.create","cloudsql.instances.get","cloudsql.instances.list","cloudsql.instances.update","cloudsql.users.create","datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get","firebasedataconnect.connectors.create","firebasedataconnect.connectors.delete","firebasedataconnect.connectors.list","firebasedataconnect.connectors.update","firebasedataconnect.operations.get","firebasedataconnect.schemas.create","firebasedataconnect.schemas.delete","firebasedataconnect.schemas.list","firebasedataconnect.schemas.update","firebasedataconnect.services.create","firebasedataconnect.services.delete","firebasedataconnect.services.list","firebasedataconnect.services.update","firebasehosting.sites.update",null]}
+[debug] [2025-08-25T06:21:08.289Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/memolylink-cms:testIamPermissions 200
+[debug] [2025-08-25T06:21:08.290Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/memolylink-cms:testIamPermissions {}
+[debug] [2025-08-25T06:21:08.290Z] [iam] error while checking permissions, command may fail: Authorization failed. This account is missing the following required permissions on project memolylink-cms:
+
+  cloudfunctions.functions.create
+  cloudfunctions.functions.delete
+  cloudfunctions.functions.get
+  cloudfunctions.functions.list
+  cloudfunctions.functions.update
+  cloudfunctions.operations.get
+  cloudsql.databases.create
+  cloudsql.databases.update
+  cloudsql.instances.connect
+  cloudsql.instances.create
+  cloudsql.instances.get
+  cloudsql.instances.list
+  cloudsql.instances.update
+  cloudsql.users.create
+  datastore.indexes.create
+  datastore.indexes.delete
+  datastore.indexes.list
+  datastore.indexes.update
+  firebase.projects.get
+  firebasedataconnect.connectors.create
+  firebasedataconnect.connectors.delete
+  firebasedataconnect.connectors.list
+  firebasedataconnect.connectors.update
+  firebasedataconnect.operations.get
+  firebasedataconnect.schemas.create
+  firebasedataconnect.schemas.delete
+  firebasedataconnect.schemas.list
+  firebasedataconnect.schemas.update
+  firebasedataconnect.services.create
+  firebasedataconnect.services.delete
+  firebasedataconnect.services.list
+  firebasedataconnect.services.update
+  firebasehosting.sites.update
+  
+[debug] [2025-08-25T06:21:08.291Z] Checked if tokens are valid: true, expires at: 1756106216175
+[debug] [2025-08-25T06:21:08.291Z] Checked if tokens are valid: true, expires at: 1756106216175
+[debug] [2025-08-25T06:21:08.291Z] >>> [apiv2][query] POST https://iam.googleapis.com/v1/projects/memolylink-cms/serviceAccounts/memolylink-cms@appspot.gserviceaccount.com:testIamPermissions [none]
+[debug] [2025-08-25T06:21:08.291Z] >>> [apiv2][body] POST https://iam.googleapis.com/v1/projects/memolylink-cms/serviceAccounts/memolylink-cms@appspot.gserviceaccount.com:testIamPermissions {"permissions":["iam.serviceAccounts.actAs"]}
+[debug] [2025-08-25T06:21:09.266Z] <<< [apiv2][status] POST https://iam.googleapis.com/v1/projects/memolylink-cms/serviceAccounts/memolylink-cms@appspot.gserviceaccount.com:testIamPermissions 404
+[debug] [2025-08-25T06:21:09.267Z] <<< [apiv2][body] POST https://iam.googleapis.com/v1/projects/memolylink-cms/serviceAccounts/memolylink-cms@appspot.gserviceaccount.com:testIamPermissions {"error":{"code":404,"message":"Unknown service account","status":"NOT_FOUND"}}
+[debug] [2025-08-25T06:21:09.267Z] [functions] service account IAM check errored, deploy may fail: Request to https://iam.googleapis.com/v1/projects/memolylink-cms/serviceAccounts/memolylink-cms@appspot.gserviceaccount.com:testIamPermissions had HTTP Error: 404, Unknown service account {"name":"FirebaseError","children":[],"context":{"body":{"error":{"code":404,"message":"Unknown service account","status":"NOT_FOUND"}},"response":{"statusCode":404}},"exit":1,"message":"Request to https://iam.googleapis.com/v1/projects/memolylink-cms/serviceAccounts/memolylink-cms@appspot.gserviceaccount.com:testIamPermissions had HTTP Error: 404, Unknown service account","status":404}
+[debug] [2025-08-25T06:21:09.269Z] Checked if tokens are valid: true, expires at: 1756106216175
+[debug] [2025-08-25T06:21:09.269Z] Checked if tokens are valid: true, expires at: 1756106216175
+[debug] [2025-08-25T06:21:09.270Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/memolylink-cms [none]
+[debug] [2025-08-25T06:21:09.680Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/memolylink-cms 403
+[debug] [2025-08-25T06:21:09.680Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/memolylink-cms {"error":{"code":403,"message":"The caller does not have permission","status":"PERMISSION_DENIED"}}
+[debug] [2025-08-25T06:21:09.680Z] Request to https://firebase.googleapis.com/v1beta1/projects/memolylink-cms had HTTP Error: 403, The caller does not have permission
+[debug] [2025-08-25T06:21:09.696Z] FirebaseError: Request to https://firebase.googleapis.com/v1beta1/projects/memolylink-cms had HTTP Error: 403, The caller does not have permission
+    at responseToError (/home/user/.global_modules/lib/node_modules/firebase-tools/lib/responseToError.js:52:12)
+    at RetryOperation._fn (/home/user/.global_modules/lib/node_modules/firebase-tools/lib/apiv2.js:312:77)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+[error] 
+[error] Error: Failed to get Firebase project memolylink-cms. Please make sure the project exists and your account has permission to access it.

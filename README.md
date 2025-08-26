@@ -21,7 +21,7 @@ This is a Next.js application for MemoryLink CMS, a platform for users to create
 
 ---
 
-## 9. Setup Instructions (From Zero to Launch)
+## Setup Instructions (From Zero to Launch)
 
 Follow these steps to get the project running.
 
@@ -46,20 +46,18 @@ Follow these steps to get the project running.
 - Under **Application restrictions**, select **Websites**.
 - Under **Website restrictions**, click **Add**.
 - **Add entries for both local development and production:**
-    - `http://localhost:9002` (or your local port)
+    - `http://localhost:3000` (or your local port)
     - `https://memorylink-cms.web.app/*`
 - **⚠️ This is also critical. If you don't restrict your API key correctly, your app will not be able to connect to Firebase services in production.**
 - Click **Save**.
 
-### 4. Get Firebase Config for your App
+### 4. Set Environment Variables
 - In the Firebase Console, go to **Project Settings** (the gear icon).
 - Scroll down to the **Your apps** card.
 - If you haven't created a web app yet, click the web icon (`</>`) to create one.
 - Find your web app and click on **Config** to view your Firebase configuration keys.
-
-### 5. Set Environment Variables
-- Create a `.env.local` file in the root of your project.
-- Add your Firebase configuration keys to this file.
+- Create a new file named `.env.local` in the root of your project.
+- Add your Firebase configuration keys to this new `.env.local` file. It should look like this:
 
 ```
 NEXT_PUBLIC_FIREBASE_API_KEY=...
@@ -70,15 +68,15 @@ NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=...
 NEXT_PUBLIC_FIREBASE_APP_ID=...
 ```
 
-### 6. Install Dependencies & Run App
+### 5. Install Dependencies & Run App
 - Install the project dependencies and start the development server.
 ```bash
 npm install
 npm run dev
 ```
-- The application should now be running locally (e.g., `http://localhost:9002`).
+- The application should now be running locally (e.g., `http://localhost:3000`).
 
-### 7. Grant Admin Privileges (Optional)
+### 6. Grant Admin Privileges (Optional)
 To access the admin dashboard, you need to grant admin privileges to a user. This must be done in a secure server environment using the Firebase Admin SDK.
 
 - **Create a user** through your app's signup flow.
@@ -111,7 +109,7 @@ setAdminClaim();
 ```
 - **Re-login**: The admin user must log out and log back in for the new claims to take effect in their ID token.
 
-### 8. Deploy to Firebase Hosting
+### 7. Deploy to Firebase Hosting
 - Once all the configuration is complete, build and deploy the application.
 ```bash
 npm run build

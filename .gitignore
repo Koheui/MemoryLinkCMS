@@ -4,7 +4,7 @@
 /node_modules
 /.pnp
 .pnp.js
-.yarn/install-state.gz
+.pnp.loader.mjs
 
 # testing
 /coverage
@@ -27,10 +27,7 @@ yarn-error.log*
 pnpm-debug.log*
 
 # local env files
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+*.local
 
 # vercel
 .vercel
@@ -39,12 +36,5 @@ pnpm-debug.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# generated
-/dataconnect-generated
-/functions/lib
-/functions/node_modules
-
-# Firebase
-.firebase/
-*firebase-debug.log
-firebase-debug.*.log
+# studio
+.idea
