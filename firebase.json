@@ -1,23 +1,14 @@
 
 {
-  "firestore": {
-    "rules": "firestore.rules",
-    "indexes": "firestore.indexes.json"
-  },
   "hosting": {
-    "rewrites": [
-      {
-        "source": "**",
-        "run": {
-          "serviceId": "memory-link-be-01",
-          "region": "us-central1"
-        }
-      }
-    ]
-  },
-  "apphosting": {
-    "backends": [
-      "memory-link-be-01"
-    ]
+    "source": ".",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "frameworksBackend": {
+      "region": "us-central1"
+    }
   }
 }
