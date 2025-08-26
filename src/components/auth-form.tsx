@@ -58,13 +58,15 @@ export function AuthForm({ type }: AuthFormProps) {
         // await sendEmailVerification(userCredential.user);
         
         toast({ title: '登録完了', description: 'ようこそ！ダッシュボードへ移動します。' });
-        router.push('/dashboard');
+        // Use window.location.assign for a full page reload to ensure auth state is propagated correctly on static sites.
+        window.location.assign('/dashboard');
 
       } else {
         // Login
         await signInWithEmailAndPassword(auth, email, password);
         toast({ title: 'ログインしました', description: 'ようこそ！' });
-        router.push('/dashboard');
+         // Use window.location.assign for a full page reload to ensure auth state is propagated correctly on static sites.
+        window.location.assign('/dashboard');
       }
     } catch (error: any) {
       console.error(error);
