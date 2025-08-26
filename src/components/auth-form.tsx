@@ -48,24 +48,17 @@ export function AuthForm({ type }: AuthFormProps) {
 
     try {
       if (type === 'signup') {
-        // Step 1: Only perform authentication.
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         
-        // Firestore user profile creation is removed from here to prevent race conditions.
-        // It should be handled idempotently elsewhere, e.g., in a global auth hook or on the first page load after signup.
-
-        // Email verification is disabled for now for a smoother DX.
-        // await sendEmailVerification(userCredential.user);
-        
         toast({ title: '登録完了', description: 'ようこそ！ダッシュボードへ移動します。' });
-        // Use window.location.assign for a full page reload to ensure auth state is propagated correctly on static sites.
+        // Use window.location.assign for a full page reload to ensure auth state is propagated correctly.
         window.location.assign('/dashboard');
 
       } else {
         // Login
         await signInWithEmailAndPassword(auth, email, password);
         toast({ title: 'ログインしました', description: 'ようこそ！' });
-         // Use window.location.assign for a full page reload to ensure auth state is propagated correctly on static sites.
+         // Use window.location.assign for a full page reload to ensure auth state is propagated correctly.
         window.location.assign('/dashboard');
       }
     } catch (error: any) {
