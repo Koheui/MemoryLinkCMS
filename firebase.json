@@ -7,9 +7,9 @@
   "hosting": {
     "rewrites": [
       {
-        "source": "/**",
-        "apphosting": {
-          "backendId": "memory-link-be-01",
+        "source": "**",
+        "run": {
+          "serviceId": "memory-link-be-01",
           "region": "us-central1"
         }
       }
