@@ -1,4 +1,4 @@
-fireba# MemoryLink CMS
+# MemoryLink CMS
 
 This is a Next.js application for MemoryLink CMS, a platform for users to create beautiful, shareable "Memory Pages" from their photos, videos, audio, and text. The public pages are optimized for mobile and designed to be accessed via NFC tags.
 
@@ -28,21 +28,38 @@ Follow these steps to get the project running.
 ### 1. Firebase Project Setup
 - Create a new Firebase project.
 - Ensure all services (Firestore, Storage, Functions) are in the same region (e.g., `asia-northeast1`).
-- **Authentication**:
-  - Go to Authentication -> Sign-in method.
-  - Enable **Email/Password**.
-  - Go to Authentication -> Settings -> Authorized domains.
-  - Add `localhost` and your app's domain (e.g., `app.example.com`).
-- **APIキーのセキュリティ設定**:
-  - Google Cloud Consoleの[認証情報ページ](https://console.cloud.google.com/apis/credentials)に移動します。
-  - 使用するAPIキー（通常は "Browser key"）を選択して編集画面を開きます。
-  - 「アプリケーションの制限」で「**ウェブサイト**」を選択します。
-  - 「ウェブサイトの制限」セクションで、開発用に `http://localhost:9002` のようなローカル開発URLを追加します。
-  - **⚠️【超重要】将来、本番用のドメインを取得したら、必ずこの設定に戻り、本番ドメイン（例: `https://app.example.com`）を追加してください。これを忘れると、本番環境でアプリが動作しません。**
-- **App Check**: For the MVP, it's recommended to keep App Check OFF. If you enable it, you must configure the web key and implement the SDK.
 
-### 2. Environment Variables
-Create a `.env.local` file in the root of the project and add your Firebase project's configuration keys. You can get these from your Firebase project settings.
+### 2. Configure Firebase Authentication
+- In the Firebase Console, go to **Authentication** -> **Sign-in method**.
+- Enable **Email/Password**.
+- Go to the **Settings** tab within Authentication.
+- Under **Authorized domains**, click **Add domain**.
+- **Crucially, add both your local development domain and your final production domain:**
+    - `localhost`
+    - `memorylink-cms.web.app` (or your custom domain if you have one)
+- **⚠️ This step is critical. If you don't authorize your production domain, logins will fail after deployment.**
+
+### 3. Configure Google Cloud API Key
+- Go to the [Google Cloud Console Credentials page](https://console.cloud.google.com/apis/credentials).
+- Find the API key used by your web app (usually named "Browser key (auto created by Firebase)").
+- Click on the key name to edit it.
+- Under **Application restrictions**, select **Websites**.
+- Under **Website restrictions**, click **Add**.
+- **Add entries for both local development and production:**
+    - `http://localhost:9002` (or your local port)
+    - `https://memorylink-cms.web.app/*`
+- **⚠️ This is also critical. If you don't restrict your API key correctly, your app will not be able to connect to Firebase services in production.**
+- Click **Save**.
+
+### 4. Get Firebase Config for your App
+- In the Firebase Console, go to **Project Settings** (the gear icon).
+- Scroll down to the **Your apps** card.
+- If you haven't created a web app yet, click the web icon (`</>`) to create one.
+- Find your web app and click on **Config** to view your Firebase configuration keys.
+
+### 5. Set Environment Variables
+- Create a `.env.local` file in the root of your project.
+- Add your Firebase configuration keys to this file.
 
 ```
 NEXT_PUBLIC_FIREBASE_API_KEY=...
@@ -53,22 +70,15 @@ NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=...
 NEXT_PUBLIC_FIREBASE_APP_ID=...
 ```
 
-### 3. Deploy Firebase Rules
-Deploy the provided security rules for Firestore and Storage. From your project root, run:
-```bash
-firebase deploy --only firestore:rules,storage:rules
-```
-*(Note: This requires `firebase.json`, `firestore.rules`, and `storage.rules` to be configured in your project root.)*
-
-### 4. Install Dependencies & Run App
-Install the project dependencies and start the development server.
+### 6. Install Dependencies & Run App
+- Install the project dependencies and start the development server.
 ```bash
 npm install
 npm run dev
 ```
-The application should now be running on `http://localhost:9002`.
+- The application should now be running locally (e.g., `http://localhost:9002`).
 
-### 5. Grant Admin Privileges
+### 7. Grant Admin Privileges (Optional)
 To access the admin dashboard, you need to grant admin privileges to a user. This must be done in a secure server environment using the Firebase Admin SDK.
 
 - **Create a user** through your app's signup flow.
@@ -101,19 +111,9 @@ setAdminClaim();
 ```
 - **Re-login**: The admin user must log out and log back in for the new claims to take effect in their ID token.
 
-### 6. Firebase Functions
-The project is designed to work with Firebase Functions for tasks like image compression and public page generation.
-- Navigate to the `functions` directory (if you have one).
-- Install dependencies and deploy.
-```bash
-cd functions
-npm install
-npm run deploy
-```
-
-### 7. Hosting Deployment
-To deploy the application to Firebase Hosting:
+### 8. Deploy to Firebase Hosting
+- Once all the configuration is complete, build and deploy the application.
 ```bash
 npm run build
-firebase deploy --only hosting
+firebase deploy
 ```
