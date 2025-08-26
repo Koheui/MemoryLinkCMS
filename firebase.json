@@ -5,30 +5,11 @@
     "indexes": "firestore.indexes.json"
   },
   "hosting": {
+    "public": "out",
     "ignore": [
       "firebase.json",
       "**/.*",
       "**/node_modules/**"
-    ],
-    "rewrites": [
-      {
-        "source": "**",
-        "run": {
-          "serviceId": "memory-link-be-01",
-          "region": "us-central1"
-        }
-      }
-    ]
-  },
-  "apphosting": {
-    "source": ".",
-    "secrets": [
-      "NEXT_PUBLIC_FIREBASE_API_KEY",
-      "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN",
-      "NEXT_PUBLIC_FIREBASE_PROJECT_ID",
-      "NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET",
-      "NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID",
-      "NEXT_PUBLIC_FIREBASE_APP_ID"
     ]
   }
 }
