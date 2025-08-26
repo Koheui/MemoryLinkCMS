@@ -12,15 +12,12 @@ let storage: FirebaseStorage;
 const initializeFirebase = (config: FirebaseOptions): void => {
   if (!getApps().length) {
       app = initializeApp(config);
-      auth = getAuth(app);
-      db = getFirestore(app);
-      storage = getStorage(app);
   } else {
       app = getApp();
-      auth = getAuth(app);
-      db = getFirestore(app);
-      storage = getStorage(app);
   }
+  auth = getAuth(app);
+  db = getFirestore(app);
+  storage = getStorage(app);
 };
 
 // Exporting the function to initialize and the instances to be used across the app.
