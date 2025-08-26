@@ -7,7 +7,7 @@ import { getFirebaseApp } from '@/lib/firebase/client';
 import { getFirestore, doc, getDoc, Timestamp, updateDoc, serverTimestamp, collection, getDocs, query, where, onSnapshot } from 'firebase/firestore';
 import { notFound, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState, useCallback, useMemo, Suspense } from 'react';
-import { Eye, Loader2, PlusCircle, Edit, Image as ImageIcon, Trash2, GripVertical, Type as TypeIcon, Video as VideoIcon, Mic, Album, Clapperboard, Palette } from 'lucide-react';
+import { Eye, Loader2, PlusCircle, Edit, Image as ImageIcon, Trash2, GripVertical, Type as TypeIcon, Video as VideoIcon, Mic, Album, Clapperboard, Palette, ExternalLink, RefreshCw } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
@@ -276,22 +276,32 @@ function MemoryEditorPageComponent() {
   const handlePublish = async () => {
     if (!memory) return;
     setIsPublishing(true);
+    const isUpdate = memory.status === 'active';
     try {
       const app = await getFirebaseApp();
       const db = getFirestore(app);
       const memoryRef = doc(db, 'memories', memory.id);
+      
+      const publicId = memory.publicPageId || memory.id;
+      
       await updateDoc(memoryRef, { 
         status: 'active',
-        publicPageId: memory.id, // Use memory ID as the public page ID
+        publicPageId: publicId,
         updatedAt: serverTimestamp()
       });
 
-      // In a real app, this might trigger a server-side process 
-      // to generate a static page and deploy it.
-      // For now, we'll just update the status and show a toast.
+      const publicUrl = `${window.location.origin}/p?id=${publicId}`;
       toast({ 
-        title: "ページが公開されました", 
-        description: "あなたの想い出ページがWeb上で閲覧可能になりました。",
+        title: isUpdate ? "ページを更新しました" : "ページが公開されました！",
+        description: (
+            <span>
+              あなたの想い出ページがWeb上で閲覧可能になりました。<br/>
+              <a href={publicUrl} target="_blank" rel="noopener noreferrer" className="underline font-bold">
+                {publicUrl}
+              </a>
+            </span>
+        ),
+        duration: 10000,
       });
 
     } catch(e) {
@@ -327,7 +337,8 @@ function MemoryEditorPageComponent() {
   
   const coverImageUrl = memory.coverAssetId ? assets.find(a => a.id === memory.coverAssetId)?.url : null;
   const profileImageUrl = memory.profileAssetId ? assets.find(a => a.id === memory.profileAssetId)?.url : null;
-  const publicUrl = memory.publicPageId ? `/p?id=${memory.publicPageId}` : null;
+  const publicUrl = memory.publicPageId ? `${window.location.origin}/p?id=${memory.publicPageId}` : null;
+  const isPublished = memory.status === 'active' && memory.publicPageId;
 
 
   return (
@@ -411,9 +422,16 @@ function MemoryEditorPageComponent() {
             プレビュー
           </Button>
            <Button onClick={handlePublish} disabled={isPublishing}>
-             {isPublishing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-            公開する
+             {isPublishing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : isPublished ? <RefreshCw className="mr-2 h-4 w-4" /> : <ExternalLink className="mr-2 h-4 w-4" />}
+            {isPublished ? '更新する' : '公開する'}
           </Button>
+           {publicUrl && (
+              <Button asChild variant="ghost" size="icon">
+                  <a href={publicUrl} target="_blank" rel="noopener noreferrer" title="公開ページを開く">
+                      <ExternalLink className="h-4 w-4" />
+                  </a>
+              </Button>
+           )}
         </div>
       </header>
 
