@@ -141,8 +141,8 @@ const BlockRenderer = ({ block, design, setLightboxState }: { block: PublicPageB
         color: design.cardTextColor,
     };
 
-    if (design.cardBorder) {
-        cardStyle.border = `${design.cardBorderWidth || 1}px solid ${design.cardBorderColor || '#000000'}`;
+    if (design.cardBorder && design.cardBorderWidth && design.cardBorderWidth > 0) {
+        cardStyle.border = `${design.cardBorderWidth}px solid ${design.cardBorderColor || '#000000'}`;
     }
     
     const textStyle = {
@@ -295,7 +295,7 @@ export function PreviewModal({ isOpen, setIsOpen, memory, assets }: { isOpen: bo
 
                     <div className="mx-auto max-w-2xl sm:px-6 lg:px-8 relative z-10">
                         <header className="relative">
-                            <div className="relative h-48 w-full overflow-hidden md:h-64 sm:rounded-b-xl -mx-6 sm:mx-0">
+                            <div className="relative h-48 w-full overflow-hidden md:h-64 sm:rounded-b-xl">
                                 <Image 
                                 src={manifest.media.cover.url}
                                 alt={manifest.title}
@@ -307,7 +307,7 @@ export function PreviewModal({ isOpen, setIsOpen, memory, assets }: { isOpen: bo
                                 />
                             </div>
                             
-                            <div className="relative flex flex-col items-center -mt-20 px-4">
+                            <div className="relative flex flex-col items-center -mt-20">
                                 <div className="h-40 w-40 rounded-full z-10 bg-gray-800 border-4 border-background relative overflow-hidden shrink-0"
                                   style={{borderColor: design.bgColor || '#111827' }}
                                 >
@@ -321,7 +321,7 @@ export function PreviewModal({ isOpen, setIsOpen, memory, assets }: { isOpen: bo
                                     />
                                 </div>
                                 
-                                <div className="mt-4 text-center">
+                                <div className="mt-4 text-center px-4">
                                     <h1 className="text-5xl font-bold">{manifest.title}</h1>
                                     <p className="mt-2 text-xl max-w-prose mx-auto">{manifest.about.text}</p>
                                 </div>
@@ -860,6 +860,8 @@ export function DesignModal({ isOpen, setIsOpen, memory, assets, onUploadSuccess
         if (isOpen) {
             // Ensure defaults for new properties if they don't exist
             setDesign(prev => ({
+                theme: 'light',
+                fontScale: 1,
                 ...prev,
                 ...memory.design,
                 cardBorder: memory.design.cardBorder ?? false,
@@ -989,12 +991,12 @@ export function DesignModal({ isOpen, setIsOpen, memory, assets, onUploadSuccess
                             {design.cardBorder && (
                                 <div className="space-y-4 pl-4 border-l-2 ml-2">
                                     <div>
-                                        <Label>縁線の太さ ({design.cardBorderWidth || 1}px)</Label>
+                                        <Label>縁線の太さ ({design.cardBorderWidth || 0}px)</Label>
                                         <Slider
-                                            min={1}
+                                            min={0}
                                             max={10}
                                             step={1}
-                                            value={[design.cardBorderWidth || 1]}
+                                            value={[design.cardBorderWidth || 0]}
                                             onValueChange={(value) => handleDesignChange('cardBorderWidth', value[0])}
                                         />
                                     </div>

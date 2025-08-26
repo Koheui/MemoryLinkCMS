@@ -72,8 +72,8 @@ const BlockRenderer = ({ block, design, setLightboxState }: { block: PublicPageB
         color: design.cardTextColor,
     };
 
-    if (design.cardBorder) {
-        cardStyle.border = `${design.cardBorderWidth || 1}px solid ${design.cardBorderColor || '#000000'}`;
+    if (design.cardBorder && design.cardBorderWidth && design.cardBorderWidth > 0) {
+        cardStyle.border = `${design.cardBorderWidth}px solid ${design.cardBorderColor || '#000000'}`;
     }
     
     const textStyle = {
@@ -409,7 +409,7 @@ function PageContent() {
 
       <div className="mx-auto max-w-2xl sm:px-6 lg:px-8 relative z-10">
         <header className="relative">
-            <div className="relative h-48 w-full overflow-hidden md:h-64 sm:rounded-b-xl -mx-6 sm:mx-0">
+            <div className="relative h-48 w-full overflow-hidden md:h-64 sm:rounded-b-xl">
                 <Image 
                   src={manifest.media.cover.url}
                   alt={manifest.title}
@@ -421,7 +421,7 @@ function PageContent() {
                 />
             </div>
             
-            <div className="relative flex flex-col items-center -mt-20 px-4">
+            <div className="relative flex flex-col items-center -mt-20">
                 <div className="h-40 w-40 rounded-full z-10 bg-gray-800 border-4 border-background relative overflow-hidden shrink-0"
                   style={{borderColor: design.bgColor || '#111827' }}
                 >
@@ -435,7 +435,7 @@ function PageContent() {
                     />
                 </div>
                 
-                <div className="mt-4 text-center">
+                <div className="mt-4 text-center px-4">
                     <h1 className="text-5xl font-bold">{manifest.title}</h1>
                     <p className="mt-2 text-xl max-w-prose mx-auto">{manifest.about.text}</p>
                 </div>
