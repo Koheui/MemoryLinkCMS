@@ -1,4 +1,3 @@
-
 // src/app/(app)/_admin/page.tsx
 'use client';
 
@@ -9,7 +8,7 @@ import type { Order } from '@/lib/types';
 import { db } from '@/lib/firebase/client';
 import { collection, doc, getDoc, getDocs, orderBy, query, addDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { format } from 'date-fns';
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from "@/components/ui/dialog";
@@ -159,7 +158,7 @@ export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  const fetchOrders = async () => {
+  const fetchOrders = useCallback(async () => {
     setLoading(true);
     try {
       const ordersQuery = query(collection(db, 'orders'), orderBy('createdAt', 'desc'));
@@ -207,18 +206,17 @@ export default function AdminDashboardPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
   useEffect(() => {
-    if (authLoading) return;
-    if (!isAdmin) {
+    if (authLoading) return; // Wait until auth is resolved
+    if (isAdmin) {
+      fetchOrders();
+    } else {
+      // Not an admin, or no user. Don't fetch and stop loading.
       setLoading(false);
-      return;
     }
-    
-    fetchOrders();
-
-  }, [user, isAdmin, authLoading])
+  }, [isAdmin, authLoading, fetchOrders]);
 
   const handleCopyToClipboard = (text: string) => {
       navigator.clipboard.writeText(text);

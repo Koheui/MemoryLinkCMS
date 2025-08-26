@@ -1,4 +1,3 @@
-
 // src/app/(app)/dashboard/page.tsx
 'use client';
 
@@ -153,6 +152,8 @@ export default function DashboardPage() {
         if (!authLoading && user) {
             fetchMemoriesAndAssets(user.uid);
         } else if (!authLoading && !user) {
+            // User is not logged in, but auth is finished loading.
+            // AppLayout will handle the redirect.
             setLoading(false);
         }
     }, [user, authLoading, fetchMemoriesAndAssets]);

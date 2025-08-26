@@ -1,4 +1,3 @@
-
 // src/app/(app)/media-library/page.tsx
 'use client';
 
@@ -88,11 +87,11 @@ export default function MediaLibraryPage() {
 
 
   useEffect(() => {
-    if (authLoading || !user) {
-        if (!authLoading) setLoading(false);
-        return;
+    if (!authLoading && user) {
+        fetchAssets(user.uid);
+    } else if (!authLoading && !user) {
+        setLoading(false);
     }
-    fetchAssets(user.uid);
   }, [user, authLoading, fetchAssets]);
 
   const handleDeleteAssets = async (assetIds: string[]) => {

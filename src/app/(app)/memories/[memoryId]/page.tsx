@@ -61,7 +61,10 @@ export default function MemoryEditorPage() {
   );
   
   useEffect(() => {
-    if (authLoading || !user || !memoryId) return;
+    if (authLoading || !user || !memoryId) {
+        if (!authLoading) setLoading(false);
+        return;
+    };
 
     const memoryDocRef = doc(db, 'memories', memoryId);
     const unsubscribeMemory = onSnapshot(memoryDocRef, (memoryDocSnap) => {
@@ -74,9 +77,13 @@ export default function MemoryEditorPage() {
             setMemory(memoryData);
         } else {
             console.error("Memory not found or access denied.");
-            setMemory(null);
+            setMemory(null); // Set to null if not found or no access
         }
         setLoading(false);
+    }, (error) => {
+        console.error("Error fetching memory:", error);
+        setLoading(false);
+        setMemory(null);
     });
 
     const assetsQuery = query(collection(db, 'assets'), where('ownerUid', '==', user.uid));
