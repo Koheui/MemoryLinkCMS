@@ -276,7 +276,7 @@ function MemoryEditorPageComponent() {
   const handlePublish = async () => {
     if (!memory) return;
     setIsPublishing(true);
-    const isUpdate = memory.status === 'active';
+    const isUpdate = memory.status === 'active' && !!memory.publicPageId;
     try {
       const app = await getFirebaseApp();
       const db = getFirestore(app);
@@ -294,12 +294,12 @@ function MemoryEditorPageComponent() {
       toast({ 
         title: isUpdate ? "ページを更新しました" : "ページが公開されました！",
         description: (
-            <span>
-              あなたの想い出ページがWeb上で閲覧可能になりました。<br/>
-              <a href={publicUrl} target="_blank" rel="noopener noreferrer" className="underline font-bold">
+            <div className='flex flex-col gap-2'>
+              <span>あなたの想い出ページがWeb上で閲覧可能になりました。</span>
+              <a href={publicUrl} target="_blank" rel="noopener noreferrer" className="underline font-bold text-blue-500 hover:text-blue-600 break-all">
                 {publicUrl}
               </a>
-            </span>
+            </div>
         ),
         duration: 10000,
       });
@@ -426,8 +426,8 @@ function MemoryEditorPageComponent() {
             {isPublished ? '更新する' : '公開する'}
           </Button>
            {publicUrl && (
-              <Button asChild variant="ghost" size="icon">
-                  <a href={publicUrl} target="_blank" rel="noopener noreferrer" title="公開ページを開く">
+              <Button asChild variant="ghost" size="icon" title="公開ページを開く">
+                  <a href={publicUrl} target="_blank" rel="noopener noreferrer">
                       <ExternalLink className="h-4 w-4" />
                   </a>
               </Button>
@@ -539,8 +539,9 @@ function SortableBlockItem({ block, assets, onEdit, onDelete }: { block: PublicP
             return (
                  <div className="p-2 space-y-2">
                     <p className="font-semibold text-sm truncate">{block.title || "無題のアルバム"}</p>
+                    {block.album.caption && <p className="text-xs text-muted-foreground truncate">{block.album.caption}</p>}
                     {albumAssets.length > 0 ? (
-                        <div className="flex -space-x-4 rtl:space-x-reverse">
+                        <div className="flex -space-x-4 rtl:space-x-reverse mt-2">
                             {albumAssets.slice(0, 4).map((asset, index) => (
                                 <div key={asset.id} className="relative h-12 w-12 rounded-md overflow-hidden border-2 border-background">
                                    <Image src={asset.url} alt={asset.name} fill sizes="48px" className="object-cover" />

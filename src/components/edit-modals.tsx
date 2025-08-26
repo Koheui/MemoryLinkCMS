@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Save, Image as ImageIcon, Video, Mic, Type, Album, Upload, Clapperboard, Music, CheckCircle, Globe, Phone, Mail, Link as LinkIcon, Milestone, Camera, X, Check } from 'lucide-react';
+import { Loader2, Save, Image as ImageIcon, Video, Mic, Type, Album, Upload, Clapperboard, Music, CheckCircle, Globe, Phone, Mail, Link as LinkIcon, Milestone, Camera, X, Check, Paintbrush } from 'lucide-react';
 import { FaXTwitter, FaInstagram, FaYoutube } from 'react-icons/fa6';
 import Image from 'next/image';
 import { MediaUploader } from './media-uploader';
@@ -25,6 +25,8 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Slider } from '@/components/ui/slider';
+import { Switch } from '@/components/ui/switch';
 
 
 // --- Album Detail Modal (Lightbox) ---
@@ -134,10 +136,14 @@ const blockIcons: { [key: string]: React.ReactNode } = {
 };
 
 const BlockRenderer = ({ block, design, setLightboxState }: { block: PublicPageBlock, design: Design, setLightboxState: (state: { isOpen: boolean, items: any[], startIndex: number }) => void }) => {
-    const cardStyle = {
+    const cardStyle: React.CSSProperties = {
         backgroundColor: design.cardBgColor,
         color: design.cardTextColor,
     };
+
+    if (design.cardBorder) {
+        cardStyle.border = `${design.cardBorderWidth || 1}px solid ${design.cardBorderColor || '#000000'}`;
+    }
     
     const textStyle = {
         color: design.cardTextColor
@@ -157,6 +163,7 @@ const BlockRenderer = ({ block, design, setLightboxState }: { block: PublicPageB
                            <Milestone style={mutedTextStyle} className="h-5 w-5" />
                            <h3 style={textStyle} className="font-semibold">{block.title}</h3>
                         </div>
+                        {block.album?.caption && <p style={mutedTextStyle} className="text-sm mt-2">{block.album.caption}</p>}
                     </CardHeader>
                     <CardContent className="pl-4 sm:pl-6">
                         <Carousel opts={{ align: "start", loop: false }} className="w-full">
@@ -288,7 +295,7 @@ export function PreviewModal({ isOpen, setIsOpen, memory, assets }: { isOpen: bo
 
                     <div className="mx-auto max-w-2xl sm:px-6 lg:px-8 relative z-10">
                         <header className="relative">
-                            <div className="relative h-48 w-full overflow-hidden md:h-64 sm:rounded-b-xl">
+                            <div className="relative h-48 w-full overflow-hidden md:h-64 sm:rounded-b-xl -mx-6 sm:mx-0">
                                 <Image 
                                 src={manifest.media.cover.url}
                                 alt={manifest.title}
@@ -301,7 +308,9 @@ export function PreviewModal({ isOpen, setIsOpen, memory, assets }: { isOpen: bo
                             </div>
                             
                             <div className="relative flex flex-col items-center -mt-20 px-4">
-                                <div className="h-40 w-40 rounded-full z-10 bg-gray-800 border-4 border-background relative overflow-hidden shrink-0">
+                                <div className="h-40 w-40 rounded-full z-10 bg-gray-800 border-4 border-background relative overflow-hidden shrink-0"
+                                  style={{borderColor: design.bgColor || '#111827' }}
+                                >
                                     <Image 
                                         src={manifest.media.profile.url}
                                         alt="Profile"
@@ -557,6 +566,7 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
     
     const [textContent, setTextContent] = useState('');
     const [photoCaption, setPhotoCaption] = useState('');
+    const [albumCaption, setAlbumCaption] = useState('');
     
     const [isSaving, setIsSaving] = useState(false);
     const { toast } = useToast();
@@ -571,6 +581,7 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
         setTitle('');
         setTextContent('');
         setPhotoCaption('');
+        setAlbumCaption('');
         setSelectedAsset(undefined);
         setSelectedAlbumAssetIds([]);
         setIsSaving(false);
@@ -591,7 +602,10 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
                 }
                 if (block.type === 'video') setSelectedAsset(assets.find(a => a.id === block.video?.assetId));
                 if (block.type === 'audio') setSelectedAsset(assets.find(a => a.id === block.audio?.assetId));
-                if (block.type === 'album') setSelectedAlbumAssetIds(block.album?.assetIds || []);
+                if (block.type === 'album') {
+                    setSelectedAlbumAssetIds(block.album?.assetIds || []);
+                    setAlbumCaption(block.album?.caption || '');
+                }
             } else if (!isEditing && !blockType) {
                  resetState();
             }
@@ -633,7 +647,7 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
             if (blockType === 'photo') newBlockData.photo = { assetId: selectedAsset!.id, caption: photoCaption };
             if (blockType === 'video') newBlockData.video = { assetId: selectedAsset!.id };
             if (blockType === 'audio') newBlockData.audio = { assetId: selectedAsset!.id };
-            if (blockType === 'album') newBlockData.album = { layout: 'carousel', assetIds: selectedAlbumAssetIds };
+            if (blockType === 'album') newBlockData.album = { layout: 'carousel', assetIds: selectedAlbumAssetIds, caption: albumCaption };
             
             await onSave(newBlockData, block);
             
@@ -690,42 +704,48 @@ export function BlockModal({ isOpen, setIsOpen, memory, assets, block, onSave, o
         let specificFields = null;
         if (blockType === 'album') {
             specificFields = (
-                <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                         <Label>写真を選択 ({selectedAlbumAssetIds.length}枚)</Label>
-                         <MediaUploader
-                            assetType="image"
-                            accept="image/*"
-                            memoryId={memory.id}
-                            onUploadSuccess={handleUploadCompleted}
-                        >
-                            <Button type="button" variant="outline" size="sm">
-                                <Upload className="h-4 w-4 mr-2"/>
-                                新規アップロード
-                            </Button>
-                        </MediaUploader>
+                <div className="space-y-4">
+                    <div>
+                        <Label htmlFor="album-caption">キャプション (任意)</Label>
+                        <Input id="album-caption" value={albumCaption} onChange={(e) => setAlbumCaption(e.target.value)} placeholder="アルバム全体の説明..."/>
                     </div>
-                   
-                    <ScrollArea className="h-64 rounded-md border">
-                         <div className="grid grid-cols-3 gap-2 p-2">
-                            {imageAssets.map(asset => (
-                                <div key={asset.id} className="relative aspect-square group cursor-pointer" onClick={() => {
-                                    setSelectedAlbumAssetIds(prev => 
-                                        prev.includes(asset.id) 
-                                        ? prev.filter(id => id !== asset.id) 
-                                        : [...prev, asset.id]
-                                    )
-                                }}>
-                                    <Image src={asset.url} alt={asset.name} fill className="object-cover rounded-sm" sizes="150px"/>
-                                    {selectedAlbumAssetIds.includes(asset.id) && (
-                                        <div className="absolute inset-0 bg-primary/70 flex items-center justify-center">
-                                            <CheckCircle className="h-8 w-8 text-primary-foreground" />
-                                        </div>
-                                    )}
-                                </div>
-                            ))}
-                         </div>
-                    </ScrollArea>
+                    <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                            <Label>写真を選択 ({selectedAlbumAssetIds.length}枚)</Label>
+                            <MediaUploader
+                                assetType="image"
+                                accept="image/*"
+                                memoryId={memory.id}
+                                onUploadSuccess={handleUploadCompleted}
+                            >
+                                <Button type="button" variant="outline" size="sm">
+                                    <Upload className="h-4 w-4 mr-2"/>
+                                    新規アップロード
+                                </Button>
+                            </MediaUploader>
+                        </div>
+                    
+                        <ScrollArea className="h-64 rounded-md border">
+                            <div className="grid grid-cols-3 gap-2 p-2">
+                                {imageAssets.map(asset => (
+                                    <div key={asset.id} className="relative aspect-square group cursor-pointer" onClick={() => {
+                                        setSelectedAlbumAssetIds(prev => 
+                                            prev.includes(asset.id) 
+                                            ? prev.filter(id => id !== asset.id) 
+                                            : [...prev, asset.id]
+                                        )
+                                    }}>
+                                        <Image src={asset.url} alt={asset.name} fill className="object-cover rounded-sm" sizes="150px"/>
+                                        {selectedAlbumAssetIds.includes(asset.id) && (
+                                            <div className="absolute inset-0 bg-primary/70 flex items-center justify-center">
+                                                <CheckCircle className="h-8 w-8 text-primary-foreground" />
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </ScrollArea>
+                    </div>
                 </div>
             )
         } else if (blockType === 'photo') {
@@ -838,7 +858,14 @@ export function DesignModal({ isOpen, setIsOpen, memory, assets, onUploadSuccess
 
     useEffect(() => {
         if (isOpen) {
-            setDesign(memory.design);
+            // Ensure defaults for new properties if they don't exist
+            setDesign(prev => ({
+                ...prev,
+                ...memory.design,
+                cardBorder: memory.design.cardBorder ?? false,
+                cardBorderWidth: memory.design.cardBorderWidth ?? 1,
+                cardBorderColor: memory.design.cardBorderColor ?? '#E5E7EB'
+            }));
         }
     }, [memory, isOpen]);
 
@@ -880,8 +907,8 @@ export function DesignModal({ isOpen, setIsOpen, memory, assets, onUploadSuccess
                 </DialogHeader>
                 
                 <Tabs defaultValue="theme" className="py-4">
-                    <TabsList>
-                        <TabsTrigger value="theme">テーマ</TabsTrigger>
+                    <TabsList className="grid w-full grid-cols-4">
+                        <TabsTrigger value="theme"><Paintbrush className="w-4 h-4 mr-2" />テーマ</TabsTrigger>
                         <TabsTrigger value="background">背景</TabsTrigger>
                         <TabsTrigger value="card">カード</TabsTrigger>
                         <TabsTrigger value="text">テキスト</TabsTrigger>
@@ -945,7 +972,52 @@ export function DesignModal({ isOpen, setIsOpen, memory, assets, onUploadSuccess
                         </div>
                     </TabsContent>
                     <TabsContent value="card" className="mt-4">
-                         <div className="space-y-4">
+                         <div className="space-y-6">
+                             <div className="flex items-center justify-between rounded-lg border p-4">
+                                <div className="space-y-0.5">
+                                    <Label htmlFor="card-border-switch">カードに縁線を表示</Label>
+                                    <p className="text-xs text-muted-foreground">
+                                        コンテンツカードの周りに線を表示します。
+                                    </p>
+                                </div>
+                                <Switch
+                                    id="card-border-switch"
+                                    checked={design.cardBorder}
+                                    onCheckedChange={(checked) => handleDesignChange('cardBorder', checked)}
+                                />
+                            </div>
+                            {design.cardBorder && (
+                                <div className="space-y-4 pl-4 border-l-2 ml-2">
+                                    <div>
+                                        <Label>縁線の太さ ({design.cardBorderWidth || 1}px)</Label>
+                                        <Slider
+                                            min={1}
+                                            max={10}
+                                            step={1}
+                                            value={[design.cardBorderWidth || 1]}
+                                            onValueChange={(value) => handleDesignChange('cardBorderWidth', value[0])}
+                                        />
+                                    </div>
+                                    <div>
+                                        <Label>縁線の色</Label>
+                                        <div className="flex items-center gap-2 mt-2">
+                                            <Input 
+                                            type="color" 
+                                            value={design.cardBorderColor || '#E5E7EB'}
+                                            onChange={(e) => handleDesignChange('cardBorderColor', e.target.value)}
+                                            className="w-16 p-1 h-10"
+                                            />
+                                            <Input
+                                                type="text"
+                                                value={design.cardBorderColor || ''}
+                                                onChange={(e) => handleDesignChange('cardBorderColor', e.target.value)}
+                                                placeholder="#E5E7EB"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
                             <div>
                                 <Label>カード背景色</Label>
                                 <div className="flex items-center gap-2 mt-2">

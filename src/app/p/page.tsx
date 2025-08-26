@@ -67,10 +67,14 @@ const blockIcons: { [key: string]: React.ReactNode } = {
 };
 
 const BlockRenderer = ({ block, design, setLightboxState }: { block: PublicPageBlock, design: Design, setLightboxState: (state: { isOpen: boolean, items: any[], startIndex: number }) => void }) => {
-    const cardStyle = {
+    const cardStyle: React.CSSProperties = {
         backgroundColor: design.cardBgColor,
         color: design.cardTextColor,
     };
+
+    if (design.cardBorder) {
+        cardStyle.border = `${design.cardBorderWidth || 1}px solid ${design.cardBorderColor || '#000000'}`;
+    }
     
     const textStyle = {
         color: design.cardTextColor
@@ -90,6 +94,7 @@ const BlockRenderer = ({ block, design, setLightboxState }: { block: PublicPageB
                            <Milestone style={mutedTextStyle} className="h-5 w-5" />
                            <h3 style={textStyle} className="font-semibold">{block.title}</h3>
                         </div>
+                        {block.album?.caption && <p style={mutedTextStyle} className="text-sm mt-2">{block.album.caption}</p>}
                     </CardHeader>
                     <CardContent className="pl-4 sm:pl-6">
                         <Carousel opts={{ align: "start", loop: false }} className="w-full">
@@ -255,51 +260,55 @@ function PageContent() {
         return;
     }
     
+    let unsubscribe: (() => void) | undefined;
+    
     if (isPreview) {
-        try {
-            const memoryJSON = localStorage.getItem(`preview_memory_${pageId}`);
-            const assetsJSON = localStorage.getItem(`preview_assets_${pageId}`);
-            if (memoryJSON && assetsJSON) {
-                // We need to revive the date strings back into Timestamp-like objects for type consistency
-                const memoryData = JSON.parse(memoryJSON, (key, value) => {
-                    if (['createdAt', 'updatedAt'].includes(key) && typeof value === 'string') {
-                        return { toDate: () => new Date(value) } as unknown as Timestamp;
-                    }
-                    return value;
-                });
-                const assetsData = JSON.parse(assetsJSON, (key, value) => {
-                     if (['createdAt', 'updatedAt'].includes(key) && typeof value === 'string') {
-                        return { toDate: () => new Date(value) } as unknown as Timestamp;
-                    }
-                    return value;
-                });
-                
-                setAssets(assetsData);
-                const pageData = convertMemoryToPublicPage(memoryData, assetsData);
-                setManifest(pageData);
-                setLoading(false);
+        const handlePreviewUpdate = () => {
+            try {
+                const memoryJSON = localStorage.getItem(`preview_memory_${pageId}`);
+                const assetsJSON = localStorage.getItem(`preview_assets_${pageId}`);
+                if (memoryJSON && assetsJSON) {
+                    const memoryData = JSON.parse(memoryJSON, (key, value) => {
+                        if (['createdAt', 'updatedAt'].includes(key) && typeof value === 'string') {
+                            return { toDate: () => new Date(value) } as unknown as Timestamp;
+                        }
+                        return value;
+                    });
+                    const assetsData = JSON.parse(assetsJSON);
+                    
+                    setAssets(assetsData);
+                    const pageData = convertMemoryToPublicPage(memoryData, assetsData);
+                    setManifest(pageData);
+                    if (loading) setLoading(false);
 
-            } else {
-                 setError("プレビューデータが見つかりません。編集画面からもう一度プレビューを開いてください。");
-                 setLoading(false);
+                } else {
+                     setError("プレビューデータが見つかりません。");
+                     if (loading) setLoading(false);
+                }
+            } catch(e) {
+                 console.error("Failed to load preview data from localStorage", e);
+                 setError("プレビューデータの読み込みに失敗しました。");
+                 if (loading) setLoading(false);
             }
-        } catch(e) {
-             console.error("Failed to load preview data from localStorage", e);
-             setError("プレビューデータの読み込みに失敗しました。");
-             setLoading(false);
-        }
+        };
+
+        handlePreviewUpdate(); // Initial load
+        
+        // No need for interval, preview modal will handle it.
+        // The /p page is now just a renderer for live data or one-time preview load.
         return;
     }
 
+    // Live mode logic
     const initLive = async () => {
         const app = await getFirebaseApp();
         const db = getFirestore(app);
         const memoryDocRef = doc(db, 'memories', pageId);
         
-        const unsubscribe = onSnapshot(memoryDocRef, (memoryDoc) => {
+        unsubscribe = onSnapshot(memoryDocRef, (memoryDoc) => {
             if (memoryDoc.exists()) {
                 const memoryData = { id: memoryDoc.id, ...memoryDoc.data() } as Memory;
-                if (memoryData.status !== 'active' && memoryData.publicPageId !== pageId) {
+                if (memoryData.status !== 'active') {
                      setError('この想い出ページは存在しないか、まだ公開されていません。');
                      setLoading(false);
                      setManifest(null);
@@ -324,23 +333,18 @@ function PageContent() {
             setError('ページの読み込み中にエラーが発生しました。');
             setLoading(false);
         });
-
-        return unsubscribe;
     }
 
     if (!isPreview) {
-        let unsubscribe: (() => void) | undefined;
-        initLive().then(unsub => {
-            unsubscribe = unsub;
-        });
+        initLive();
+    }
 
-        return () => {
-            if (unsubscribe) {
-                unsubscribe();
-            }
+    return () => {
+        if (unsubscribe) {
+            unsubscribe();
         }
     }
-  }, [pageId, isPreview]);
+  }, [pageId, isPreview, loading]);
 
   useEffect(() => {
     if (manifest?.title) {
@@ -405,7 +409,7 @@ function PageContent() {
 
       <div className="mx-auto max-w-2xl sm:px-6 lg:px-8 relative z-10">
         <header className="relative">
-            <div className="relative h-48 w-full overflow-hidden md:h-64 sm:rounded-b-xl">
+            <div className="relative h-48 w-full overflow-hidden md:h-64 sm:rounded-b-xl -mx-6 sm:mx-0">
                 <Image 
                   src={manifest.media.cover.url}
                   alt={manifest.title}
@@ -418,7 +422,9 @@ function PageContent() {
             </div>
             
             <div className="relative flex flex-col items-center -mt-20 px-4">
-                <div className="h-40 w-40 rounded-full z-10 bg-gray-800 border-4 border-background relative overflow-hidden shrink-0">
+                <div className="h-40 w-40 rounded-full z-10 bg-gray-800 border-4 border-background relative overflow-hidden shrink-0"
+                  style={{borderColor: design.bgColor || '#111827' }}
+                >
                     <Image 
                         src={manifest.media.profile.url}
                         alt="Profile"

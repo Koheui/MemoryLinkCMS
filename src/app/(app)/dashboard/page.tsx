@@ -63,6 +63,9 @@ export default function DashboardPage() {
                     textColor: '#111827',
                     cardBgColor: '#FFFFFF',
                     cardTextColor: '#111827',
+                    cardBorder: false,
+                    cardBorderWidth: 1,
+                    cardBorderColor: '#E5E7EB',
                 },
                 blocks: [],
                 createdAt: serverTimestamp() as Timestamp,
@@ -284,9 +287,9 @@ export default function DashboardPage() {
                                 </Link>
                             </Button>
                             {memory.publicPageId && (
-                                <Button asChild variant="outline">
+                                <Button asChild variant="ghost" size="icon" title="公開ページを開く">
                                     <a href={`/p?id=${memory.publicPageId}`} target="_blank" rel="noopener noreferrer">
-                                        <ExternalLink className="mr-2 h-4 w-4" />
+                                        <ExternalLink className="h-4 w-4" />
                                     </a>
                                 </Button>
                             )}

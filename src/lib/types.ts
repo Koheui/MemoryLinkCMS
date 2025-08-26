@@ -17,6 +17,9 @@ export interface Design {
   textColor?: string;
   cardBgColor?: string;
   cardTextColor?: string;
+  cardBorder?: boolean;
+  cardBorderWidth?: number;
+  cardBorderColor?: string;
   backgroundImageAssetId?: string;
   fontScale: number;
   fontFamily?: string;
@@ -35,6 +38,7 @@ export interface PublicPageBlock {
     layout: 'grid' | 'carousel';
     cols?: 2 | 3;
     assetIds: string[]; 
+    caption?: string;
     items?: { src: string, thumb?: string, caption?: string }[];
   };
   video?: { 
