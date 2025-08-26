@@ -16,7 +16,7 @@ const config = {
     },
     extend: {
        fontFamily: {
-        body: ["Poppins", "sans-serif"],
+        body: ["Literata", "serif"],
         headline: ["Poppins", "sans-serif"],
         code: ["monospace"],
       },
