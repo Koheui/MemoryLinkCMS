@@ -27,6 +27,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 
+export const dynamic = 'force-dynamic';
 
 // This is the new Visual Editor Page
 export default function MemoryEditorPage() {
@@ -578,3 +579,5 @@ function SortableBlockItem({ block, assets, onEdit, onDelete }: { block: PublicP
         </div>
     );
 }
+
+    
