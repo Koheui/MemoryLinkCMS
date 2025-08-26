@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import type { Memory, PublicPageBlock, Asset } from '@/lib/types';
 import { db } from '@/lib/firebase/client';
 import { doc, getDoc, Timestamp, updateDoc, serverTimestamp, collection, getDocs, query, where, onSnapshot } from 'firebase/firestore';
-import { useParams, notFound } from 'next/navigation';
+import { useParams, notFound, useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Eye, Loader2, PlusCircle, Edit, Image as ImageIcon, Trash2, GripVertical, Type as TypeIcon, Video as VideoIcon, Mic, Album, Clapperboard, Palette } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
@@ -28,10 +28,11 @@ import {
 } from "@/components/ui/alert-dialog"
 
 // This is the new Visual Editor Page
-export default function MemoryEditorPage() {
+function MemoryEditorPageComponent() {
   const params = useParams();
   const memoryId = params.memoryId as string;
   const { user, loading: authLoading } = useAuth();
+  const router = useRouter();
   
   const [memory, setMemory] = useState<Memory | null>(null);
   const [assets, setAssets] = useState<Asset[]>([]);
@@ -60,8 +61,13 @@ export default function MemoryEditorPage() {
   );
   
   useEffect(() => {
-    if (authLoading || !user || !memoryId) {
-        if (!authLoading) setLoading(false);
+    if (authLoading) return;
+    if (!user) {
+        router.push('/login');
+        return;
+    }
+    if (!memoryId) {
+        setLoading(false);
         return;
     };
 
@@ -118,7 +124,7 @@ export default function MemoryEditorPage() {
         unsubscribeAssets();
     };
 
-  }, [memoryId, user, authLoading]);
+  }, [memoryId, user, authLoading, router]);
   
   async function handleDragEnd(event: DragEndEvent) {
     const {active, over} = event;
@@ -278,7 +284,17 @@ export default function MemoryEditorPage() {
   }
 
   if (!memory) {
-     return notFound();
+     return (
+        <div className="flex h-screen items-center justify-center bg-background">
+            <div className='text-center'>
+                <p className='text-xl font-bold'>ページが見つかりません</p>
+                <p className="text-muted-foreground">このページは存在しないか、アクセス権がありません。</p>
+                <Button onClick={() => router.push('/dashboard')} variant="outline" className="mt-4">
+                    ダッシュボードに戻る
+                </Button>
+            </div>
+        </div>
+     );
   }
   
   const coverImageUrl = memory.coverAssetId ? assets.find(a => a.id === memory.coverAssetId)?.url : null;
@@ -576,4 +592,22 @@ function SortableBlockItem({ block, assets, onEdit, onDelete }: { block: PublicP
             </div>
         </div>
     );
+}
+
+export default function MemoryEditorPage() {
+    const [isClient, setIsClient] = useState(false);
+
+    useEffect(() => {
+        setIsClient(true);
+    }, []);
+
+    if (!isClient) {
+        return (
+            <div className="flex h-screen items-center justify-center bg-background">
+                <Loader2 className="h-10 w-10 animate-spin text-primary" />
+            </div>
+        );
+    }
+
+    return <MemoryEditorPageComponent />;
 }

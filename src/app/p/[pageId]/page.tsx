@@ -1,7 +1,7 @@
 // src/app/p/[pageId]/page.tsx
 'use client';
 import { useState, useEffect, Suspense, useRef, useMemo } from 'react';
-import { useParams, notFound, useSearchParams } from 'next/navigation';
+import { useParams, notFound, useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import type { PublicPageBlock, Memory, Asset, Design, PublicPage } from '@/lib/types';
 import { Globe, Phone, Mail, Link as LinkIcon, Music, Clapperboard, Milestone, Camera, Loader2, X } from 'lucide-react';
@@ -10,116 +10,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { db } from '@/lib/firebase/client';
 import { doc, getDoc, collection, query, where, getDocs, Timestamp, onSnapshot } from 'firebase/firestore';
 
-// This function fetches both the memory and its associated assets for a real public page
-async function fetchPublicPageData(pageId: string): Promise<{ memory: Memory, assets: Asset[] } | null> {
-    try {
-        const memoryDoc = await getDoc(doc(db, "memories", pageId));
-        if (!memoryDoc.exists()) { 
-            console.error(`Memory with pageId ${pageId} not found.`);
-            return null;
-        }
-        const memoryData = { id: memoryDoc.id, ...memoryDoc.data() } as Memory;
-
-        // Fetch all assets owned by the user. This is a simplification.
-        // A better approach would be to query assets where memoryId matches.
-        const assetSnapshots = await getDocs(query(collection(db, "assets"), where("ownerUid", "==", memoryData.ownerUid)));
-        const assets = assetSnapshots.docs.map(d => ({ id: d.id, ...d.data() } as Asset));
-
-        return { memory: memoryData, assets };
-
-    } catch (error) {
-        console.error(`Error fetching page data for ${pageId}:`, error);
-        return null;
-    }
-}
-
-// Convert Memory to PublicPage for rendering. This is used for previewing and for real pages.
-function convertMemoryToPublicPage(memory: Memory, assets: Asset[]): PublicPage {
-    const getAssetUrlById = (assetId: string | null): string | undefined => {
-        if (!assetId) return undefined;
-        return assets.find((a: Asset) => a.id === assetId)?.url;
-    }
-    const getAssetById = (assetId: string | null): Asset | undefined => {
-        if (!assetId) return undefined;
-        return assets.find((a: Asset) => a.id === assetId);
-    }
-    
-    // Function to revive ISO date strings back to Date objects, then to Timestamps for type compatibility
-    const reviveTimestamps = (obj: any): any => {
-        if (!obj) return obj;
-        if (Array.isArray(obj)) {
-            return obj.map(item => reviveTimestamps(item));
-        }
-        if (typeof obj === 'object') {
-            const newObj: { [key: string]: any } = {};
-            for (const key in obj) {
-                if (Object.prototype.hasOwnProperty.call(obj, key)) {
-                    if ((key === 'createdAt' || key === 'updatedAt') && typeof obj[key] === 'string') {
-                         newObj[key] = Timestamp.fromDate(new Date(obj[key]));
-                    } else if (obj[key] && typeof obj[key].seconds === 'number' && typeof obj[key].nanoseconds === 'number') {
-                         newObj[key] = new Timestamp(obj[key].seconds, obj[key].nanoseconds);
-                    }
-                    else {
-                        newObj[key] = reviveTimestamps(obj[key]);
-                    }
-                }
-            }
-            return newObj;
-        }
-        return obj;
-    };
-    
-    const revivedMemory = reviveTimestamps(memory);
-
-    const hydratedBlocks = (revivedMemory.blocks || []).map((block: PublicPageBlock) => {
-        const newBlock = { ...block };
-        if (newBlock.type === 'photo' && newBlock.photo?.assetId) {
-            newBlock.photo.src = getAssetUrlById(newBlock.photo.assetId);
-        }
-        if (newBlock.type === 'video' && newBlock.video?.assetId) {
-            const asset = getAssetById(newBlock.video.assetId);
-            newBlock.video.src = asset?.url;
-            newBlock.video.poster = asset?.thumbnailUrl;
-        }
-        if (newBlock.type === 'audio' && newBlock.audio?.assetId) {
-            newBlock.audio.src = getAssetUrlById(newBlock.audio.assetId);
-        }
-        if (newBlock.type === 'album' && newBlock.album?.assetIds) {
-            newBlock.album.items = newBlock.album.assetIds.map((id: string) => ({ 
-                src: getAssetUrlById(id) || '',
-                caption: assets.find(a => a.id === id)?.name || ''
-            }));
-        }
-        return newBlock;
-    });
-
-
-    return {
-        id: revivedMemory.id,
-        memoryId: revivedMemory.id,
-        title: revivedMemory.title,
-        about: {
-            text: revivedMemory.description || '',
-            format: 'plain'
-        },
-        design: revivedMemory.design,
-        media: {
-            cover: { url: getAssetUrlById(revivedMemory.coverAssetId) || "https://placehold.co/1200x480.png", width: 1200, height: 480 },
-            profile: { url: getAssetUrlById(revivedMemory.profileAssetId) || "https://placehold.co/400x400.png", width: 400, height: 400 },
-        },
-        ordering: 'custom',
-        blocks: hydratedBlocks,
-        publish: {
-            status: 'published',
-            publishedAt: revivedMemory.updatedAt,
-        },
-        createdAt: revivedMemory.createdAt,
-        updatedAt: revivedMemory.updatedAt,
-    };
-}
 
 // --- Album Detail Modal (Lightbox) ---
 function AlbumDetailModal({ isOpen, setIsOpen, items, startIndex }: { isOpen: boolean, setIsOpen: (open: boolean) => void, items: { src: string, caption?: string }[], startIndex: number }) {
@@ -288,8 +182,7 @@ const BlockRenderer = ({ block, design, setLightboxState }: { block: PublicPageB
 function PageContent() {
   const params = useParams();
   const pageId = params.pageId as string;
-  const searchParams = useSearchParams();
-  const isPreview = searchParams.get('preview') === 'true';
+  const router = useRouter();
 
   const [manifest, setManifest] = useState<PublicPage | null>(null);
   const [loading, setLoading] = useState(true);
@@ -303,20 +196,62 @@ function PageContent() {
         setLoading(false);
         return;
     }
-
-    if (isPreview) {
-        const handlePreview = (event: MessageEvent) => {
-            if (event.origin !== window.location.origin) return;
-            if (event.data.type === 'preview-update' && event.data.memory) {
-                const pageData = convertMemoryToPublicPage(event.data.memory, event.data.assets);
-                setManifest(pageData);
-                setAssets(event.data.assets);
-                setLoading(false);
+    
+    // Convert Memory to PublicPage for rendering. This is used for previewing and for real pages.
+    const convertMemoryToPublicPage = (memory: Memory, assets: Asset[]): PublicPage => {
+        const getAssetUrlById = (assetId: string | null): string | undefined => {
+            if (!assetId) return undefined;
+            return assets.find((a: Asset) => a.id === assetId)?.url;
+        }
+        const getAssetById = (assetId: string | null): Asset | undefined => {
+            if (!assetId) return undefined;
+            return assets.find((a: Asset) => a.id === assetId);
+        }
+        
+        const hydratedBlocks = (memory.blocks || []).map((block: PublicPageBlock) => {
+            const newBlock = { ...block };
+            if (newBlock.type === 'photo' && newBlock.photo?.assetId) {
+                newBlock.photo.src = getAssetUrlById(newBlock.photo.assetId);
             }
+            if (newBlock.type === 'video' && newBlock.video?.assetId) {
+                const asset = getAssetById(newBlock.video.assetId);
+                newBlock.video.src = asset?.url;
+                newBlock.video.poster = asset?.thumbnailUrl;
+            }
+            if (newBlock.type === 'audio' && newBlock.audio?.assetId) {
+                newBlock.audio.src = getAssetUrlById(newBlock.audio.assetId);
+            }
+            if (newBlock.type === 'album' && newBlock.album?.assetIds) {
+                newBlock.album.items = newBlock.album.assetIds.map((id: string) => ({ 
+                    src: getAssetUrlById(id) || '',
+                    caption: assets.find(a => a.id === id)?.name || ''
+                }));
+            }
+            return newBlock;
+        });
+
+        return {
+            id: memory.id,
+            memoryId: memory.id,
+            title: memory.title,
+            about: {
+                text: memory.description || '',
+                format: 'plain'
+            },
+            design: memory.design,
+            media: {
+                cover: { url: getAssetUrlById(memory.coverAssetId) || "https://placehold.co/1200x480.png", width: 1200, height: 480 },
+                profile: { url: getAssetUrlById(memory.profileAssetId) || "https://placehold.co/400x400.png", width: 400, height: 400 },
+            },
+            ordering: 'custom',
+            blocks: hydratedBlocks,
+            publish: {
+                status: 'published',
+                publishedAt: memory.updatedAt,
+            },
+            createdAt: memory.createdAt,
+            updatedAt: memory.updatedAt,
         };
-        window.addEventListener('message', handlePreview);
-        window.opener?.postMessage({ type: 'preview-ready' }, window.location.origin);
-        return () => window.removeEventListener('message', handlePreview);
     }
 
     const memoryDocRef = doc(db, 'memories', pageId);
@@ -351,7 +286,7 @@ function PageContent() {
     });
 
     return () => unsubscribe();
-  }, [pageId, isPreview]);
+  }, [pageId]);
 
   useEffect(() => {
     if (manifest?.title) {
@@ -380,6 +315,7 @@ function PageContent() {
         <div className="flex min-h-screen flex-col items-center justify-center bg-gray-900 text-white text-center p-4">
             <h1 className="text-2xl font-bold">ページを読み込めません</h1>
             <p className="mt-2 text-gray-300">{error || '不明なエラーが発生しました。'}</p>
+            <Button variant="outline" onClick={() => router.push('/')}>ホームに戻る</Button>
         </div>
     );
   }
@@ -464,7 +400,23 @@ function PageContent() {
   );
 }
 
+
 export default function PublicPage() {
+    const [isClient, setIsClient] = useState(false);
+
+    useEffect(() => {
+        setIsClient(true);
+    }, []);
+
+    if (!isClient) {
+        // You can render a skeleton loader here
+        return (
+            <div className="flex min-h-screen items-center justify-center bg-gray-900">
+                <Loader2 className="h-10 w-10 animate-spin text-white" />
+            </div>
+        );
+    }
+    
     return (
         <Suspense fallback={
              <div className="flex min-h-screen items-center justify-center bg-gray-900">
