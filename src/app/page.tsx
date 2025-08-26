@@ -30,7 +30,7 @@ export default function Home() {
             <div className="flex flex-col items-center space-y-6 text-center">
               <div className="space-y-4">
                 <h1 className="text-4xl font-bold tracking-tighter sm:text-5xl xl:text-6xl/none font-headline">
-                  大切な人との想い出を、永遠の形に。
+                  大切な想い出を、永遠の形に。
                 </h1>
                 <p className="mx-auto max-w-[700px] text-muted-foreground md:text-xl">
                   「想い出クラウド」は、写真や動画、音声、そして物語を組み合わせ、スマートフォンからいつでもアクセスできる美しい記念ページを作成するサービスです。ユニークなNFCタグに、大切な記憶を込めて。
