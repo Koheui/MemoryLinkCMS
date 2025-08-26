@@ -10,3 +10,4 @@ ignore:
   - .github
   - README.md
   - functions
+  - .env.local

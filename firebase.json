@@ -23,16 +23,5 @@
       "**/node_modules/**"
     ],
     "appAssociation": "AUTO"
-  },
-  "apphosting": {
-    "backendId": "memory-link-be-01",
-    "rootDir": "/",
-    "ignore": [
-      "node_modules",
-      ".git",
-      "firebase-debug.log",
-      "firebase-debug.*.log"
-    ],
-    "alwaysDeployFromSource": true
   }
 }
