@@ -51,7 +51,6 @@ export function AuthForm({ type }: AuthFormProps) {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         
         toast({ title: '登録完了', description: 'ようこそ！ダッシュボードへ移動します。' });
-        setLoading(false);
         // Use window.location.assign for a full page reload to ensure auth state is propagated correctly.
         window.location.assign('/dashboard');
 
@@ -59,7 +58,6 @@ export function AuthForm({ type }: AuthFormProps) {
         // Login
         await signInWithEmailAndPassword(auth, email, password);
         toast({ title: 'ログインしました', description: 'ようこそ！' });
-        setLoading(false);
          // Use window.location.assign for a full page reload to ensure auth state is propagated correctly.
         window.location.assign('/dashboard');
       }
@@ -80,7 +78,8 @@ export function AuthForm({ type }: AuthFormProps) {
         title: '認証エラー',
         description: errorMessage,
       });
-      setLoading(false);
+    } finally {
+        setLoading(false);
     }
   };
 
