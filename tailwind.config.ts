@@ -19,7 +19,6 @@ const config = {
        fontFamily: {
         body: ["Poppins", "sans-serif"],
         headline: ["Poppins", "sans-serif"],
-        code: ["monospace"],
       },
       colors: {
         border: "hsl(var(--border))",
