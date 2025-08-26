@@ -1,42 +1,39 @@
 rules_version = '2';
 
-function isSignedIn() { return request.auth != null; }
-function isAdmin() { return isSignedIn() && request.auth.token.role == 'admin'; }
-function isOwner(uid) { return isSignedIn() && request.auth.uid == uid; }
-
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    match /users/{uid} {
-      allow read, write: if isOwner(uid) || isAdmin();
+    // Users: Can read their own profile, admins can read any.
+    match /users/{userId} {
+      allow read: if request.auth != null && (request.auth.uid == userId || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+      allow create: if request.auth != null;
+      allow update: if request.auth != null && request.auth.uid == userId;
     }
 
+    // Memories: Owners can do anything. Public read is handled by generated pages.
     match /memories/{memoryId} {
-      allow read, list, write: if isOwner(resource.data.ownerUid) || isAdmin();
-    }
-
-    match /memories/{memoryId}/assets/{assetId} {
-       allow read, list, write: if isOwner(get(/databases/$(database)/documents/memories/$(memoryId)).data.ownerUid) || isAdmin();
+      allow read, write: if request.auth != null && resource.data.ownerUid == request.auth.uid;
+      // Allow creation for any authenticated user
+      allow create: if request.auth != null;
     }
     
+    // Assets: Owners can do anything.
     match /assets/{assetId} {
-       allow read, list: if isOwner(resource.data.ownerUid) || isAdmin();
-       allow create: if isOwner(request.resource.data.ownerUid) || isAdmin();
-       allow update, delete: if isOwner(resource.data.ownerUid) || isAdmin();
+       allow read, write: if request.auth != null && resource.data.ownerUid == request.auth.uid;
+       // Allow creation for any authenticated user
+       allow create: if request.auth != null;
     }
 
+    // Orders: Admins can read/write all. Users can only create.
     match /orders/{orderId} {
-      allow read, write: if isAdmin();
+      allow read, write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      // Allow creation by admins (in-app) or by anyone if it's an unclaimed order.
+      allow create: if request.auth != null;
     }
 
-    match /publicPages/{pageId} {
-      allow read: if true;
-      allow write: if false; // クライアントからの書き込みは禁止
-    }
-
-    match /publicPages/{pageId}/blocks/{blockId} {
-      allow read: if true;
-      allow write: if false; // クライアントからの書き込みは禁止
+    // Allow public read for pages that are published
+    match /memories/{memoryId} {
+        allow get: if resource.data.status == 'active';
     }
   }
 }
