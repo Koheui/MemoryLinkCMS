@@ -140,11 +140,14 @@ export const MediaUploader = React.forwardRef<unknown, MediaUploaderProps>(
                 type: file.type.startsWith('image') ? 'image' : file.type.startsWith('video') ? 'video' : 'audio',
                 storagePath: mainFileStoragePath,
                 url: mainDownloadURL,
-                thumbnailUrl: thumbDownloadURL ?? undefined, // This will be null for non-videos, or if thumb generation failed
                 size: file.size,
                 createdAt: serverTimestamp() as Timestamp,
                 updatedAt: serverTimestamp() as Timestamp,
             };
+
+            if (thumbDownloadURL) {
+                finalAssetData.thumbnailUrl = thumbDownloadURL;
+            }
 
             await setDoc(doc(db, 'assets', assetId), finalAssetData);
             
@@ -189,7 +192,7 @@ export const MediaUploader = React.forwardRef<unknown, MediaUploaderProps>(
         {trigger}
         <input
             type="file"
-            ref={fileInputRef}
+            ref={fileInputrRef}
             onChange={handleFileChange}
             accept={accept}
             style={{ display: 'none' }}
