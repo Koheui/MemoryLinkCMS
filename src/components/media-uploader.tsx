@@ -7,7 +7,6 @@ import { getFirebaseApp } from '@/lib/firebase/client';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { getFirestore, doc, setDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import type { Asset } from '@/lib/types';
-import { v4 as uuidv4 } from 'uuid';
 
 interface MediaUploaderProps {
   onUploadSuccess: (asset: Asset) => void;
@@ -89,7 +88,7 @@ export const MediaUploader = React.forwardRef<unknown, MediaUploaderProps>(
             return;
         }
 
-        const assetId = uuidv4();
+        const assetId = crypto.randomUUID();
         const toastInstance = toast({
             title: 'アップロード開始',
             description: `${file.name}のアップロード処理を開始します...`,

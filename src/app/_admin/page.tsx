@@ -17,7 +17,6 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, PlusCircle, Save, Copy } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { v4 as uuidv4 } from 'uuid';
 
 const statusVariantMap: Record<Order['status'], 'default' | 'secondary' | 'destructive' | 'outline'> = {
     draft: 'secondary',
@@ -62,7 +61,7 @@ function CreateOrderModal({ onOrderCreated }: { onOrderCreated: () => void }) {
             const db = getFirestore(app);
 
             // Create a new memory page for the order
-            const memoryId = uuidv4();
+            const memoryId = crypto.randomUUID();
             const memoryRef = doc(db, 'memories', memoryId);
             const newMemory = {
                 ownerUid: null, // Unclaimed initially

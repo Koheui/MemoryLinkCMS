@@ -17,7 +17,6 @@ import { Loader2, Save, Image as ImageIcon, Video, Mic, Type, Album, Upload, Cla
 import { FaXTwitter, FaInstagram, FaYoutube } from 'react-icons/fa6';
 import Image from 'next/image';
 import { MediaUploader } from './media-uploader';
-import { v4 as uuidv4 } from 'uuid';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
@@ -295,7 +294,7 @@ export function PreviewModal({ isOpen, setIsOpen, memory, assets }: { isOpen: bo
 
                     <div className="mx-auto max-w-2xl">
                         <header className="relative">
-                             <div className="relative h-48 w-full overflow-hidden md:h-64">
+                             <div className="relative h-48 w-full overflow-hidden md:h-64 sm:rounded-b-xl">
                                 <Image 
                                 src={manifest.media.cover.url}
                                 alt={manifest.title}
@@ -328,7 +327,7 @@ export function PreviewModal({ isOpen, setIsOpen, memory, assets }: { isOpen: bo
                             </div>
                         </header>
 
-                        <main className="space-y-6 pb-12 mt-8 px-4">
+                        <main className="space-y-6 pb-12 mt-8 px-4 sm:px-0">
                             {manifest.blocks
                                 .filter(block => block.visibility === 'show')
                                 .sort((a,b) => a.order - b.order)

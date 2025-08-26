@@ -13,7 +13,6 @@ import { getFirebaseApp } from "@/lib/firebase/client";
 import { getFirestore, collection, query, where, getDocs, orderBy, Timestamp, doc, writeBatch, serverTimestamp, setDoc } from 'firebase/firestore';
 import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
-import { v4 as uuidv4 } from 'uuid';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -44,7 +43,7 @@ export default function DashboardPage() {
         try {
             const app = await getFirebaseApp();
             const db = getFirestore(app);
-            const memoryId = uuidv4();
+            const memoryId = crypto.randomUUID();
             const memoryRef = doc(db, "memories", memoryId);
             
             const newMemoryData: Omit<Memory, 'id'> = {
