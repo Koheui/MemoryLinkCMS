@@ -280,19 +280,6 @@ function PageContent() {
                 setManifest(pageData);
                 setLoading(false);
 
-                // Add interval to check for updates from the editor tab
-                intervalId = setInterval(() => {
-                    const updatedMemoryJSON = localStorage.getItem(`preview_memory_${pageId}`);
-                    const updatedAssetsJSON = localStorage.getItem(`preview_assets_${pageId}`);
-                     if (updatedMemoryJSON && updatedAssetsJSON) {
-                        const updatedMemoryData = JSON.parse(updatedMemoryJSON);
-                        const updatedAssetsData = JSON.parse(updatedAssetsJSON);
-                        const updatedPageData = convertMemoryToPublicPage(updatedMemoryData, updatedAssetsData);
-                        setManifest(updatedPageData);
-                        setAssets(updatedAssetsData);
-                    }
-                }, 1000);
-
             } else {
                  setError("プレビューデータが見つかりません。編集画面からもう一度プレビューを開いてください。");
                  setLoading(false);
@@ -302,7 +289,7 @@ function PageContent() {
              setError("プレビューデータの読み込みに失敗しました。");
              setLoading(false);
         }
-        return () => clearInterval(intervalId);
+        return; // No interval needed now
     }
 
     const initLive = async () => {
@@ -383,7 +370,7 @@ function PageContent() {
         <div className="flex min-h-screen flex-col items-center justify-center bg-gray-900 text-white text-center p-4">
             <h1 className="text-2xl font-bold">ページを読み込めません</h1>
             <p className="mt-2 text-gray-300">{error || '不明なエラーが発生しました。'}</p>
-            <Button variant="outline" onClick={() => router.push('/')}>ホームに戻る</Button>
+             <Button variant="outline" onClick={() => router.push('/')}>ホームに戻る</Button>
         </div>
     );
   }

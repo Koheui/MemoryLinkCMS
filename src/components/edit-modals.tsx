@@ -68,9 +68,6 @@ function AlbumDetailModal({ isOpen, setIsOpen, items, startIndex }: { isOpen: bo
 }
 
 
-// --- Preview Modal ---
-// This modal reuses the rendering logic from the public page to show an accurate preview.
-
 function convertMemoryToPublicPage(memory: Memory, assets: Asset[]): PublicPage {
     const getAssetUrlById = (assetId: string | null): string | undefined => {
         if (!assetId) return undefined;
@@ -250,81 +247,93 @@ const BlockRenderer = ({ block, design, setLightboxState }: { block: PublicPageB
 }
 
 export function PreviewModal({ isOpen, setIsOpen, memory, assets }: { isOpen: boolean, setIsOpen: (open: boolean) => void, memory: Memory, assets: Asset[] }) {
-    // This handles communication with the new window/tab
-    useEffect(() => {
-        if (!isOpen) return;
+    const [lightboxState, setLightboxState] = useState<{isOpen: boolean, items: any[], startIndex: number}>({ isOpen: false, items: [], startIndex: 0 });
+    const manifest = useMemo(() => convertMemoryToPublicPage(memory, assets), [memory, assets]);
+    const design = manifest.design || {};
+    const backgroundImage = useMemo(() => {
+        if (!manifest.design.backgroundImageAssetId) return null;
+        return assets.find(a => a.id === manifest.design.backgroundImageAssetId)?.url;
+    }, [manifest, assets]);
 
-        // Save current state to localStorage for the preview tab to read
-        try {
-            // Firestore timestamps can't be directly stringified, so we convert them.
-            // This is a simplified approach; a more robust solution would handle this recursively.
-            const serializableMemory = {
-                ...memory,
-                createdAt: memory.createdAt?.toDate ? memory.createdAt.toDate().toISOString() : null,
-                updatedAt: memory.updatedAt?.toDate ? memory.updatedAt.toDate().toISOString() : null,
-                blocks: memory.blocks.map(b => ({
-                    ...b,
-                    createdAt: b.createdAt?.toDate ? b.createdAt.toDate().toISOString() : null,
-                    updatedAt: b.updatedAt?.toDate ? b.updatedAt.toDate().toISOString() : null,
-                }))
-            };
-            const serializableAssets = assets.map(a => ({
-                 ...a,
-                createdAt: a.createdAt?.toDate ? a.createdAt.toDate().toISOString() : null,
-                updatedAt: a.updatedAt?.toDate ? a.updatedAt.toDate().toISOString() : null,
-            }));
-            
-            localStorage.setItem(`preview_memory_${memory.id}`, JSON.stringify(serializableMemory));
-            localStorage.setItem(`preview_assets_${memory.id}`, JSON.stringify(serializableAssets));
-        } catch (e) {
-            console.error("Failed to save preview data to localStorage", e);
-            alert("プレビューデータの準備に失敗しました。");
-            setIsOpen(false);
-            return;
-        }
-
-        const previewUrl = `/p?id=${memory.id}&preview=true`;
-        const previewWindow = window.open(previewUrl, `preview_${memory.id}`);
-        if (!previewWindow) {
-            alert('ポップアップがブロックされました。プレビューを表示するには、このサイトのポップアップを許可してください。');
-            setIsOpen(false);
-            return;
-        }
-
-        const timer = setInterval(() => {
-            if (previewWindow.closed) {
-                setIsOpen(false);
-                clearInterval(timer);
-            }
-        }, 1000);
-
-        return () => {
-            clearInterval(timer);
-            if (previewWindow && !previewWindow.closed) {
-                previewWindow.close();
-            }
-        };
-    }, [isOpen, memory, assets, setIsOpen]);
-
-    if (!isOpen) return null;
-
-    // The modal itself is now just a controller/placeholder, as the preview runs in a new tab.
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>プレビュー中</DialogTitle>
-                    <DialogDescription>
-                        新しいタブでページのプレビューを表示しています。このウィンドウを閉じるか、プレビュータブを閉じるとプレビューは終了します。
-                    </DialogDescription>
+            <DialogContent className="max-w-4xl w-full h-[95vh] flex flex-col p-0 gap-0">
+                <DialogHeader className="p-4 flex-row items-center justify-between border-b">
+                    <DialogTitle>ページプレビュー</DialogTitle>
+                     <DialogClose className="relative rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
+                        <X className="h-4 w-4" />
+                        <span className="sr-only">Close</span>
+                    </DialogClose>
                 </DialogHeader>
-                <div className="flex justify-center items-center p-8 bg-muted rounded-md">
-                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                    <span>プレビューウィンドウを待機中...</span>
+                <div className="flex-1 overflow-auto bg-gray-100">
+                    <AlbumDetailModal 
+                        isOpen={lightboxState.isOpen}
+                        setIsOpen={(open) => setLightboxState(prev => ({...prev, isOpen: open}))}
+                        items={lightboxState.items}
+                        startIndex={lightboxState.startIndex}
+                    />
+                    <div style={{ 
+                        backgroundColor: design.bgColor || '#111827', 
+                        color: design.textColor || '#FFFFFF',
+                        fontFamily: design.fontFamily || 'sans-serif',
+                    } as React.CSSProperties}
+                    className="min-h-full relative"
+                    >
+                    {backgroundImage && (
+                        <div className="absolute inset-0 z-0">
+                            <Image src={backgroundImage} alt="Background" fill className="object-cover" />
+                            <div className="absolute inset-0 bg-black/30" />
+                        </div>
+                    )}
+
+                    <div className="container mx-auto max-w-2xl px-4 py-8 sm:px-6 lg:py-12 relative z-10">
+                        <header className="relative">
+                            <div className="relative h-48 w-full overflow-hidden rounded-xl md:h-56">
+                                <Image 
+                                src={manifest.media.cover.url}
+                                alt={manifest.title}
+                                fill
+                                priority
+                                data-ai-hint="background scenery"
+                                className="object-cover"
+                                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                                />
+                            </div>
+                            
+                            <div className="relative flex flex-col items-center -mt-20">
+                                <div className="h-40 w-40 rounded-full z-10 bg-gray-800 border-4 border-background relative overflow-hidden shrink-0">
+                                    <Image 
+                                        src={manifest.media.profile.url}
+                                        alt="Profile"
+                                        fill
+                                        data-ai-hint="portrait person"
+                                        className="rounded-full object-cover"
+                                        sizes="160px"
+                                    />
+                                </div>
+                                
+                                <div className="mt-4 text-center">
+                                    <h1 className="text-5xl font-bold">{manifest.title}</h1>
+                                    <p className="mt-2 text-xl max-w-prose mx-auto">{manifest.about.text}</p>
+                                </div>
+                            </div>
+                        </header>
+
+                        <main className="space-y-6 pb-12 mt-8">
+                            {manifest.blocks
+                                .filter(block => block.visibility === 'show')
+                                .sort((a,b) => a.order - b.order)
+                                .map(block => (
+                            <BlockRenderer key={block.id} block={block} design={manifest.design} setLightboxState={setLightboxState} />
+                            ))}
+                        </main>
+
+                        <footer className="mt-12 text-center text-sm text-gray-400 pb-8">
+                            <p>&copy; {new Date().getFullYear()}. Powered by 想い出クラウド</p>
+                        </footer>
+                    </div>
+                    </div>
                 </div>
-                <DialogFooter>
-                    <Button variant="outline" onClick={() => setIsOpen(false)}>プレビューを終了</Button>
-                </DialogFooter>
             </DialogContent>
         </Dialog>
     );
