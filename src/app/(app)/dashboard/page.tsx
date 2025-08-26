@@ -11,10 +11,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useCallback } from "react";
 import { db } from "@/lib/firebase/client";
-import { collection, query, where, getDocs, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, Timestamp, doc, writeBatch, serverTimestamp, setDoc } from 'firebase/firestore';
 import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
-import { apiClient } from "@/lib/api-client";
+import { v4 as uuidv4 } from 'uuid';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -37,6 +37,50 @@ export default function DashboardPage() {
     const [memoryToDelete, setMemoryToDelete] = useState<Memory | null>(null);
     const router = useRouter();
     const { toast } = useToast();
+
+    
+    const handleCreateNewMemory = useCallback(async () => {
+        if (!user || isCreating) return;
+        setIsCreating(true);
+        try {
+            const memoryId = uuidv4();
+            const memoryRef = doc(db, "memories", memoryId);
+            
+            const newMemoryData: Omit<Memory, 'id'> = {
+                ownerUid: user.uid,
+                title: "新しい想い出",
+                type: 'other',
+                status: 'draft',
+                publicPageId: null,
+                coverAssetId: null,
+                profileAssetId: null,
+                description: '',
+                design: {
+                    theme: 'light',
+                    fontScale: 1,
+                    bgColor: '#F9FAFB',
+                    textColor: '#111827',
+                    cardBgColor: '#FFFFFF',
+                    cardTextColor: '#111827',
+                },
+                blocks: [],
+                createdAt: serverTimestamp() as Timestamp,
+                updatedAt: serverTimestamp() as Timestamp,
+            };
+
+            await setDoc(memoryRef, newMemoryData);
+            
+            toast({ title: '成功', description: '新しい想い出ページが作成されました。編集画面に移動します。'});
+            // Hard navigation to ensure all states are fresh on the editor page.
+            window.location.assign(`/memories/${memoryId}`);
+
+        } catch (error: any) {
+             console.error("Error creating new memory:", error);
+             toast({ variant: 'destructive', title: 'エラー', description: `ページの作成に失敗しました: ${error.message}`});
+             setIsCreating(false); // Reset creation state on error
+        }
+        // No finally block to reset isCreating, because success leads to navigation.
+    }, [user, isCreating, toast]);
 
     const fetchMemoriesAndAssets = useCallback(async (uid: string) => {
         setLoading(true);
@@ -63,7 +107,7 @@ export default function DashboardPage() {
                 return userAssets.find(a => a.id === assetId)?.url || null;
             }
 
-            if (memoriesSnapshot.empty) {
+            if (memoriesSnapshot.empty && !isCreating) {
                 // If user is authenticated but has no pages, create one for them.
                 // This improves the first-time user experience.
                 handleCreateNewMemory();
@@ -103,36 +147,8 @@ export default function DashboardPage() {
         } finally {
             setLoading(false);
         }
-    }, [toast]); // handleCreateNewMemory is now stable and does not need to be a dependency.
+    }, [toast, handleCreateNewMemory, isCreating]);
     
-    const handleCreateNewMemory = useCallback(async () => {
-        if (!user || isCreating) return;
-        setIsCreating(true);
-        try {
-            const res = await apiClient.fetch('/api/memories/create', {
-                method: 'POST',
-                body: JSON.stringify({ type: 'other' })
-            });
-
-            if (!res.ok) {
-                const errorData = await res.json();
-                throw new Error(errorData.error || 'API request failed');
-            }
-
-            const { data: newMemory } = await res.json();
-            
-            toast({ title: '成功', description: '新しい想い出ページが作成されました。編集画面に移動します。'});
-            // Hard navigation to ensure all states are fresh on the editor page.
-            window.location.assign(`/memories/${newMemory.id}`);
-
-        } catch (error: any) {
-             console.error("Error creating new memory:", error);
-             toast({ variant: 'destructive', title: 'エラー', description: `ページの作成に失敗しました: ${error.message}`});
-             setIsCreating(false); // Reset creation state on error
-        }
-        // No finally block to reset isCreating, because success leads to navigation.
-    }, [user, isCreating, toast]);
-
     useEffect(() => {
         if (!authLoading && user) {
             fetchMemoriesAndAssets(user.uid);
@@ -146,15 +162,15 @@ export default function DashboardPage() {
 
         setIsDeleting(true);
         try {
-            const res = await apiClient.fetch('/api/memories/delete', {
-                method: 'POST',
-                body: JSON.stringify({ memoryId: memoryToDelete.id }),
-            });
-
-            if (!res.ok) {
-                const errorData = await res.json();
-                throw new Error(errorData.error || 'サーバーでページの削除に失敗しました。');
-            }
+            // Note: In a real app, you'd also delete associated assets from storage.
+            // This is simplified to only delete the Firestore document.
+            const batch = writeBatch(db);
+            const memoryRef = doc(db, "memories", memoryToDelete.id);
+            batch.delete(memoryRef);
+            
+            // TODO: Add deletion of assets related to this memory
+            
+            await batch.commit();
             
             toast({ title: "成功", description: `「${memoryToDelete.title}」を削除しました。` });
             setMemories(prev => prev.filter(m => m.id !== memoryToDelete.id));

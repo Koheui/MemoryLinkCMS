@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import type { Order } from '@/lib/types';
 import { db } from '@/lib/firebase/client';
-import { collection, doc, getDoc, getDocs, orderBy, query } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, orderBy, query, addDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
@@ -18,7 +18,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, PlusCircle, Save, Copy } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { apiClient } from "@/lib/api-client";
+import { v4 as uuidv4 } from 'uuid';
 
 const statusVariantMap: Record<Order['status'], 'default' | 'secondary' | 'destructive' | 'outline'> = {
     draft: 'secondary',
@@ -46,23 +46,56 @@ function CreateOrderModal({ onOrderCreated }: { onOrderCreated: () => void }) {
     const [email, setEmail] = useState('');
     const [productType, setProductType] = useState('memory_link_card');
     const { toast } = useToast();
+    const { user } = useAuth();
 
     const handleSave = async () => {
         if (!email) {
             toast({ variant: 'destructive', title: "エラー", description: "メールアドレスを入力してください。" });
             return;
         }
+        if (!user) {
+             toast({ variant: 'destructive', title: "エラー", description: "認証情報が見つかりません。" });
+            return;
+        }
         setIsSaving(true);
         try {
-            const res = await apiClient.fetch('/api/orders/create', {
-                method: 'POST',
-                body: JSON.stringify({ email, productType }),
-            });
+            // Create a new memory page for the order
+            const memoryId = uuidv4();
+            const memoryRef = doc(db, 'memories', memoryId);
+            const newMemory = {
+                ownerUid: null, // Unclaimed initially
+                title: '新しい想い出',
+                type: 'other',
+                status: 'draft',
+                publicPageId: null,
+                coverAssetId: null,
+                profileAssetId: null,
+                description: '',
+                design: {
+                    theme: 'light',
+                    fontScale: 1,
+                    bgColor: '#F9FAFB',
+                    textColor: '#111827',
+                    cardBgColor: '#FFFFFF',
+                    cardTextColor: '#111827',
+                },
+                blocks: [],
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+            };
+            await setDoc(memoryRef, newMemory);
 
-            if (!res.ok) {
-                const errorData = await res.json();
-                throw new Error(errorData.error || `注文の作成に失敗しました。`);
-            }
+            // Create the order associated with the new memory page
+            const ordersCollection = collection(db, 'orders');
+            await addDoc(ordersCollection, {
+                email,
+                productType,
+                memoryId: memoryId,
+                status: 'draft',
+                userUid: null, // Unclaimed initially
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+            });
             
             toast({ title: "成功", description: "新しい注文を作成しました。" });
             onOrderCreated(); // Refresh the list
@@ -245,7 +278,7 @@ export default function AdminDashboardPage() {
                                 <TableCell>
                                     <div className="flex items-center gap-2">
                                         <span className="font-mono text-xs">{order.memoryId}</span>
-                                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleCopyToClipboard(order.memoryId)}>
+                                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => order.memoryId && handleCopyToClipboard(order.memoryId)}>
                                             <Copy className="h-3 w-3" />
                                         </Button>
                                     </div>
@@ -276,4 +309,3 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
-

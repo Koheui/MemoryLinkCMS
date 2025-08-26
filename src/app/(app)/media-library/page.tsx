@@ -1,3 +1,4 @@
+
 // src/app/(app)/media-library/page.tsx
 'use client';
 
@@ -28,12 +29,12 @@ import { PlusCircle, Loader2, Image as ImageIcon, Video, Mic, Trash2, Upload, Gr
 import type { Asset } from '@/lib/types';
 import { useAuth } from '@/hooks/use-auth';
 import { useState, useEffect, useCallback } from 'react';
-import { db } from '@/lib/firebase/client';
-import { collection, query, where, orderBy, getDocs, Timestamp, doc, writeBatch, deleteDoc } from 'firebase/firestore';
+import { db, storage } from '@/lib/firebase/client';
+import { collection, query, where, orderBy, getDocs, Timestamp, writeBatch, doc } from 'firebase/firestore';
+import { ref, deleteObject } from 'firebase/storage';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { MediaUploader } from '@/components/media-uploader';
-import { apiClient } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 
 
@@ -96,35 +97,48 @@ export default function MediaLibraryPage() {
 
   const handleDeleteAssets = async (assetIds: string[]) => {
     if (!user || assetIds.length === 0) return;
-
+  
     setIsDeleting(true);
+    const assetsToDelete = assets.filter(a => assetIds.includes(a.id));
+  
     try {
-        const assetsToDelete = assets.filter(a => assetIds.includes(a.id));
-        const res = await apiClient.fetch('/api/assets/delete', {
-            method: 'POST',
-            body: JSON.stringify({ assetIds: assetIds }),
+      // Step 1: Delete files from Firebase Storage
+      const deletePromises = assetsToDelete.map(asset => {
+        const fileRef = ref(storage, asset.storagePath);
+        return deleteObject(fileRef).catch(error => {
+          // If the file doesn't exist, it's not a critical error, just log it.
+          if (error.code !== 'storage/object-not-found') {
+            console.error(`Failed to delete ${asset.storagePath} from Storage:`, error);
+            throw error; // Re-throw critical errors
+          }
         });
-
-        if (!res.ok) {
-            const errorData = await res.json();
-            throw new Error(errorData.error || 'サーバーでアセットの削除に失敗しました。');
-        }
-        
-        // Update local state
-        setAssets(prev => prev.filter(a => !assetIds.includes(a.id)));
-        const deletedSize = assetsToDelete.reduce((sum, a) => sum + (a.size || 0), 0);
-        const newTotalSize = totalSize - deletedSize;
-        setTotalSize(newTotalSize);
-        setStoragePercentage(((newTotalSize) / TOTAL_STORAGE_LIMIT_BYTES) * 100);
-
-        toast({ title: "成功", description: `${assetIds.length}件のアセットを削除しました。` });
+      });
+      await Promise.all(deletePromises);
+  
+      // Step 2: Delete documents from Firestore
+      const batch = writeBatch(db);
+      assetsToDelete.forEach(asset => {
+        const assetRef = doc(db, "assets", asset.id);
+        batch.delete(assetRef);
+      });
+      await batch.commit();
+  
+      // Step 3: Update local state
+      setAssets(prev => prev.filter(a => !assetIds.includes(a.id)));
+      const deletedSize = assetsToDelete.reduce((sum, a) => sum + (a.size || 0), 0);
+      const newTotalSize = totalSize - deletedSize;
+      setTotalSize(newTotalSize);
+      setStoragePercentage(((newTotalSize) / TOTAL_STORAGE_LIMIT_BYTES) * 100);
+  
+      toast({ title: "成功", description: `${assetIds.length}件のアセットを削除しました。` });
+  
     } catch (error: any) {
-        console.error("Failed to delete asset(s):", error);
-        toast({ variant: 'destructive', title: "削除失敗", description: error.message });
+      console.error("Failed to delete asset(s):", error);
+      toast({ variant: 'destructive', title: "削除失敗", description: error.message });
     } finally {
-        setIsDeleting(false);
-        setAssetToDelete(null); // Close single-delete dialog if open
-        setSelectedAssets([]); // Clear selection
+      setIsDeleting(false);
+      setAssetToDelete(null); // Close single-delete dialog if open
+      setSelectedAssets([]); // Clear selection
     }
   };
 
