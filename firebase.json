@@ -1,9 +1,11 @@
+
 {
   "firestore": {
     "rules": "firestore.rules",
     "indexes": "firestore.indexes.json"
   },
   "hosting": {
+    "source": ".",
     "rewrites": [
       {
         "source": "**",
@@ -12,12 +14,6 @@
           "region": "us-central1"
         }
       }
-    ]
-  },
-  "apphosting": {
-    "source": ".",
-    "backends": [
-      "memory-link-be-01"
     ]
   }
 }
