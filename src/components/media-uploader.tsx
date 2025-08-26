@@ -1,4 +1,3 @@
-
 // src/components/media-uploader.tsx
 'use client';
 import React, { useRef } from 'react';

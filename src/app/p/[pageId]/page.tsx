@@ -286,7 +286,6 @@ const BlockRenderer = ({ block, design, setLightboxState }: { block: PublicPageB
 
 function PageContent() {
   const params = useParams();
-  const searchParams = useSearchParams();
   const pageId = params.pageId as string;
   const [manifest, setManifest] = useState<PublicPage | null>(null);
   const [loading, setLoading] = useState(true);
@@ -300,27 +299,31 @@ function PageContent() {
         setError(null);
         setManifest(null);
         
-        if (pageId === 'preview') {
-            // This is a placeholder for a more robust preview mechanism.
-            // Relying on localStorage is brittle. For now, we show an error
-            // if the user lands here directly without coming from the editor.
-            setError('プレビューセッションが無効です。編集画面から再度プレビューボタンを押してください。');
-            setLoading(false);
-        } else if (pageId) {
-            const data = await fetchPublicPageData(pageId);
-            if (data) {
-                const pageData = convertMemoryToPublicPage(data.memory, data.assets);
-                setManifest(pageData);
-                setAssets(data.assets);
-            } else {
-                 setError('この想い出ページは存在しないか、まだ公開されていません。');
-            }
-            setLoading(false);
+        if (!pageId) {
+             setError('ページIDが無効です。');
+             setLoading(false);
+             return;
         }
+
+        if (pageId === 'preview') {
+             setError('プレビューセッションが無効です。編集画面から再度プレビューをお試しください。');
+             setLoading(false);
+             return;
+        }
+
+        const data = await fetchPublicPageData(pageId);
+        if (data) {
+            const pageData = convertMemoryToPublicPage(data.memory, data.assets);
+            setManifest(pageData);
+            setAssets(data.assets);
+        } else {
+             setError('この想い出ページは存在しないか、まだ公開されていません。');
+        }
+        setLoading(false);
     }
     
     loadPageData();
-  }, [pageId, searchParams]);
+  }, [pageId]);
 
   useEffect(() => {
     if (manifest?.title) {
@@ -354,12 +357,7 @@ function PageContent() {
   }
   
   if (!manifest) {
-    // This case handles when loading is done but manifest is still null (e.g., failed preview load without error set)
-     return (
-        <div className="flex min-h-screen items-center justify-center bg-gray-900">
-            <Loader2 className="h-10 w-10 animate-spin text-white" />
-        </div>
-    )
+    return notFound();
   }
 
 

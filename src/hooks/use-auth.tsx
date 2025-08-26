@@ -54,16 +54,19 @@ const claimUnclaimedData = async (user: User) => {
         
         // 2. Find associated memories and claim them
         if (memoryIdsToUpdate.length > 0) {
+            // Firestore 'in' queries are limited to 30 items.
+            // For this app, it's highly unlikely a user will have more than 30 unclaimed pages.
             const memoriesQuery = query(
                 collection(db, 'memories'),
-                where('id', 'in', memoryIdsToUpdate),
-                where('ownerUid', '==', null)
+                where('__name__', 'in', memoryIdsToUpdate)
             );
             const memoriesSnapshot = await getDocs(memoriesQuery);
             memoriesSnapshot.forEach(memoryDoc => {
-                 console.log(`Claiming memory ${memoryDoc.id} for user ${user.uid}`);
-                 const memoryRef = doc(db, 'memories', memoryDoc.id);
-                 batch.update(memoryRef, { ownerUid: user.uid });
+                if(memoryDoc.data().ownerUid === null) {
+                    console.log(`Claiming memory ${memoryDoc.id} for user ${user.uid}`);
+                    const memoryRef = doc(db, 'memories', memoryDoc.id);
+                    batch.update(memoryRef, { ownerUid: user.uid });
+                }
             });
         }
         claimedData = true;
@@ -77,7 +80,7 @@ const claimUnclaimedData = async (user: User) => {
 };
 
 
-export const AuthProvider = ({ children }: { children: ReactNode }) => {
+export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<AuthContextType['user'] | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
