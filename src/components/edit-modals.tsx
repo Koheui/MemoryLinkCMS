@@ -293,9 +293,9 @@ export function PreviewModal({ isOpen, setIsOpen, memory, assets }: { isOpen: bo
                         </div>
                     )}
 
-                    <div className="mx-auto max-w-2xl sm:px-6 lg:px-8 relative z-10">
+                    <div className="mx-auto max-w-2xl">
                         <header className="relative">
-                            <div className="relative h-48 w-full overflow-hidden md:h-64 sm:rounded-b-xl">
+                             <div className="relative h-48 w-full overflow-hidden md:h-64">
                                 <Image 
                                 src={manifest.media.cover.url}
                                 alt={manifest.title}
@@ -307,7 +307,7 @@ export function PreviewModal({ isOpen, setIsOpen, memory, assets }: { isOpen: bo
                                 />
                             </div>
                             
-                            <div className="relative flex flex-col items-center -mt-20">
+                            <div className="relative flex flex-col items-center -mt-20 px-4">
                                 <div className="h-40 w-40 rounded-full z-10 bg-gray-800 border-4 border-background relative overflow-hidden shrink-0"
                                   style={{borderColor: design.bgColor || '#111827' }}
                                 >
@@ -321,14 +321,14 @@ export function PreviewModal({ isOpen, setIsOpen, memory, assets }: { isOpen: bo
                                     />
                                 </div>
                                 
-                                <div className="mt-4 text-center px-4">
+                                <div className="mt-4 text-center">
                                     <h1 className="text-5xl font-bold">{manifest.title}</h1>
                                     <p className="mt-2 text-xl max-w-prose mx-auto">{manifest.about.text}</p>
                                 </div>
                             </div>
                         </header>
 
-                        <main className="space-y-6 pb-12 mt-8 px-4 sm:px-0">
+                        <main className="space-y-6 pb-12 mt-8 px-4">
                             {manifest.blocks
                                 .filter(block => block.visibility === 'show')
                                 .sort((a,b) => a.order - b.order)
@@ -337,7 +337,7 @@ export function PreviewModal({ isOpen, setIsOpen, memory, assets }: { isOpen: bo
                             ))}
                         </main>
 
-                        <footer className="mt-12 text-center text-sm text-gray-400 pb-8">
+                        <footer className="mt-12 text-center text-sm text-gray-400 pb-8 px-4">
                             <p>&copy; {new Date().getFullYear()}. Powered by 想い出クラウド</p>
                         </footer>
                     </div>
@@ -860,13 +860,13 @@ export function DesignModal({ isOpen, setIsOpen, memory, assets, onUploadSuccess
         if (isOpen) {
             // Ensure defaults for new properties if they don't exist
             setDesign(prev => ({
-                theme: 'light',
-                fontScale: 1,
                 ...prev,
                 ...memory.design,
-                cardBorder: memory.design.cardBorder ?? false,
-                cardBorderWidth: memory.design.cardBorderWidth ?? 1,
-                cardBorderColor: memory.design.cardBorderColor ?? '#E5E7EB'
+                theme: memory.design?.theme ?? 'light',
+                fontScale: memory.design?.fontScale ?? 1,
+                cardBorder: memory.design?.cardBorder ?? false,
+                cardBorderWidth: memory.design?.cardBorderWidth ?? 1,
+                cardBorderColor: memory.design?.cardBorderColor ?? '#E5E7EB',
             }));
         }
     }, [memory, isOpen]);
