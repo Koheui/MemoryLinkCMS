@@ -182,6 +182,7 @@ const BlockRenderer = ({ block, design, setLightboxState }: { block: PublicPageB
 function PageContent() {
   const searchParams = useSearchParams();
   const pageId = searchParams.get('id');
+  const isPreview = searchParams.get('preview') === 'true';
   const router = useRouter();
 
   const [manifest, setManifest] = useState<PublicPage | null>(null);
@@ -190,6 +191,63 @@ function PageContent() {
   const [lightboxState, setLightboxState] = useState<{isOpen: boolean, items: any[], startIndex: number}>({ isOpen: false, items: [], startIndex: 0 });
   const [assets, setAssets] = useState<Asset[]>([]);
 
+  // This function is now used by both preview and live modes
+  const convertMemoryToPublicPage = (memory: Memory, assets: Asset[]): PublicPage => {
+    const getAssetUrlById = (assetId: string | null): string | undefined => {
+        if (!assetId) return undefined;
+        return assets.find((a: Asset) => a.id === assetId)?.url;
+    }
+    const getAssetById = (assetId: string | null): Asset | undefined => {
+        if (!assetId) return undefined;
+        return assets.find((a: Asset) => a.id === assetId);
+    }
+    
+    const hydratedBlocks = (memory.blocks || []).map((block: PublicPageBlock) => {
+        const newBlock = { ...block };
+        if (newBlock.type === 'photo' && newBlock.photo?.assetId) {
+            newBlock.photo.src = getAssetUrlById(newBlock.photo.assetId);
+        }
+        if (newBlock.type === 'video' && newBlock.video?.assetId) {
+            const asset = getAssetById(newBlock.video.assetId);
+            newBlock.video.src = asset?.url;
+            newBlock.video.poster = asset?.thumbnailUrl;
+        }
+        if (newBlock.type === 'audio' && newBlock.audio?.assetId) {
+            newBlock.audio.src = getAssetUrlById(newBlock.audio.assetId);
+        }
+        if (newBlock.type === 'album' && newBlock.album?.assetIds) {
+            newBlock.album.items = newBlock.album.assetIds.map((id: string) => ({ 
+                src: getAssetUrlById(id) || '',
+                caption: assets.find(a => a.id === id)?.name || ''
+            }));
+        }
+        return newBlock;
+    });
+
+    return {
+        id: memory.id,
+        memoryId: memory.id,
+        title: memory.title,
+        about: {
+            text: memory.description || '',
+            format: 'plain'
+        },
+        design: memory.design,
+        media: {
+            cover: { url: getAssetUrlById(memory.coverAssetId) || "https://placehold.co/1200x480.png", width: 1200, height: 480 },
+            profile: { url: getAssetUrlById(memory.profileAssetId) || "https://placehold.co/400x400.png", width: 400, height: 400 },
+        },
+        ordering: 'custom',
+        blocks: hydratedBlocks,
+        publish: {
+            status: 'published',
+            publishedAt: memory.updatedAt,
+        },
+        createdAt: memory.createdAt,
+        updatedAt: memory.updatedAt,
+    };
+  }
+
   useEffect(() => {
     if (!pageId) {
         setError('ページIDが無効です。');
@@ -197,64 +255,54 @@ function PageContent() {
         return;
     }
     
-    // Convert Memory to PublicPage for rendering. This is used for previewing and for real pages.
-    const convertMemoryToPublicPage = (memory: Memory, assets: Asset[]): PublicPage => {
-        const getAssetUrlById = (assetId: string | null): string | undefined => {
-            if (!assetId) return undefined;
-            return assets.find((a: Asset) => a.id === assetId)?.url;
-        }
-        const getAssetById = (assetId: string | null): Asset | undefined => {
-            if (!assetId) return undefined;
-            return assets.find((a: Asset) => a.id === assetId);
-        }
-        
-        const hydratedBlocks = (memory.blocks || []).map((block: PublicPageBlock) => {
-            const newBlock = { ...block };
-            if (newBlock.type === 'photo' && newBlock.photo?.assetId) {
-                newBlock.photo.src = getAssetUrlById(newBlock.photo.assetId);
-            }
-            if (newBlock.type === 'video' && newBlock.video?.assetId) {
-                const asset = getAssetById(newBlock.video.assetId);
-                newBlock.video.src = asset?.url;
-                newBlock.video.poster = asset?.thumbnailUrl;
-            }
-            if (newBlock.type === 'audio' && newBlock.audio?.assetId) {
-                newBlock.audio.src = getAssetUrlById(newBlock.audio.assetId);
-            }
-            if (newBlock.type === 'album' && newBlock.album?.assetIds) {
-                newBlock.album.items = newBlock.album.assetIds.map((id: string) => ({ 
-                    src: getAssetUrlById(id) || '',
-                    caption: assets.find(a => a.id === id)?.name || ''
-                }));
-            }
-            return newBlock;
-        });
+    if (isPreview) {
+        try {
+            const memoryJSON = localStorage.getItem(`preview_memory_${pageId}`);
+            const assetsJSON = localStorage.getItem(`preview_assets_${pageId}`);
+            if (memoryJSON && assetsJSON) {
+                // We need to revive the date strings back into Timestamp-like objects for type consistency
+                const memoryData = JSON.parse(memoryJSON, (key, value) => {
+                    if (['createdAt', 'updatedAt'].includes(key) && typeof value === 'string') {
+                        return { toDate: () => new Date(value) } as unknown as Timestamp;
+                    }
+                    return value;
+                });
+                const assetsData = JSON.parse(assetsJSON, (key, value) => {
+                     if (['createdAt', 'updatedAt'].includes(key) && typeof value === 'string') {
+                        return { toDate: () => new Date(value) } as unknown as Timestamp;
+                    }
+                    return value;
+                });
+                
+                setAssets(assetsData);
+                const pageData = convertMemoryToPublicPage(memoryData, assetsData);
+                setManifest(pageData);
+                setLoading(false);
 
-        return {
-            id: memory.id,
-            memoryId: memory.id,
-            title: memory.title,
-            about: {
-                text: memory.description || '',
-                format: 'plain'
-            },
-            design: memory.design,
-            media: {
-                cover: { url: getAssetUrlById(memory.coverAssetId) || "https://placehold.co/1200x480.png", width: 1200, height: 480 },
-                profile: { url: getAssetUrlById(memory.profileAssetId) || "https://placehold.co/400x400.png", width: 400, height: 400 },
-            },
-            ordering: 'custom',
-            blocks: hydratedBlocks,
-            publish: {
-                status: 'published',
-                publishedAt: memory.updatedAt,
-            },
-            createdAt: memory.createdAt,
-            updatedAt: memory.updatedAt,
-        };
+                // Add interval to check for updates from the editor tab
+                const intervalId = setInterval(() => {
+                    const updatedMemoryJSON = localStorage.getItem(`preview_memory_${pageId}`);
+                    const updatedAssetsJSON = localStorage.getItem(`preview_assets_${pageId}`);
+                     if (updatedMemoryJSON && updatedAssetsJSON) {
+                        const updatedMemoryData = JSON.parse(updatedMemoryJSON);
+                        const updatedAssetsData = JSON.parse(updatedAssetsJSON);
+                        const updatedPageData = convertMemoryToPublicPage(updatedMemoryData, updatedAssetsData);
+                        setManifest(updatedPageData);
+                        setAssets(updatedAssetsData);
+                    }
+                }, 1000);
+
+                return () => clearInterval(intervalId);
+            }
+        } catch(e) {
+             console.error("Failed to load preview data from localStorage", e);
+             setError("プレビューデータの読み込みに失敗しました。");
+             setLoading(false);
+             return;
+        }
     }
 
-    const init = async () => {
+    const initLive = async () => {
         const app = await getFirebaseApp();
         const db = getFirestore(app);
         const memoryDocRef = doc(db, 'memories', pageId);
@@ -269,7 +317,6 @@ function PageContent() {
                      return;
                 }
                 
-                // Fetch assets related to this memory's owner
                 const assetsQuery = query(collection(db, 'assets'), where('ownerUid', '==', memoryData.ownerUid));
                 getDocs(assetsQuery).then(assetSnapshots => {
                     const fetchedAssets = assetSnapshots.docs.map(d => ({ id: d.id, ...d.data() } as Asset));
@@ -292,17 +339,19 @@ function PageContent() {
         return unsubscribe;
     }
 
-    let unsubscribe: (() => void) | undefined;
-    init().then(unsub => {
-        unsubscribe = unsub;
-    });
+    if (!isPreview) {
+        let unsubscribe: (() => void) | undefined;
+        initLive().then(unsub => {
+            unsubscribe = unsub;
+        });
 
-    return () => {
-        if (unsubscribe) {
-            unsubscribe();
+        return () => {
+            if (unsubscribe) {
+                unsubscribe();
+            }
         }
     }
-  }, [pageId]);
+  }, [pageId, isPreview]);
 
   useEffect(() => {
     if (manifest?.title) {

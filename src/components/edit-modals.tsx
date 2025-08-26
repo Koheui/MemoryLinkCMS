@@ -250,26 +250,39 @@ const BlockRenderer = ({ block, design, setLightboxState }: { block: PublicPageB
 }
 
 export function PreviewModal({ isOpen, setIsOpen, memory, assets }: { isOpen: boolean, setIsOpen: (open: boolean) => void, memory: Memory, assets: Asset[] }) {
-    const manifest = useMemo(() => {
-        if (!memory || !assets) return null;
-        return convertMemoryToPublicPage(memory, assets);
-    }, [memory, assets]);
-    
-    const [lightboxState, setLightboxState] = useState<{ isOpen: boolean; items: any[]; startIndex: number; }>({ isOpen: false, items: [], startIndex: 0 });
-    
-    const backgroundImage = useMemo(() => {
-        if (!manifest) return null;
-        if (manifest.design.backgroundImageAssetId) {
-            return assets.find(a => a.id === manifest.design.backgroundImageAssetId)?.url;
-        }
-        return null;
-    }, [manifest, assets]);
-
     // This handles communication with the new window/tab
     useEffect(() => {
         if (!isOpen) return;
 
-        // Use a more specific query parameter for preview
+        // Save current state to localStorage for the preview tab to read
+        try {
+            // Firestore timestamps can't be directly stringified, so we convert them.
+            // This is a simplified approach; a more robust solution would handle this recursively.
+            const serializableMemory = {
+                ...memory,
+                createdAt: memory.createdAt?.toDate ? memory.createdAt.toDate().toISOString() : null,
+                updatedAt: memory.updatedAt?.toDate ? memory.updatedAt.toDate().toISOString() : null,
+                blocks: memory.blocks.map(b => ({
+                    ...b,
+                    createdAt: b.createdAt?.toDate ? b.createdAt.toDate().toISOString() : null,
+                    updatedAt: b.updatedAt?.toDate ? b.updatedAt.toDate().toISOString() : null,
+                }))
+            };
+            const serializableAssets = assets.map(a => ({
+                 ...a,
+                createdAt: a.createdAt?.toDate ? a.createdAt.toDate().toISOString() : null,
+                updatedAt: a.updatedAt?.toDate ? a.updatedAt.toDate().toISOString() : null,
+            }));
+            
+            localStorage.setItem(`preview_memory_${memory.id}`, JSON.stringify(serializableMemory));
+            localStorage.setItem(`preview_assets_${memory.id}`, JSON.stringify(serializableAssets));
+        } catch (e) {
+            console.error("Failed to save preview data to localStorage", e);
+            alert("プレビューデータの準備に失敗しました。");
+            setIsOpen(false);
+            return;
+        }
+
         const previewUrl = `/p?id=${memory.id}&preview=true`;
         const previewWindow = window.open(previewUrl, `preview_${memory.id}`);
         if (!previewWindow) {
@@ -287,7 +300,7 @@ export function PreviewModal({ isOpen, setIsOpen, memory, assets }: { isOpen: bo
 
         return () => {
             clearInterval(timer);
-            if (!previewWindow.closed) {
+            if (previewWindow && !previewWindow.closed) {
                 previewWindow.close();
             }
         };
@@ -307,7 +320,7 @@ export function PreviewModal({ isOpen, setIsOpen, memory, assets }: { isOpen: bo
                 </DialogHeader>
                 <div className="flex justify-center items-center p-8 bg-muted rounded-md">
                     <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                    <span>プレビューを更新中...</span>
+                    <span>プレビューウィンドウを待機中...</span>
                 </div>
                 <DialogFooter>
                     <Button variant="outline" onClick={() => setIsOpen(false)}>プレビューを終了</Button>
