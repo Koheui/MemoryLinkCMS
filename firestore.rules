@@ -1,41 +1,41 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Memories Collection
-    // - Authenticated users can only access/modify their own memory documents.
+
+    // Helper function to check ownership
+    function isOwner(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+
+    // Memories can be read if they are active, or if the user is the owner.
+    // Writes are only allowed for owners.
     match /memories/{memoryId} {
-      allow read: if request.auth != null && (resource.data.ownerUid == request.auth.uid || resource.data.status == 'active');
-      allow create: if request.auth != null && request.resource.data.ownerUid == request.auth.uid;
-      allow update, delete: if request.auth != null && resource.data.ownerUid == request.auth.uid;
+      allow read: if resource.data.status == 'active' || isOwner(resource.data.ownerUid);
+      allow create: if isOwner(request.resource.data.ownerUid);
+      allow update, delete: if isOwner(resource.data.ownerUid);
     }
 
-    // Orders Collection
-    // - Anyone can create an order (for admin invites).
-    // - Authenticated users can only read/update their own orders.
-    // - Admins can read all orders (handled by server-side logic/security, client rule is strict).
-    match /orders/{orderId} {
-      allow get: if request.auth != null;
-      allow list: if request.auth != null && request.query.where.find(p => p[0] == 'userUid' && p[2] == request.auth.uid);
-      allow create: if true; // Allow admin to create orders for users not yet signed up
-      allow update: if request.auth != null && resource.data.userUid == request.auth.uid;
-      // Deletion of orders is not allowed from the client.
-      allow delete: if false;
-    }
-
-    // Assets Collection
-    // - Authenticated users can only manage their own assets.
+    // Assets can only be accessed by their owner.
     match /assets/{assetId} {
-      allow read: if request.auth != null; // Allow reading all assets for simplicity, public page might need this.
-      allow create: if request.auth != null && request.resource.data.ownerUid == request.auth.uid;
-      allow update, delete: if request.auth != null && resource.data.ownerUid == request.auth.uid;
+      allow read, create, update, delete: if isOwner(request.resource.data.ownerUid) || isOwner(resource.data.ownerUid);
     }
 
-    // Default deny all other collections
-    match /{path=**}/documents/{document} {
-      allow read, write: if false;
+    // Orders have more complex rules.
+    match /orders/{orderId} {
+      // Allow read for owner
+      allow get: if isOwner(resource.data.userUid);
+      
+      // Allow list for owner. Also allow querying by email for the claim process.
+      allow list: if (request.query.limit <= 30 && isOwner(request.query.userUid)) || 
+                     (request.auth != null && request.query.email == request.auth.token.email);
+
+      // Anyone can create an order (for admin/invitation flow)
+      // The userUid can be null initially.
+      allow create: if true;
+      
+      // Update/delete is for owner only.
+      allow update, delete: if isOwner(resource.data.userUid);
     }
   }
 }
