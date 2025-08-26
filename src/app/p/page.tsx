@@ -256,7 +256,6 @@ function PageContent() {
     }
     
     if (isPreview) {
-        let intervalId: NodeJS.Timeout;
         try {
             const memoryJSON = localStorage.getItem(`preview_memory_${pageId}`);
             const assetsJSON = localStorage.getItem(`preview_assets_${pageId}`);
@@ -289,7 +288,7 @@ function PageContent() {
              setError("プレビューデータの読み込みに失敗しました。");
              setLoading(false);
         }
-        return; // No interval needed now
+        return;
     }
 
     const initLive = async () => {
@@ -404,9 +403,9 @@ function PageContent() {
         </div>
       )}
 
-      <div className="container mx-auto max-w-2xl px-4 py-8 sm:px-6 lg:py-12 relative z-10">
+      <div className="mx-auto max-w-2xl sm:px-6 lg:px-8 relative z-10">
         <header className="relative">
-            <div className="relative h-48 w-full overflow-hidden rounded-xl md:h-56">
+            <div className="relative h-48 w-full overflow-hidden md:h-64 sm:rounded-b-xl">
                 <Image 
                   src={manifest.media.cover.url}
                   alt={manifest.title}
@@ -414,11 +413,11 @@ function PageContent() {
                   priority
                   data-ai-hint="background scenery"
                   className="object-cover"
-                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                  sizes="100vw"
                 />
             </div>
             
-            <div className="relative flex flex-col items-center -mt-20">
+            <div className="relative flex flex-col items-center -mt-20 px-4">
                 <div className="h-40 w-40 rounded-full z-10 bg-gray-800 border-4 border-background relative overflow-hidden shrink-0">
                     <Image 
                         src={manifest.media.profile.url}
@@ -437,7 +436,7 @@ function PageContent() {
             </div>
         </header>
 
-        <main className="space-y-6 pb-12 mt-8">
+        <main className="space-y-6 pb-12 mt-8 px-4 sm:px-0">
             {manifest.blocks
                 .filter(block => block.visibility === 'show')
                 .sort((a,b) => a.order - b.order)
