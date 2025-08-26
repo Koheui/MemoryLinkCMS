@@ -15,8 +15,13 @@
     "indexes": "firestore.indexes.json"
   },
   "hosting": {
+    "public": "public",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
     "site": "memorylink-cms",
-    "source": ".",
     "appAssociation": "AUTO"
   }
 }
