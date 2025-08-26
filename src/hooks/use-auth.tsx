@@ -38,12 +38,6 @@ function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
 
-  useEffect(() => {
-    if (!loading && !user) {
-        router.push('/login');
-    }
-  }, [user, loading, router]);
-
   if (loading || !user) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -176,7 +170,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const app = await getFirebaseApp();
       const auth = getAuth(app);
       await auth.signOut();
-      window.location.assign('/login');
+      router.push('/login');
     } catch (error) {
       console.error("Logout failed:", error);
     }
@@ -189,6 +183,24 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     '/memories',
     '/_admin'
   ].some(path => pathname.startsWith(path));
+
+  // If auth is still loading, show a global loader to prevent layout flashes
+  if (loading) {
+     return (
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // If it's an app page and there's no user, show the loader until redirection happens
+  if (isAppPage && !user) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <AuthContext.Provider value={{ user, loading, isAdmin, handleLogout }}>

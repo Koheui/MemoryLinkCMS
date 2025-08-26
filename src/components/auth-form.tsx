@@ -136,15 +136,13 @@ export function AuthForm({ type }: AuthFormProps) {
             await claimUnclaimedData(userCredential.user);
             
             toast({ title: '登録完了', description: 'ようこそ！ダッシュボードへ移動します。' });
-            // Use window.location.assign for a full page reload to ensure auth state is propagated correctly.
-            window.location.assign('/dashboard');
+            router.push('/dashboard');
 
         } else {
             // Login
             await signInWithEmailAndPassword(auth, email, password);
             toast({ title: 'ログインしました', description: 'ようこそ！' });
-             // Use window.location.assign for a full page reload to ensure auth state is propagated correctly.
-            window.location.assign('/dashboard');
+            router.push('/dashboard');
         }
     } catch (error: any) {
         console.error("Authentication Error:", error);
