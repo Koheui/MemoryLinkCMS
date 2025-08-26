@@ -1,6 +1,7 @@
 // src/app/layout.tsx
 "use client";
 
+import './globals.css';
 import { AuthProvider, useAuth } from '@/hooks/use-auth';
 import {
   Sidebar,
