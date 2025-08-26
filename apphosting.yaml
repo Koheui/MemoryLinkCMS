@@ -1,10 +1,6 @@
 
-# Specifies the build and run configurations for the App Hosting backend.
-# See https://firebase.google.com/docs/hosting/full-config for details.
-
 runConfig:
   minInstances: 0
-
 env:
   - variable: NEXT_PUBLIC_FIREBASE_API_KEY
     secret: FIREBASE_API_KEY
