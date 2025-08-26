@@ -1,8 +1,7 @@
 /** @type {import('next').NextConfig} */
 const config = {
   reactStrictMode: true,
-  // この設定は、ビルド時に 'out' ディレクトリに静的ファイルを生成するために必要です。
-  // これにより、Firebase Hostingで静的サイトとしてデプロイできます。
+  // output: 'export' を削除し、サーバーサイドレンダリングを有効に戻す
 };
 
 module.exports = config;
