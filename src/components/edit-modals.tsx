@@ -259,7 +259,8 @@ export function PreviewModal({ isOpen, setIsOpen, memory, assets }: { isOpen: bo
     const [lightboxState, setLightboxState] = useState<{ isOpen: boolean; items: any[]; startIndex: number; }>({ isOpen: false, items: [], startIndex: 0 });
     
     const backgroundImage = useMemo(() => {
-        if (manifest?.design.backgroundImageAssetId) {
+        if (!manifest) return null;
+        if (manifest.design.backgroundImageAssetId) {
             return assets.find(a => a.id === manifest.design.backgroundImageAssetId)?.url;
         }
         return null;

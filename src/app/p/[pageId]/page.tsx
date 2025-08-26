@@ -298,6 +298,7 @@ function PageContent() {
     async function loadPageData() {
         setLoading(true);
         setError(null);
+        setManifest(null);
         
         if (pageId === 'preview') {
             const encodedData = localStorage.getItem('previewData');
@@ -343,13 +344,14 @@ function PageContent() {
   }, [manifest]);
 
   const backgroundImage = useMemo(() => {
-    if (manifest?.design.backgroundImageAssetId) {
+    if (!manifest) return null;
+    if (manifest.design.backgroundImageAssetId) {
         return assets.find(a => a.id === manifest.design.backgroundImageAssetId)?.url;
     }
     return null;
   }, [manifest, assets]);
 
-  if (loading) {
+  if (loading || !manifest) {
     return (
         <div className="flex min-h-screen items-center justify-center bg-gray-900">
             <Loader2 className="h-10 w-10 animate-spin text-white" />
@@ -357,7 +359,7 @@ function PageContent() {
     )
   }
 
-  if (error || !manifest) {
+  if (error) {
     return (
         <div className="flex min-h-screen flex-col items-center justify-center bg-gray-900 text-white text-center p-4">
             <h1 className="text-2xl font-bold">ページが見つかりません</h1>

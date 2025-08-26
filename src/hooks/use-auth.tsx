@@ -5,7 +5,6 @@ import { createContext, useContext, useEffect, useState, ReactNode, useCallback 
 import { User, onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase/client';
 import { useRouter } from 'next/navigation';
-import { apiClient } from '@/lib/api-client';
 import { collection, query, where, getDocs, writeBatch, doc } from 'firebase/firestore';
 import type { Order, Memory } from '@/lib/types';
 
@@ -24,6 +23,59 @@ const AuthContext = createContext<AuthContextType>({
     handleLogout: async () => {},
 });
 
+// This function runs after a user signs in. It finds any orders/memories
+// that were created for their email before they signed up, and it assigns
+// those records to their new user UID.
+const claimUnclaimedData = async (user: User) => {
+    if (!user || !user.email) return;
+
+    const batch = writeBatch(db);
+    let claimedData = false;
+
+    // 1. Find unclaimed orders by email
+    const ordersQuery = query(
+        collection(db, 'orders'),
+        where('email', '==', user.email),
+        where('userUid', '==', null)
+    );
+    const ordersSnapshot = await getDocs(ordersQuery);
+
+    if (!ordersSnapshot.empty) {
+        const memoryIdsToUpdate: string[] = [];
+        ordersSnapshot.forEach(orderDoc => {
+            console.log(`Claiming order ${orderDoc.id} for user ${user.uid}`);
+            const orderRef = doc(db, 'orders', orderDoc.id);
+            batch.update(orderRef, { userUid: user.uid });
+            const memoryId = orderDoc.data().memoryId;
+            if (memoryId) {
+                memoryIdsToUpdate.push(memoryId);
+            }
+        });
+        
+        // 2. Find associated memories and claim them
+        if (memoryIdsToUpdate.length > 0) {
+            const memoriesQuery = query(
+                collection(db, 'memories'),
+                where('id', 'in', memoryIdsToUpdate),
+                where('ownerUid', '==', null)
+            );
+            const memoriesSnapshot = await getDocs(memoriesQuery);
+            memoriesSnapshot.forEach(memoryDoc => {
+                 console.log(`Claiming memory ${memoryDoc.id} for user ${user.uid}`);
+                 const memoryRef = doc(db, 'memories', memoryDoc.id);
+                 batch.update(memoryRef, { ownerUid: user.uid });
+            });
+        }
+        claimedData = true;
+    }
+
+    if (claimedData) {
+        console.log("Committing claimed data batch...");
+        await batch.commit();
+        console.log("Batch committed successfully.");
+    }
+};
+
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<AuthContextType['user'] | null>(null);
@@ -36,22 +88,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setLoading(true);
       if (authUser) {
         try {
+          // This is a new sign-in or state change, claim any data.
+          await claimUnclaimedData(authUser);
+          
           const tokenResult = await authUser.getIdTokenResult();
           const claims = tokenResult.claims;
           setIsAdmin(claims.role === 'admin');
           setUser(authUser as AuthContextType['user']);
-          apiClient.setToken(tokenResult.token);
         } catch (error) {
-           console.error("Error getting user token:", error);
+           console.error("Error during auth state processing:", error);
            await auth.signOut();
            setUser(null);
            setIsAdmin(false);
-           apiClient.setToken(null);
         }
       } else {
         setUser(null);
         setIsAdmin(false);
-        apiClient.setToken(null);
       }
       setLoading(false);
     });
