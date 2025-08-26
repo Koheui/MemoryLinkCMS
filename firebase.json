@@ -15,5 +15,8 @@
         }
       }
     ]
+  },
+  "apphosting": {
+    "backend": "memory-link-be-01"
   }
 }
