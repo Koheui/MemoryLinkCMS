@@ -2,8 +2,8 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
-import { User, onAuthStateChanged } from 'firebase/auth';
-import { auth } from '@/lib/firebase/client';
+import { User, onAuthStateChanged, getAuth } from 'firebase/auth';
+import { getFirebaseApp } from '@/lib/firebase/client';
 import { useRouter } from 'next/navigation';
 
 interface AuthContextType {
@@ -28,43 +28,61 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const router = useRouter();
 
   useEffect(() => {
-    console.log("AuthProvider: Setting up onAuthStateChanged listener.");
-    const unsubscribe = onAuthStateChanged(auth, async (authUser) => {
-      console.log("onAuthStateChanged: Auth state changed. User:", authUser ? authUser.uid : 'null');
-      if (authUser) {
+    let unsubscribe: (() => void) | undefined;
+    
+    const initAuth = async () => {
         try {
-          console.log(`onAuthStateChanged: Getting ID token result for user ${authUser.uid}.`);
-          const tokenResult = await authUser.getIdTokenResult();
-          const claims = tokenResult.claims;
-          console.log("onAuthStateChanged: User claims:", claims);
-          
-          setIsAdmin(claims.role === 'admin');
-          setUser(authUser as AuthContextType['user']);
-          console.log("onAuthStateChanged: Successfully set user and admin state.");
-        } catch (error) {
-           console.error("Error during auth state processing:", error);
-           await auth.signOut();
-           setUser(null);
-           setIsAdmin(false);
-           console.log("onAuthStateChanged: Signed out user due to error.");
+            const app = await getFirebaseApp();
+            const auth = getAuth(app);
+            
+            console.log("AuthProvider: Setting up onAuthStateChanged listener.");
+            unsubscribe = onAuthStateChanged(auth, async (authUser) => {
+              console.log("onAuthStateChanged: Auth state changed. User:", authUser ? authUser.uid : 'null');
+              if (authUser) {
+                try {
+                  console.log(`onAuthStateChanged: Getting ID token result for user ${authUser.uid}.`);
+                  const tokenResult = await authUser.getIdTokenResult();
+                  const claims = tokenResult.claims;
+                  console.log("onAuthStateChanged: User claims:", claims);
+                  
+                  setIsAdmin(claims.role === 'admin');
+                  setUser(authUser as AuthContextType['user']);
+                  console.log("onAuthStateChanged: Successfully set user and admin state.");
+                } catch (error) {
+                   console.error("Error during auth state processing:", error);
+                   await auth.signOut();
+                   setUser(null);
+                   setIsAdmin(false);
+                   console.log("onAuthStateChanged: Signed out user due to error.");
+                }
+              } else {
+                console.log("onAuthStateChanged: User is not authenticated.");
+                setUser(null);
+                setIsAdmin(false);
+              }
+              console.log("onAuthStateChanged: Finished processing. Setting loading to false.");
+              setLoading(false);
+            });
+        } catch(error) {
+            console.error("Failed to initialize Firebase Auth listener", error);
+            setLoading(false);
         }
-      } else {
-        console.log("onAuthStateChanged: User is not authenticated.");
-        setUser(null);
-        setIsAdmin(false);
-      }
-      console.log("onAuthStateChanged: Finished processing. Setting loading to false.");
-      setLoading(false);
-    });
+    }
+
+    initAuth();
 
     return () => {
-        console.log("AuthProvider: Cleanup useEffect. Unsubscribing from onAuthStateChanged.");
-        unsubscribe();
+        if(unsubscribe) {
+            console.log("AuthProvider: Cleanup useEffect. Unsubscribing from onAuthStateChanged.");
+            unsubscribe();
+        }
     };
   }, []);
 
   const handleLogout = useCallback(async () => {
     try {
+      const app = await getFirebaseApp();
+      const auth = getAuth(app);
       await auth.signOut();
       window.location.assign('/login');
     } catch (error) {

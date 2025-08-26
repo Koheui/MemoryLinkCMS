@@ -13,8 +13,9 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { auth, db } from '@/lib/firebase/client';
+import { getFirebaseApp } from '@/lib/firebase/client';
 import {
+  getAuth,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   sendEmailVerification,
@@ -22,9 +23,9 @@ import {
 } from 'firebase/auth';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
-import { collection, query, where, getDocs, writeBatch, doc } from 'firebase/firestore';
+import { getFirestore, collection, query, where, getDocs, writeBatch, doc } from 'firebase/firestore';
 
 
 // This function should ONLY be called right after a user signs up for the first time.
@@ -35,6 +36,9 @@ const claimUnclaimedData = async (user: User) => {
         console.log("claimUnclaimedData: No user or email, skipping.");
         return;
     }
+    
+    const app = await getFirebaseApp();
+    const db = getFirestore(app);
 
     console.log(`claimUnclaimedData: Starting process for user ${user.uid} with email ${user.email}`);
     const batch = writeBatch(db);
@@ -123,42 +127,45 @@ export function AuthForm({ type }: AuthFormProps) {
     setLoading(true);
 
     try {
-      if (type === 'signup') {
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        // After user is created, attempt to claim any existing data
-        await claimUnclaimedData(userCredential.user);
-        
-        toast({ title: '登録完了', description: 'ようこそ！ダッシュボードへ移動します。' });
-        // Use window.location.assign for a full page reload to ensure auth state is propagated correctly.
-        window.location.assign('/dashboard');
+        const app = await getFirebaseApp();
+        const auth = getAuth(app);
 
-      } else {
-        // Login
-        await signInWithEmailAndPassword(auth, email, password);
-        toast({ title: 'ログインしました', description: 'ようこそ！' });
-         // Use window.location.assign for a full page reload to ensure auth state is propagated correctly.
-        window.location.assign('/dashboard');
-      }
+        if (type === 'signup') {
+            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+            // After user is created, attempt to claim any existing data
+            await claimUnclaimedData(userCredential.user);
+            
+            toast({ title: '登録完了', description: 'ようこそ！ダッシュボードへ移動します。' });
+            // Use window.location.assign for a full page reload to ensure auth state is propagated correctly.
+            window.location.assign('/dashboard');
+
+        } else {
+            // Login
+            await signInWithEmailAndPassword(auth, email, password);
+            toast({ title: 'ログインしました', description: 'ようこそ！' });
+             // Use window.location.assign for a full page reload to ensure auth state is propagated correctly.
+            window.location.assign('/dashboard');
+        }
     } catch (error: any) {
-      console.error("Authentication Error:", error);
-      let errorMessage = 'エラーが発生しました。';
+        console.error("Authentication Error:", error);
+        let errorMessage = 'エラーが発生しました。';
        if (error.code === 'auth/email-already-in-use') {
-        errorMessage = 'このメールアドレスは既に使用されています。ログインしてください。';
-      } else if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
-        errorMessage = 'メールアドレスまたはパスワードが正しくありません。';
-      } else if (error.code === 'auth/weak-password') {
-        errorMessage = 'パスワードは6文字以上で設定してください。';
-      } else if (error.message.includes('auth/network-request-failed')) {
-        errorMessage = 'ネットワークエラーが発生しました。接続を確認して再度お試しください。'
-      } else if (error.code === 'failed-precondition' || error.code === 'permission-denied') {
-        errorMessage = 'データの引き継ぎに失敗しました。管理者に問い合わせてください。'
-      }
+            errorMessage = 'このメールアドレスは既に使用されています。ログインしてください。';
+        } else if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+            errorMessage = 'メールアドレスまたはパスワードが正しくありません。';
+        } else if (error.code === 'auth/weak-password') {
+            errorMessage = 'パスワードは6文字以上で設定してください。';
+        } else if (error.message.includes('auth/network-request-failed')) {
+            errorMessage = 'ネットワークエラーが発生しました。接続を確認して再度お試しください。'
+        } else if (error.code === 'failed-precondition' || error.code === 'permission-denied') {
+            errorMessage = 'データの引き継ぎに失敗しました。管理者に問い合わせてください。'
+        }
 
-      toast({
-        variant: 'destructive',
-        title: '認証エラー',
-        description: errorMessage,
-      });
+        toast({
+            variant: 'destructive',
+            title: '認証エラー',
+            description: errorMessage,
+        });
     } finally {
         setLoading(false);
     }

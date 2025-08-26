@@ -5,8 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import type { Order } from '@/lib/types';
-import { db } from '@/lib/firebase/client';
-import { collection, doc, getDoc, getDocs, orderBy, query, addDoc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { getFirebaseApp } from '@/lib/firebase/client';
+import { getFirestore, collection, doc, getDoc, getDocs, orderBy, query, addDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/hooks/use-auth";
@@ -58,6 +58,9 @@ function CreateOrderModal({ onOrderCreated }: { onOrderCreated: () => void }) {
         }
         setIsSaving(true);
         try {
+            const app = await getFirebaseApp();
+            const db = getFirestore(app);
+
             // Create a new memory page for the order
             const memoryId = uuidv4();
             const memoryRef = doc(db, 'memories', memoryId);
@@ -161,6 +164,8 @@ export default function AdminDashboardPage() {
   const fetchOrders = useCallback(async () => {
     setLoading(true);
     try {
+      const app = await getFirebaseApp();
+      const db = getFirestore(app);
       const ordersQuery = query(collection(db, 'orders'), orderBy('createdAt', 'desc'));
       const ordersSnapshot = await getDocs(ordersQuery);
       

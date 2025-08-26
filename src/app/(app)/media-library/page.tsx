@@ -28,9 +28,9 @@ import { PlusCircle, Loader2, Image as ImageIcon, Video, Mic, Trash2, Upload, Gr
 import type { Asset } from '@/lib/types';
 import { useAuth } from '@/hooks/use-auth';
 import { useState, useEffect, useCallback } from 'react';
-import { db, storage } from '@/lib/firebase/client';
-import { collection, query, where, orderBy, getDocs, Timestamp, writeBatch, doc } from 'firebase/firestore';
-import { ref, deleteObject } from 'firebase/storage';
+import { getFirebaseApp } from '@/lib/firebase/client';
+import { getFirestore, collection, query, where, orderBy, getDocs, Timestamp, writeBatch, doc } from 'firebase/firestore';
+import { getStorage, ref, deleteObject } from 'firebase/storage';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { MediaUploader } from '@/components/media-uploader';
@@ -54,6 +54,8 @@ export default function MediaLibraryPage() {
   const fetchAssets = useCallback(async (uid: string) => {
     setLoading(true);
     try {
+      const app = await getFirebaseApp();
+      const db = getFirestore(app);
       const assetsQuery = query(
         collection(db, 'assets'), 
         where('ownerUid', '==', uid), 
@@ -101,6 +103,10 @@ export default function MediaLibraryPage() {
     const assetsToDelete = assets.filter(a => assetIds.includes(a.id));
   
     try {
+      const app = await getFirebaseApp();
+      const storage = getStorage(app);
+      const db = getFirestore(app);
+
       // Step 1: Delete files from Firebase Storage
       const deletePromises = assetsToDelete.map(asset => {
         const fileRef = ref(storage, asset.storagePath);

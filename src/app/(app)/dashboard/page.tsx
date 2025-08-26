@@ -9,8 +9,8 @@ import { PlusCircle, Edit, ExternalLink, Loader2, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useCallback } from "react";
-import { db } from "@/lib/firebase/client";
-import { collection, query, where, getDocs, orderBy, Timestamp, doc, writeBatch, serverTimestamp, setDoc } from 'firebase/firestore';
+import { getFirebaseApp } from "@/lib/firebase/client";
+import { getFirestore, collection, query, where, getDocs, orderBy, Timestamp, doc, writeBatch, serverTimestamp, setDoc } from 'firebase/firestore';
 import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
 import { v4 as uuidv4 } from 'uuid';
@@ -42,6 +42,8 @@ export default function DashboardPage() {
         if (!user || isCreating) return;
         setIsCreating(true);
         try {
+            const app = await getFirebaseApp();
+            const db = getFirestore(app);
             const memoryId = uuidv4();
             const memoryRef = doc(db, "memories", memoryId);
             
@@ -84,6 +86,8 @@ export default function DashboardPage() {
     const fetchMemoriesAndAssets = useCallback(async (uid: string) => {
         setLoading(true);
         try {
+            const app = await getFirebaseApp();
+            const db = getFirestore(app);
             const memoriesQuery = query(
                 collection(db, 'memories'),
                 where('ownerUid', '==', uid)
@@ -163,6 +167,8 @@ export default function DashboardPage() {
 
         setIsDeleting(true);
         try {
+            const app = await getFirebaseApp();
+            const db = getFirestore(app);
             // Note: In a real app, you'd also delete associated assets from storage.
             // This is simplified to only delete the Firestore document.
             const batch = writeBatch(db);

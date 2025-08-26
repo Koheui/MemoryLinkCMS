@@ -3,9 +3,9 @@
 import React, { useRef } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast, toast } from '@/hooks/use-toast';
-import { storage, db } from '@/lib/firebase/client';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { doc, setDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
+import { getFirebaseApp } from '@/lib/firebase/client';
+import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { getFirestore, doc, setDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import type { Asset } from '@/lib/types';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -96,6 +96,10 @@ export const MediaUploader = React.forwardRef<unknown, MediaUploaderProps>(
         });
 
         try {
+            const app = await getFirebaseApp();
+            const storage = getStorage(app);
+            const db = getFirestore(app);
+
             const isVideo = file.type.startsWith('video');
             let thumbDownloadURL: string | null = null;
             

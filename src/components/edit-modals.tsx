@@ -4,8 +4,8 @@
 import * as React from 'react';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import type { Memory, Asset, PublicPageBlock, PublicPage, Design } from '@/lib/types';
-import { db } from '@/lib/firebase/client';
-import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { getFirebaseApp } from '@/lib/firebase/client';
+import { getFirestore, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -340,6 +340,8 @@ export function CoverPhotoModal({ isOpen, setIsOpen, memory, assets, onUploadSuc
     const handleSave = async () => {
         setIsSaving(true);
         try {
+            const app = await getFirebaseApp();
+            const db = getFirestore(app);
             const memoryRef = doc(db, 'memories', memory.id);
             const saveData = {
                 coverAssetId: coverAssetId || null,
@@ -447,6 +449,8 @@ export function AboutModal({ isOpen, setIsOpen, memory, assets, onUploadSuccess,
         }
         setIsSaving(true);
         try {
+            const app = await getFirebaseApp();
+            const db = getFirestore(app);
             const memoryRef = doc(db, 'memories', memory.id);
             const saveData = {
                 title,
@@ -823,6 +827,8 @@ export function DesignModal({ isOpen, setIsOpen, memory, assets, onUploadSuccess
     const handleSave = async () => {
         setIsSaving(true);
         try {
+            const app = await getFirebaseApp();
+            const db = getFirestore(app);
             const memoryRef = doc(db, 'memories', memory.id);
             await updateDoc(memoryRef, { design, updatedAt: serverTimestamp() });
             toast({ title: '成功', description: 'デザインを更新しました。' });

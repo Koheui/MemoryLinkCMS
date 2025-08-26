@@ -3,8 +3,8 @@
 
 import { Button } from '@/components/ui/button';
 import type { Memory, PublicPageBlock, Asset } from '@/lib/types';
-import { db } from '@/lib/firebase/client';
-import { doc, getDoc, Timestamp, updateDoc, serverTimestamp, collection, getDocs, query, where, onSnapshot } from 'firebase/firestore';
+import { getFirebaseApp } from '@/lib/firebase/client';
+import { getFirestore, doc, getDoc, Timestamp, updateDoc, serverTimestamp, collection, getDocs, query, where, onSnapshot } from 'firebase/firestore';
 import { notFound, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState, useCallback, useMemo, Suspense } from 'react';
 import { Eye, Loader2, PlusCircle, Edit, Image as ImageIcon, Trash2, GripVertical, Type as TypeIcon, Video as VideoIcon, Mic, Album, Clapperboard, Palette } from 'lucide-react';
@@ -73,58 +73,74 @@ function MemoryEditorPageComponent() {
         return;
     };
 
-    const memoryDocRef = doc(db, 'memories', memoryId);
-    const unsubscribeMemory = onSnapshot(memoryDocRef, (memoryDocSnap) => {
-        if (memoryDocSnap.exists() && memoryDocSnap.data()?.ownerUid === user.uid) {
-            const memoryData = { 
-                id: memoryDocSnap.id, 
-                ...memoryDocSnap.data(),
-                blocks: (memoryDocSnap.data().blocks || []).sort((a: PublicPageBlock, b: PublicPageBlock) => a.order - b.order)
-            } as Memory;
-            setMemory(memoryData);
-        } else {
-            console.error("Memory not found or access denied.");
-            setMemory(null); // Set to null if not found or no access
+    let unsubscribeMemory: (() => void) | undefined;
+    let unsubscribeAssets: (() => void) | undefined;
+
+    const init = async () => {
+        try {
+            const app = await getFirebaseApp();
+            const db = getFirestore(app);
+
+            const memoryDocRef = doc(db, 'memories', memoryId);
+            unsubscribeMemory = onSnapshot(memoryDocRef, (memoryDocSnap) => {
+                if (memoryDocSnap.exists() && memoryDocSnap.data()?.ownerUid === user.uid) {
+                    const memoryData = { 
+                        id: memoryDocSnap.id, 
+                        ...memoryDocSnap.data(),
+                        blocks: (memoryDocSnap.data().blocks || []).sort((a: PublicPageBlock, b: PublicPageBlock) => a.order - b.order)
+                    } as Memory;
+                    setMemory(memoryData);
+                } else {
+                    console.error("Memory not found or access denied.");
+                    setMemory(null); // Set to null if not found or no access
+                }
+                setLoading(false);
+            }, (error) => {
+                console.error("Error fetching memory:", error);
+                toast({ variant: 'destructive', title: 'エラー', description: 'ページの読み込みに失敗しました。' });
+                setLoading(false);
+                setMemory(null);
+            });
+
+            const assetsQuery = query(collection(db, 'assets'), where('ownerUid', '==', user.uid));
+            unsubscribeAssets = onSnapshot(assetsQuery, (assetsSnap) => {
+                const fetchedAssets = assetsSnap.docs.map(d => {
+                    const data = d.data();
+                    return {
+                        id: d.id,
+                        ownerUid: data.ownerUid,
+                        memoryId: data.memoryId,
+                        name: data.name,
+                        type: data.type,
+                        storagePath: data.storagePath,
+                        url: data.url,
+                        size: data.size,
+                        thumbnailUrl: data.thumbnailUrl,
+                        thumbnailCandidates: data.thumbnailCandidates,
+                        createdAt: data.createdAt,
+                        updatedAt: data.updatedAt,
+                    } as Asset;
+                });
+
+                fetchedAssets.sort((a, b) => {
+                    const dateA = a.createdAt ? (a.createdAt as Timestamp).toMillis() : 0;
+                    const dateB = b.createdAt ? (b.createdAt as Timestamp).toMillis() : 0;
+                    return dateB - dateA;
+                });
+                setAssets(fetchedAssets);
+            });
+        } catch (error) {
+            console.error("Initialization failed", error);
+            toast({ variant: 'destructive', title: '初期化エラー', description: 'データの読み込みに失敗しました。'});
+            setLoading(false);
         }
-        setLoading(false);
-    }, (error) => {
-        console.error("Error fetching memory:", error);
-        toast({ variant: 'destructive', title: 'エラー', description: 'ページの読み込みに失敗しました。' });
-        setLoading(false);
-        setMemory(null);
-    });
-
-    const assetsQuery = query(collection(db, 'assets'), where('ownerUid', '==', user.uid));
-    const unsubscribeAssets = onSnapshot(assetsQuery, (assetsSnap) => {
-        const fetchedAssets = assetsSnap.docs.map(d => {
-            const data = d.data();
-            return {
-                id: d.id,
-                ownerUid: data.ownerUid,
-                memoryId: data.memoryId,
-                name: data.name,
-                type: data.type,
-                storagePath: data.storagePath,
-                url: data.url,
-                size: data.size,
-                thumbnailUrl: data.thumbnailUrl,
-                thumbnailCandidates: data.thumbnailCandidates,
-                createdAt: data.createdAt,
-                updatedAt: data.updatedAt,
-            } as Asset;
-        });
-
-        fetchedAssets.sort((a, b) => {
-            const dateA = a.createdAt ? (a.createdAt as Timestamp).toMillis() : 0;
-            const dateB = b.createdAt ? (b.createdAt as Timestamp).toMillis() : 0;
-            return dateB - dateA;
-        });
-        setAssets(fetchedAssets);
-    });
+    };
     
+    init();
+
     return () => {
-        unsubscribeMemory();
-        unsubscribeAssets();
+        if (unsubscribeMemory) unsubscribeMemory();
+        if (unsubscribeAssets) unsubscribeAssets();
     };
 
   }, [memoryId, user, authLoading, router, toast]);
@@ -141,6 +157,8 @@ function MemoryEditorPageComponent() {
         const reorderedBlocks = newBlocks.map((block, index) => ({ ...block, order: index }));
 
         try {
+            const app = await getFirebaseApp();
+            const db = getFirestore(app);
             const memoryRef = doc(db, 'memories', memory.id);
             await updateDoc(memoryRef, { blocks: reorderedBlocks, updatedAt: serverTimestamp() });
             // No need for local state update, Firestore listener will handle it
@@ -187,6 +205,9 @@ function MemoryEditorPageComponent() {
   
   const handleSaveBlock = async (newBlockData: Omit<PublicPageBlock, 'id' | 'createdAt' | 'updatedAt' | 'order'>, blockToEdit?: PublicPageBlock | null) => {
       if (!memory) return;
+      
+      const app = await getFirebaseApp();
+      const db = getFirestore(app);
       const memoryRef = doc(db, 'memories', memory.id);
 
       try {
@@ -231,6 +252,8 @@ function MemoryEditorPageComponent() {
     if (!blockToDelete || !memory || !memoryId) return;
 
     try {
+        const app = await getFirebaseApp();
+        const db = getFirestore(app);
         const memoryRef = doc(db, 'memories', memoryId);
         const updatedBlocks = memory.blocks.filter(b => b.id !== blockToDelete.id)
             .map((b, index) => ({...b, order: index})); // Re-order remaining
@@ -254,6 +277,8 @@ function MemoryEditorPageComponent() {
     if (!memory) return;
     setIsPublishing(true);
     try {
+      const app = await getFirebaseApp();
+      const db = getFirestore(app);
       const memoryRef = doc(db, 'memories', memory.id);
       await updateDoc(memoryRef, { 
         status: 'active',

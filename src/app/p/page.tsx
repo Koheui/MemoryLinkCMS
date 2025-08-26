@@ -11,8 +11,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from '@
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { db } from '@/lib/firebase/client';
-import { doc, getDoc, collection, query, where, getDocs, Timestamp, onSnapshot } from 'firebase/firestore';
+import { getFirebaseApp } from '@/lib/firebase/client';
+import { getFirestore, doc, getDoc, collection, query, where, getDocs, Timestamp, onSnapshot } from 'firebase/firestore';
 
 
 // --- Album Detail Modal (Lightbox) ---
@@ -254,38 +254,54 @@ function PageContent() {
         };
     }
 
-    const memoryDocRef = doc(db, 'memories', pageId);
-    const unsubscribe = onSnapshot(memoryDocRef, (memoryDoc) => {
-        if (memoryDoc.exists()) {
-            const memoryData = { id: memoryDoc.id, ...memoryDoc.data() } as Memory;
-            if (memoryData.status !== 'active' && memoryData.publicPageId !== pageId) {
-                 setError('この想い出ページは存在しないか、まだ公開されていません。');
-                 setLoading(false);
-                 setManifest(null);
-                 return;
-            }
-            
-            // Fetch assets related to this memory's owner
-            const assetsQuery = query(collection(db, 'assets'), where('ownerUid', '==', memoryData.ownerUid));
-            getDocs(assetsQuery).then(assetSnapshots => {
-                const fetchedAssets = assetSnapshots.docs.map(d => ({ id: d.id, ...d.data() } as Asset));
-                const pageData = convertMemoryToPublicPage(memoryData, fetchedAssets);
-                setAssets(fetchedAssets);
-                setManifest(pageData);
-                setError(null);
+    const init = async () => {
+        const app = await getFirebaseApp();
+        const db = getFirestore(app);
+        const memoryDocRef = doc(db, 'memories', pageId);
+        
+        const unsubscribe = onSnapshot(memoryDocRef, (memoryDoc) => {
+            if (memoryDoc.exists()) {
+                const memoryData = { id: memoryDoc.id, ...memoryDoc.data() } as Memory;
+                if (memoryData.status !== 'active' && memoryData.publicPageId !== pageId) {
+                     setError('この想い出ページは存在しないか、まだ公開されていません。');
+                     setLoading(false);
+                     setManifest(null);
+                     return;
+                }
+                
+                // Fetch assets related to this memory's owner
+                const assetsQuery = query(collection(db, 'assets'), where('ownerUid', '==', memoryData.ownerUid));
+                getDocs(assetsQuery).then(assetSnapshots => {
+                    const fetchedAssets = assetSnapshots.docs.map(d => ({ id: d.id, ...d.data() } as Asset));
+                    const pageData = convertMemoryToPublicPage(memoryData, fetchedAssets);
+                    setAssets(fetchedAssets);
+                    setManifest(pageData);
+                    setError(null);
+                    setLoading(false);
+                });
+            } else {
+                setError('この想い出ページは存在しないか、まだ公開されていません。');
                 setLoading(false);
-            });
-        } else {
-            setError('この想い出ページは存在しないか、まだ公開されていません。');
+            }
+        }, (err) => {
+            console.error("Error fetching page:", err);
+            setError('ページの読み込み中にエラーが発生しました。');
             setLoading(false);
-        }
-    }, (err) => {
-        console.error("Error fetching page:", err);
-        setError('ページの読み込み中にエラーが発生しました。');
-        setLoading(false);
+        });
+
+        return unsubscribe;
+    }
+
+    let unsubscribe: (() => void) | undefined;
+    init().then(unsub => {
+        unsubscribe = unsub;
     });
 
-    return () => unsubscribe();
+    return () => {
+        if (unsubscribe) {
+            unsubscribe();
+        }
+    }
   }, [pageId]);
 
   useEffect(() => {
