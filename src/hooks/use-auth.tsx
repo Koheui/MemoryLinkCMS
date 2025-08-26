@@ -1,25 +1,13 @@
+
 // src/hooks/use-auth.tsx
 "use client";
 
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
 import { User, onAuthStateChanged } from 'firebase/auth';
-import { auth, db, initializeFirebase } from '@/lib/firebase/client';
+import { auth, db } from '@/lib/firebase/client';
 import { useRouter } from 'next/navigation';
 import { collection, query, where, getDocs, writeBatch, doc } from 'firebase/firestore';
 import type { Order, Memory } from '@/lib/types';
-
-// This configuration object will be populated by Next.js at build time.
-const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-};
-
-// Initialize Firebase at the root of the application
-initializeFirebase(firebaseConfig);
 
 interface AuthContextType {
   user: (User & { uid: string }) | null;
