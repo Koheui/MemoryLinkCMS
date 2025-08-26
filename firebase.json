@@ -21,15 +21,7 @@
       "**/.*",
       "**/node_modules/**"
     ],
-    "rewrites": [
-      {
-        "source": "**",
-        "run": {
-          "serviceId": "memory-link-be-01",
-          "region": "us-central1"
-        }
-      }
-    ]
+    "source": "."
   },
   "apphosting": {
     "backendId": "memory-link-be-01",
