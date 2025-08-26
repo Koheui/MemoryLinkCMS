@@ -28,7 +28,7 @@ import {
 } from "@/components/ui/alert-dialog"
 
 // This is the new Visual Editor Page
-function MemoryEditorPage() {
+function MemoryEditorPageComponent() {
   const searchParams = useSearchParams();
   const memoryId = searchParams.get('id') as string;
   const { user, loading: authLoading } = useAuth();
@@ -67,6 +67,8 @@ function MemoryEditorPage() {
         return;
     }
     if (!memoryId) {
+        toast({ variant: 'destructive', title: 'エラー', description: 'ページのIDが見つかりません。ダッシュボードから再度お試しください。' });
+        router.push('/dashboard');
         setLoading(false);
         return;
     };
@@ -87,6 +89,7 @@ function MemoryEditorPage() {
         setLoading(false);
     }, (error) => {
         console.error("Error fetching memory:", error);
+        toast({ variant: 'destructive', title: 'エラー', description: 'ページの読み込みに失敗しました。' });
         setLoading(false);
         setMemory(null);
     });
@@ -124,7 +127,7 @@ function MemoryEditorPage() {
         unsubscribeAssets();
     };
 
-  }, [memoryId, user, authLoading, router]);
+  }, [memoryId, user, authLoading, router, toast]);
   
   async function handleDragEnd(event: DragEndEvent) {
     const {active, over} = event;
@@ -594,4 +597,11 @@ function SortableBlockItem({ block, assets, onEdit, onDelete }: { block: PublicP
     );
 }
 
-export default MemoryEditorPage;
+
+export default function MemoriesPage() {
+  return (
+    <Suspense fallback={<div className="flex h-screen items-center justify-center"><Loader2 className="h-10 w-10 animate-spin text-primary" /></div>}>
+      <MemoryEditorPageComponent />
+    </Suspense>
+  );
+}

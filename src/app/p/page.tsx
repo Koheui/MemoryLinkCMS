@@ -179,7 +179,7 @@ const BlockRenderer = ({ block, design, setLightboxState }: { block: PublicPageB
     }
 }
 
-export default function PublicPage() {
+function PageContent() {
   const searchParams = useSearchParams();
   const pageId = searchParams.get('id');
   const router = useRouter();
@@ -398,4 +398,12 @@ export default function PublicPage() {
     </div>
     </>
   );
+}
+
+export default function PublicPage() {
+  return (
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-gray-900"><Loader2 className="h-10 w-10 animate-spin text-white" /></div>}>
+      <PageContent />
+    </Suspense>
+  )
 }

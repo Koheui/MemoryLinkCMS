@@ -1,7 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  reactStrictMode: true,
-  // output: 'export' is removed to enable server-side rendering
+    output: 'export',
 };
 
 export default nextConfig;
