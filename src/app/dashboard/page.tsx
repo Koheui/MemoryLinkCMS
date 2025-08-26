@@ -1,4 +1,4 @@
-// src/app/(app)/dashboard/page.tsx
+// src/app/dashboard/page.tsx
 'use client';
 
 import { Button } from "@/components/ui/button";

@@ -1,4 +1,4 @@
-// src/app/(app)/media-library/page.tsx
+// src/app/media-library/page.tsx
 'use client';
 
 import * as React from 'react';

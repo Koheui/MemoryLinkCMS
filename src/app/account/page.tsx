@@ -1,4 +1,4 @@
-// src/app/(app)/account/page.tsx
+// src/app/account/page.tsx
 'use client';
 
 import { Loader2 } from 'lucide-react';

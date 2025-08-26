@@ -1,4 +1,4 @@
-// src/app/(app)/layout.tsx
+// src/app/layout.tsx
 "use client";
 
 import { AuthProvider, useAuth } from '@/hooks/use-auth';

@@ -1,4 +1,4 @@
-// src/app/(app)/memories/page.tsx
+// src/app/memories/page.tsx
 'use client';
 
 import { Button } from '@/components/ui/button';
@@ -343,6 +343,14 @@ function MemoryEditorPageComponent() {
 
   return (
     <div className="flex h-full flex-col bg-muted/30">
+       {isPreviewModalOpen && memory && (
+        <PreviewModal
+            isOpen={isPreviewModalOpen}
+            setIsOpen={setIsPreviewModalOpen}
+            memory={memory}
+            assets={assets}
+        />
+       )}
        {isCoverPhotoModalOpen && memory && (
         <CoverPhotoModal
             isOpen={isCoverPhotoModalOpen}
@@ -372,14 +380,6 @@ function MemoryEditorPageComponent() {
             block={editingBlock}
             onSave={handleSaveBlock}
             onUploadSuccess={handleAssetUpdate}
-        />
-       )}
-       {isPreviewModalOpen && memory && (
-        <PreviewModal
-            isOpen={isPreviewModalOpen}
-            setIsOpen={setIsPreviewModalOpen}
-            memory={memory}
-            assets={assets}
         />
        )}
         {isDesignModalOpen && memory && (
