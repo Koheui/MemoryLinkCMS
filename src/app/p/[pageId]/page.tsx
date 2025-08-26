@@ -11,9 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from '@
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import { Badge } from '@/components/ui/badge';
 import { db } from '@/lib/firebase/client';
-import { doc, getDoc, collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
-
-export const dynamic = 'force-dynamic';
+import { doc, getDoc, collection, query, where, getDocs, Timestamp, onSnapshot } from 'firebase/firestore';
 
 // This function fetches both the memory and its associated assets for a real public page
 async function fetchPublicPageData(pageId: string): Promise<{ memory: Memory, assets: Asset[] } | null> {
@@ -61,7 +59,10 @@ function convertMemoryToPublicPage(memory: Memory, assets: Asset[]): PublicPage 
                 if (Object.prototype.hasOwnProperty.call(obj, key)) {
                     if ((key === 'createdAt' || key === 'updatedAt') && typeof obj[key] === 'string') {
                          newObj[key] = Timestamp.fromDate(new Date(obj[key]));
-                    } else {
+                    } else if (obj[key] && typeof obj[key].seconds === 'number' && typeof obj[key].nanoseconds === 'number') {
+                         newObj[key] = new Timestamp(obj[key].seconds, obj[key].nanoseconds);
+                    }
+                    else {
                         newObj[key] = reviveTimestamps(obj[key]);
                     }
                 }
@@ -287,6 +288,9 @@ const BlockRenderer = ({ block, design, setLightboxState }: { block: PublicPageB
 function PageContent() {
   const params = useParams();
   const pageId = params.pageId as string;
+  const searchParams = useSearchParams();
+  const isPreview = searchParams.get('preview') === 'true';
+
   const [manifest, setManifest] = useState<PublicPage | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -294,36 +298,60 @@ function PageContent() {
   const [assets, setAssets] = useState<Asset[]>([]);
 
   useEffect(() => {
-    async function loadPageData() {
-        setLoading(true);
-        setError(null);
-        setManifest(null);
-        
-        if (!pageId) {
-             setError('ページIDが無効です。');
-             setLoading(false);
-             return;
-        }
-
-        if (pageId === 'preview') {
-             setError('プレビューセッションが無効です。編集画面から再度プレビューをお試しください。');
-             setLoading(false);
-             return;
-        }
-
-        const data = await fetchPublicPageData(pageId);
-        if (data) {
-            const pageData = convertMemoryToPublicPage(data.memory, data.assets);
-            setManifest(pageData);
-            setAssets(data.assets);
-        } else {
-             setError('この想い出ページは存在しないか、まだ公開されていません。');
-        }
+    if (!pageId) {
+        setError('ページIDが無効です。');
         setLoading(false);
+        return;
     }
-    
-    loadPageData();
-  }, [pageId]);
+
+    if (isPreview) {
+        const handlePreview = (event: MessageEvent) => {
+            if (event.origin !== window.location.origin) return;
+            if (event.data.type === 'preview-update' && event.data.memory) {
+                const pageData = convertMemoryToPublicPage(event.data.memory, event.data.assets);
+                setManifest(pageData);
+                setAssets(event.data.assets);
+                setLoading(false);
+            }
+        };
+        window.addEventListener('message', handlePreview);
+        window.opener?.postMessage({ type: 'preview-ready' }, window.location.origin);
+        return () => window.removeEventListener('message', handlePreview);
+    }
+
+    const memoryDocRef = doc(db, 'memories', pageId);
+    const unsubscribe = onSnapshot(memoryDocRef, (memoryDoc) => {
+        if (memoryDoc.exists()) {
+            const memoryData = { id: memoryDoc.id, ...memoryDoc.data() } as Memory;
+            if (memoryData.status !== 'active' && memoryData.publicPageId !== pageId) {
+                 setError('この想い出ページは存在しないか、まだ公開されていません。');
+                 setLoading(false);
+                 setManifest(null);
+                 return;
+            }
+            
+            // Fetch assets related to this memory's owner
+            const assetsQuery = query(collection(db, 'assets'), where('ownerUid', '==', memoryData.ownerUid));
+            getDocs(assetsQuery).then(assetSnapshots => {
+                const fetchedAssets = assetSnapshots.docs.map(d => ({ id: d.id, ...d.data() } as Asset));
+                const pageData = convertMemoryToPublicPage(memoryData, fetchedAssets);
+                setAssets(fetchedAssets);
+                setManifest(pageData);
+                setError(null);
+                setLoading(false);
+            });
+        } else {
+            setError('この想い出ページは存在しないか、まだ公開されていません。');
+            setLoading(false);
+        }
+    }, (err) => {
+        console.error("Error fetching page:", err);
+        setError('ページの読み込み中にエラーが発生しました。');
+        setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [pageId, isPreview]);
 
   useEffect(() => {
     if (manifest?.title) {
@@ -447,5 +475,3 @@ export default function PublicPage() {
         </Suspense>
     )
 }
-
-    

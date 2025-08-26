@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import type { Memory, PublicPageBlock, Asset } from '@/lib/types';
 import { db } from '@/lib/firebase/client';
 import { doc, getDoc, Timestamp, updateDoc, serverTimestamp, collection, getDocs, query, where, onSnapshot } from 'firebase/firestore';
-import { notFound, useParams } from 'next/navigation';
+import { useParams, notFound } from 'next/navigation';
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Eye, Loader2, PlusCircle, Edit, Image as ImageIcon, Trash2, GripVertical, Type as TypeIcon, Video as VideoIcon, Mic, Album, Clapperboard, Palette } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
@@ -26,8 +26,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-
-export const dynamic = 'force-dynamic';
 
 // This is the new Visual Editor Page
 export default function MemoryEditorPage() {
@@ -579,5 +577,3 @@ function SortableBlockItem({ block, assets, onEdit, onDelete }: { block: PublicP
         </div>
     );
 }
-
-    

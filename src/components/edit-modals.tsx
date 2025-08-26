@@ -1,4 +1,3 @@
-
 // src/components/edit-modals.tsx
 'use client';
 
@@ -266,96 +265,65 @@ export function PreviewModal({ isOpen, setIsOpen, memory, assets }: { isOpen: bo
         return null;
     }, [manifest, assets]);
 
+    // This handles communication with the new preview window/tab
+    useEffect(() => {
+        if (!isOpen) return;
+
+        const previewWindow = window.open(`/p/${memory.id}?preview=true`, `preview_${memory.id}`);
+        if (!previewWindow) {
+            alert('ポップアップがブロックされました。プレビューを表示するには、このサイトのポップアップを許可してください。');
+            setIsOpen(false);
+            return;
+        }
+
+        const onMessage = (event: MessageEvent) => {
+            if (event.source === previewWindow && event.data.type === 'preview-ready') {
+                 previewWindow.postMessage({ type: 'preview-update', memory, assets }, window.location.origin);
+            }
+        };
+
+        window.addEventListener('message', onMessage);
+
+        const timer = setInterval(() => {
+            if (previewWindow.closed) {
+                setIsOpen(false);
+                clearInterval(timer);
+            } else {
+                 previewWindow.postMessage({ type: 'preview-update', memory, assets }, window.location.origin);
+            }
+        }, 1000);
+
+        return () => {
+            clearInterval(timer);
+            window.removeEventListener('message', onMessage);
+            if (!previewWindow.closed) {
+                previewWindow.close();
+            }
+        };
+
+    }, [isOpen, memory, assets, setIsOpen]);
+
+    if (!isOpen) return null;
+
+    // The modal itself is now just a controller/placeholder, as the preview runs in a new tab.
     return (
-        <>
-        <AlbumDetailModal 
-            isOpen={lightboxState.isOpen}
-            setIsOpen={(open) => setLightboxState(prev => ({...prev, isOpen: open}))}
-            items={lightboxState.items}
-            startIndex={lightboxState.startIndex}
-        />
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <DialogContent className="max-w-2xl h-full flex flex-col p-0 gap-0 border-0 shadow-2xl sm:h-[90vh] overflow-hidden">
-                <DialogHeader className="p-4 border-b bg-background">
-                    <DialogTitle>プレビュー</DialogTitle>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>プレビュー中</DialogTitle>
+                    <DialogDescription>
+                        新しいタブでページのプレビューを表示しています。このウィンドウを閉じるか、プレビュータブを閉じるとプレビューは終了します。
+                    </DialogDescription>
                 </DialogHeader>
-                <div 
-                    className="flex-1 overflow-auto"
-                >
-                   {!manifest ? (
-                        <div className="flex h-full w-full items-center justify-center">
-                            <Loader2 className="h-8 w-8 animate-spin" />
-                        </div>
-                   ) : (
-                    <div 
-                        className="mx-auto relative"
-                         style={{
-                            backgroundColor: manifest.design.bgColor || '#111827', 
-                            color: manifest.design.textColor || '#FFFFFF',
-                            fontFamily: manifest.design.fontFamily || 'sans-serif',
-                         } as React.CSSProperties}
-                    >
-                         {backgroundImage && (
-                            <div className="absolute inset-0 z-0">
-                                <Image src={backgroundImage} alt="Background" fill className="object-cover" />
-                                <div className="absolute inset-0 bg-black/30" />
-                            </div>
-                         )}
-                         <div className="relative z-10">
-                             <header className="relative">
-                                <div className="relative aspect-[21/9] w-full overflow-hidden">
-                                    <Image 
-                                    src={manifest.media.cover.url}
-                                    alt={manifest.title}
-                                    fill
-                                    priority
-                                    data-ai-hint="background scenery"
-                                    className="object-cover"
-                                    sizes="(max-width: 768px) 100vw, 896px"
-                                    />
-                                </div>
-                                
-                                <div className="relative flex flex-col items-center -mt-20 px-6">
-                                    <div className="h-40 w-40 rounded-full z-10 border-4 relative overflow-hidden shrink-0" style={{borderColor: manifest.design.bgColor || '#F9FAFB', backgroundColor: manifest.design.bgColor || '#F9FAFB'}}>
-                                        <Image 
-                                            src={manifest.media.profile.url}
-                                            alt="Profile"
-                                            fill
-                                            data-ai-hint="portrait person"
-                                            className="rounded-full object-cover"
-                                            sizes="160px"
-                                        />
-                                    </div>
-                                    
-                                    <div className="mt-4 text-center w-full">
-                                        <h1 className="text-3xl sm:text-4xl font-bold">{manifest.title}</h1>
-                                        <p className="mt-2 text-base max-w-prose mx-auto opacity-80">{manifest.about.text}</p>
-                                    </div>
-                                </div>
-                            </header>
-
-                            <main className="space-y-6 pb-12 mt-8 px-4 sm:px-6">
-                                {manifest.blocks
-                                    .filter(block => block.visibility === 'show')
-                                    .sort((a,b) => a.order - b.order)
-                                    .map(block => (
-                                <BlockRenderer key={block.id} block={block} design={manifest.design} setLightboxState={setLightboxState} />
-                                ))}
-                            </main>
-
-                            <footer className="mt-8 text-center text-xs opacity-60 pb-8 px-4">
-                                <p>&copy; {new Date().getFullYear()}. Powered by MemoryLink</p>
-                            </footer>
-                        </div>
-                    </div>
-                   )}
+                <div className="flex justify-center items-center p-8 bg-muted rounded-md">
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    <span>プレビューを更新中...</span>
                 </div>
-                <DialogFooter className="p-4 border-t bg-background">
-                    <Button variant="outline" onClick={() => setIsOpen(false)}>閉じる</Button>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsOpen(false)}>プレビューを終了</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
-        </>
     );
 }
 
