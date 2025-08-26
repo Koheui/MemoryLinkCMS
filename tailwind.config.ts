@@ -17,7 +17,7 @@ const config = {
     },
     extend: {
        fontFamily: {
-        body: ["Poppins", "sans-serif"],
+        sans: ["Poppins", "sans-serif"],
         headline: ["Poppins", "sans-serif"],
       },
       colors: {
