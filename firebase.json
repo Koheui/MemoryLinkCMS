@@ -15,13 +15,12 @@
     "indexes": "firestore.indexes.json"
   },
   "hosting": {
-    "public": "public",
+    "source": ".",
     "ignore": [
       "firebase.json",
       "**/.*",
       "**/node_modules/**"
-    ],
-    "source": "."
+    ]
   },
   "apphosting": {
     "backendId": "memory-link-be-01",
