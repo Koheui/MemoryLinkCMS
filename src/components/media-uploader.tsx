@@ -133,7 +133,7 @@ export const MediaUploader = React.forwardRef<unknown, MediaUploaderProps>(
 
 
             // --- Step 3: Create final document in Firestore ---
-            const finalAssetData: Omit<Asset, 'id'> = {
+            const finalAssetData: Omit<Asset, 'id' | 'thumbnailUrl'> & { thumbnailUrl?: string } = {
                 ownerUid: user.uid,
                 memoryId: memoryId || null,
                 name: file.name,
@@ -154,6 +154,7 @@ export const MediaUploader = React.forwardRef<unknown, MediaUploaderProps>(
             const finalAsset: Asset = { 
                 id: assetId, 
                 ...finalAssetData,
+                thumbnailUrl: finalAssetData.thumbnailUrl,
                 createdAt: new Date() as any, // Use client-side date for immediate UI updates
                 updatedAt: new Date() as any,
             };
@@ -192,7 +193,7 @@ export const MediaUploader = React.forwardRef<unknown, MediaUploaderProps>(
         {trigger}
         <input
             type="file"
-            ref={fileInputrRef}
+            ref={fileInputRef}
             onChange={handleFileChange}
             accept={accept}
             style={{ display: 'none' }}
