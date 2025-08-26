@@ -301,26 +301,10 @@ function PageContent() {
         setManifest(null);
         
         if (pageId === 'preview') {
-            const encodedData = localStorage.getItem('previewData');
-            if (encodedData) {
-                try {
-                    const parsedData = JSON.parse(encodedData);
-                    if (parsedData.memory && parsedData.assets) {
-                        const pageData = convertMemoryToPublicPage(parsedData.memory, parsedData.assets);
-                        setManifest(pageData);
-                        setAssets(parsedData.assets);
-                        // Only remove data on successful load
-                        localStorage.removeItem('previewData'); 
-                    } else {
-                        throw new Error("Invalid preview data structure in localStorage.");
-                    }
-                } catch (e: any) {
-                    console.error("Failed to parse preview data from localStorage:", e);
-                    setError('プレビューデータの解析に失敗しました。データが破損している可能性があります。');
-                }
-            } else {
-                 setError('プレビューデータが見つかりませんでした。編集画面から再度プレビューボタンを押してください。');
-            }
+            // This is a placeholder for a more robust preview mechanism.
+            // Relying on localStorage is brittle. For now, we show an error
+            // if the user lands here directly without coming from the editor.
+            setError('プレビューセッションが無効です。編集画面から再度プレビューボタンを押してください。');
             setLoading(false);
         } else if (pageId) {
             const data = await fetchPublicPageData(pageId);
@@ -363,7 +347,7 @@ function PageContent() {
   if (error) {
     return (
         <div className="flex min-h-screen flex-col items-center justify-center bg-gray-900 text-white text-center p-4">
-            <h1 className="text-2xl font-bold">ページが見つかりません</h1>
+            <h1 className="text-2xl font-bold">ページを読み込めません</h1>
             <p className="mt-2 text-gray-300">{error || '不明なエラーが発生しました。'}</p>
         </div>
     );

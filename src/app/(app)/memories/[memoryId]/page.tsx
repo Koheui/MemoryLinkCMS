@@ -1,4 +1,3 @@
-
 // src/app/(app)/memories/[memoryId]/page.tsx
 'use client';
 
@@ -243,6 +242,7 @@ export default function MemoryEditorPage() {
       const memoryRef = doc(db, 'memories', memory.id);
       await updateDoc(memoryRef, { 
         status: 'active',
+        publicPageId: memory.id, // Use memory ID as the public page ID
         updatedAt: serverTimestamp()
       });
 
@@ -356,14 +356,10 @@ export default function MemoryEditorPage() {
               <Palette className="mr-2 h-4 w-4" />
               デザイン
           </Button>
-          {publicUrl && (
-             <Button asChild variant="outline">
-                <a href={publicUrl} target="_blank" rel="noopener noreferrer">
-                    <Eye className="mr-2 h-4 w-4" />
-                    プレビュー
-                </a>
-            </Button>
-          )}
+          <Button variant="outline" onClick={() => setIsPreviewModalOpen(true)}>
+            <Eye className="mr-2 h-4 w-4" />
+            プレビュー
+          </Button>
            <Button onClick={handlePublish} disabled={isPublishing}>
              {isPublishing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
             公開する
