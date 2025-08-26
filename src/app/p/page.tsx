@@ -256,6 +256,7 @@ function PageContent() {
     }
     
     if (isPreview) {
+        let intervalId: NodeJS.Timeout;
         try {
             const memoryJSON = localStorage.getItem(`preview_memory_${pageId}`);
             const assetsJSON = localStorage.getItem(`preview_assets_${pageId}`);
@@ -280,7 +281,7 @@ function PageContent() {
                 setLoading(false);
 
                 // Add interval to check for updates from the editor tab
-                const intervalId = setInterval(() => {
+                intervalId = setInterval(() => {
                     const updatedMemoryJSON = localStorage.getItem(`preview_memory_${pageId}`);
                     const updatedAssetsJSON = localStorage.getItem(`preview_assets_${pageId}`);
                      if (updatedMemoryJSON && updatedAssetsJSON) {
@@ -292,14 +293,16 @@ function PageContent() {
                     }
                 }, 1000);
 
-                return () => clearInterval(intervalId);
+            } else {
+                 setError("プレビューデータが見つかりません。編集画面からもう一度プレビューを開いてください。");
+                 setLoading(false);
             }
         } catch(e) {
              console.error("Failed to load preview data from localStorage", e);
              setError("プレビューデータの読み込みに失敗しました。");
              setLoading(false);
-             return;
         }
+        return () => clearInterval(intervalId);
     }
 
     const initLive = async () => {
