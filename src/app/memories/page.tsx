@@ -15,7 +15,6 @@ import { CSS } from '@dnd-kit/utilities';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { AboutModal, CoverPhotoModal, BlockModal, PreviewModal, DesignModal } from '@/components/edit-modals';
-import { v4 as uuidv4 } from 'uuid';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -219,7 +218,7 @@ function MemoryEditorPageComponent() {
         } else { 
             const newBlock: PublicPageBlock = {
                 ...newBlockData,
-                id: uuidv4(),
+                id: crypto.randomUUID(),
                 order: blocks.length,
                 createdAt: Timestamp.now(),
                 updatedAt: Timestamp.now(),
