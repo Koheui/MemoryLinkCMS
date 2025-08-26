@@ -27,6 +27,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { apiClient } from '@/lib/api-client';
 
 
 // This is the new Visual Editor Page
@@ -38,6 +39,7 @@ export default function MemoryEditorPage() {
   const [memory, setMemory] = useState<Memory | null>(null);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isPublishing, setIsPublishing] = useState(false);
   const { toast } = useToast();
 
   // --- Modal States ---
@@ -235,6 +237,33 @@ export default function MemoryEditorPage() {
     }
   };
   
+  const handlePublish = async () => {
+    if (!memory) return;
+    setIsPublishing(true);
+    try {
+      const memoryRef = doc(db, 'memories', memory.id);
+      await updateDoc(memoryRef, { 
+        status: 'active',
+        updatedAt: serverTimestamp()
+      });
+
+      // In a real app, this might trigger a server-side process 
+      // to generate a static page and deploy it.
+      // For now, we'll just update the status and show a toast.
+      toast({ 
+        title: "ページが公開されました", 
+        description: "あなたの想い出ページがWeb上で閲覧可能になりました。",
+      });
+
+    } catch(e) {
+      console.error("Failed to publish memory:", e);
+      toast({ variant: 'destructive', title: '公開失敗', description: 'ページの公開処理中にエラーが発生しました。' });
+    } finally {
+      setIsPublishing(false);
+    }
+  };
+
+
   if (loading || authLoading) {
      return (
         <div className="flex h-screen items-center justify-center bg-background">
@@ -249,6 +278,8 @@ export default function MemoryEditorPage() {
   
   const coverImageUrl = memory.coverAssetId ? assets.find(a => a.id === memory.coverAssetId)?.url : null;
   const profileImageUrl = memory.profileAssetId ? assets.find(a => a.id === memory.profileAssetId)?.url : null;
+  const publicUrl = memory.publicPageId ? `/p/${memory.publicPageId}` : null;
+
 
   return (
     <div className="flex h-full flex-col bg-muted/30">
@@ -326,11 +357,16 @@ export default function MemoryEditorPage() {
               <Palette className="mr-2 h-4 w-4" />
               デザイン
           </Button>
-          <Button variant="outline" onClick={() => setIsPreviewModalOpen(true)}>
-              <Eye className="mr-2 h-4 w-4" />
-              プレビュー
-          </Button>
-           <Button>
+          {publicUrl && (
+             <Button asChild variant="outline">
+                <a href={publicUrl} target="_blank" rel="noopener noreferrer">
+                    <Eye className="mr-2 h-4 w-4" />
+                    プレビュー
+                </a>
+            </Button>
+          )}
+           <Button onClick={handlePublish} disabled={isPublishing}>
+             {isPublishing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
             公開する
           </Button>
         </div>
@@ -540,5 +576,3 @@ function SortableBlockItem({ block, assets, onEdit, onDelete }: { block: PublicP
         </div>
     );
 }
-
-    

@@ -15,12 +15,14 @@
     "indexes": "firestore.indexes.json"
   },
   "hosting": {
-    "source": ".",
+    "site": "memorylink-cms",
+    "public": "public",
     "ignore": [
       "firebase.json",
       "**/.*",
       "**/node_modules/**"
-    ]
+    ],
+    "appAssociation": "AUTO"
   },
   "apphosting": {
     "backendId": "memory-link-be-01",
