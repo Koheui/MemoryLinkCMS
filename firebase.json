@@ -16,12 +16,7 @@
   },
   "hosting": {
     "site": "memorylink-cms",
-    "public": "public",
-    "ignore": [
-      "firebase.json",
-      "**/.*",
-      "**/node_modules/**"
-    ],
+    "source": ".",
     "appAssociation": "AUTO"
   }
 }
