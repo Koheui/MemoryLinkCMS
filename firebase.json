@@ -1,31 +1,18 @@
+
 {
   "firestore": {
     "rules": "firestore.rules",
     "indexes": "firestore.indexes.json"
   },
   "hosting": {
-    "public": "out",
+    "source": ".",
     "ignore": [
       "firebase.json",
       "**/.*",
       "**/node_modules/**"
     ],
-    "predeploy": [
-      "npm run build"
-    ],
-    "rewrites": [
-      {
-        "source": "/memories",
-        "destination": "/memories.html"
-      },
-      {
-        "source": "/p",
-        "destination": "/p.html"
-      },
-      {
-        "source": "**",
-        "destination": "/index.html"
-      }
-    ]
+    "frameworksBackend": {
+      "region": "us-central1"
+    }
   }
 }

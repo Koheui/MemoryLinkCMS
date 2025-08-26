@@ -228,7 +228,7 @@ function MemoryEditorPageComponent() {
   }
   
   const handleDeleteBlockConfirmed = async () => {
-    if (!blockToDelete || !memory) return;
+    if (!blockToDelete || !memory || !memoryId) return;
 
     try {
         const memoryRef = doc(db, 'memories', memoryId);
