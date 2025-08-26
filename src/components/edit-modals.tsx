@@ -251,7 +251,11 @@ const BlockRenderer = ({ block, design, setLightboxState }: { block: PublicPageB
 }
 
 export function PreviewModal({ isOpen, setIsOpen, memory, assets }: { isOpen: boolean, setIsOpen: (open: boolean) => void, memory: Memory, assets: Asset[] }) {
-    const manifest = useMemo(() => convertMemoryToPublicPage(memory, assets), [memory, assets]);
+    const manifest = useMemo(() => {
+        if (!memory || !assets) return null;
+        return convertMemoryToPublicPage(memory, assets);
+    }, [memory, assets]);
+    
     const [lightboxState, setLightboxState] = useState<{ isOpen: boolean; items: any[]; startIndex: number; }>({ isOpen: false, items: [], startIndex: 0 });
     
     const backgroundImage = useMemo(() => {
@@ -277,6 +281,11 @@ export function PreviewModal({ isOpen, setIsOpen, memory, assets }: { isOpen: bo
                 <div 
                     className="flex-1 overflow-auto"
                 >
+                   {!manifest ? (
+                        <div className="flex h-full w-full items-center justify-center">
+                            <Loader2 className="h-8 w-8 animate-spin" />
+                        </div>
+                   ) : (
                     <div 
                         className="mx-auto relative"
                          style={{
@@ -338,6 +347,7 @@ export function PreviewModal({ isOpen, setIsOpen, memory, assets }: { isOpen: bo
                             </footer>
                         </div>
                     </div>
+                   )}
                 </div>
                 <DialogFooter className="p-4 border-t bg-background">
                     <Button variant="outline" onClick={() => setIsOpen(false)}>閉じる</Button>

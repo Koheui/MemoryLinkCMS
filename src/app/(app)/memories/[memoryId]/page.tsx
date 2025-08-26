@@ -27,7 +27,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { apiClient } from '@/lib/api-client';
 
 
 // This is the new Visual Editor Page
