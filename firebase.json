@@ -1,4 +1,3 @@
-
 {
   "firestore": {
     "rules": "firestore.rules",
@@ -16,6 +15,9 @@
     ]
   },
   "apphosting": {
-    "backends": ["memory-link-be-01"]
+    "source": ".",
+    "backends": [
+      "memory-link-be-01"
+    ]
   }
 }
