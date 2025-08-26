@@ -9,17 +9,24 @@ let auth: Auth;
 let db: Firestore;
 let storage: FirebaseStorage;
 
-const initializeFirebase = (config: FirebaseOptions): void => {
+// This function must be called once, at the root of the application.
+// It ensures that Firebase is initialized before any other services are used.
+const initializeFirebase = (config: FirebaseOptions): FirebaseApp => {
   if (!getApps().length) {
-      app = initializeApp(config);
+    app = initializeApp(config);
+    auth = getAuth(app);
+    db = getFirestore(app);
+    storage = getStorage(app);
   } else {
-      app = getApp();
+    app = getApp();
+    auth = getAuth(app);
+    db = getFirestore(app);
+    storage = getStorage(app);
   }
-  auth = getAuth(app);
-  db = getFirestore(app);
-  storage = getStorage(app);
+  return app;
 };
 
-// Exporting the function to initialize and the instances to be used across the app.
-// The instances will be undefined until initializeFirebase is called.
+
+// Export the initialized instances to be used across the app.
+// These will be undefined until initializeFirebase is called.
 export { app, auth, db, storage, serverTimestamp, initializeFirebase };
