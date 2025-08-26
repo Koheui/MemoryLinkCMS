@@ -28,7 +28,7 @@ import {
 } from "@/components/ui/alert-dialog"
 
 // This is the new Visual Editor Page
-function MemoryEditorPageComponent() {
+function MemoryEditorPage() {
   const searchParams = useSearchParams();
   const memoryId = searchParams.get('id') as string;
   const { user, loading: authLoading } = useAuth();
@@ -594,14 +594,4 @@ function SortableBlockItem({ block, assets, onEdit, onDelete }: { block: PublicP
     );
 }
 
-export default function MemoryEditorPage() {
-    return (
-        <Suspense fallback={
-            <div className="flex h-screen items-center justify-center bg-background">
-                <Loader2 className="h-10 w-10 animate-spin text-primary" />
-            </div>
-        }>
-            <MemoryEditorPageComponent />
-        </Suspense>
-    )
-}
+export default MemoryEditorPage;
