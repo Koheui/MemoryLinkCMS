@@ -1,12 +1,12 @@
-// src/app/(app)/memories/[memoryId]/page.tsx
+// src/app/(app)/memories/page.tsx
 'use client';
 
 import { Button } from '@/components/ui/button';
 import type { Memory, PublicPageBlock, Asset } from '@/lib/types';
 import { db } from '@/lib/firebase/client';
 import { doc, getDoc, Timestamp, updateDoc, serverTimestamp, collection, getDocs, query, where, onSnapshot } from 'firebase/firestore';
-import { useParams, notFound, useRouter } from 'next/navigation';
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { notFound, useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useState, useCallback, useMemo, Suspense } from 'react';
 import { Eye, Loader2, PlusCircle, Edit, Image as ImageIcon, Trash2, GripVertical, Type as TypeIcon, Video as VideoIcon, Mic, Album, Clapperboard, Palette } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
@@ -29,8 +29,8 @@ import {
 
 // This is the new Visual Editor Page
 function MemoryEditorPageComponent() {
-  const params = useParams();
-  const memoryId = params.memoryId as string;
+  const searchParams = useSearchParams();
+  const memoryId = searchParams.get('id') as string;
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   
@@ -299,7 +299,7 @@ function MemoryEditorPageComponent() {
   
   const coverImageUrl = memory.coverAssetId ? assets.find(a => a.id === memory.coverAssetId)?.url : null;
   const profileImageUrl = memory.profileAssetId ? assets.find(a => a.id === memory.profileAssetId)?.url : null;
-  const publicUrl = memory.publicPageId ? `/p/${memory.publicPageId}` : null;
+  const publicUrl = memory.publicPageId ? `/p?id=${memory.publicPageId}` : null;
 
 
   return (
@@ -595,19 +595,13 @@ function SortableBlockItem({ block, assets, onEdit, onDelete }: { block: PublicP
 }
 
 export default function MemoryEditorPage() {
-    const [isClient, setIsClient] = useState(false);
-
-    useEffect(() => {
-        setIsClient(true);
-    }, []);
-
-    if (!isClient) {
-        return (
+    return (
+        <Suspense fallback={
             <div className="flex h-screen items-center justify-center bg-background">
                 <Loader2 className="h-10 w-10 animate-spin text-primary" />
             </div>
-        );
-    }
-
-    return <MemoryEditorPageComponent />;
+        }>
+            <MemoryEditorPageComponent />
+        </Suspense>
+    )
 }

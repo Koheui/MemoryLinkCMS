@@ -1,7 +1,7 @@
-// src/app/p/[pageId]/page.tsx
+// src/app/p/page.tsx
 'use client';
 import { useState, useEffect, Suspense, useRef, useMemo } from 'react';
-import { useParams, notFound, useSearchParams, useRouter } from 'next/navigation';
+import { notFound, useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import type { PublicPageBlock, Memory, Asset, Design, PublicPage } from '@/lib/types';
 import { Globe, Phone, Mail, Link as LinkIcon, Music, Clapperboard, Milestone, Camera, Loader2, X } from 'lucide-react';
@@ -180,8 +180,8 @@ const BlockRenderer = ({ block, design, setLightboxState }: { block: PublicPageB
 }
 
 function PageContent() {
-  const params = useParams();
-  const pageId = params.pageId as string;
+  const searchParams = useSearchParams();
+  const pageId = searchParams.get('id');
   const router = useRouter();
 
   const [manifest, setManifest] = useState<PublicPage | null>(null);
@@ -402,21 +402,6 @@ function PageContent() {
 
 
 export default function PublicPage() {
-    const [isClient, setIsClient] = useState(false);
-
-    useEffect(() => {
-        setIsClient(true);
-    }, []);
-
-    if (!isClient) {
-        // You can render a skeleton loader here
-        return (
-            <div className="flex min-h-screen items-center justify-center bg-gray-900">
-                <Loader2 className="h-10 w-10 animate-spin text-white" />
-            </div>
-        );
-    }
-    
     return (
         <Suspense fallback={
              <div className="flex min-h-screen items-center justify-center bg-gray-900">

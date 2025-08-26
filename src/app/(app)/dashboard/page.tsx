@@ -71,7 +71,7 @@ export default function DashboardPage() {
             
             toast({ title: '成功', description: '新しい想い出ページが作成されました。編集画面に移動します。'});
             // Hard navigation to ensure all states are fresh on the editor page.
-            window.location.assign(`/memories/${memoryId}`);
+            window.location.assign(`/memories?id=${memoryId}`);
 
         } catch (error: any) {
              console.error("Error creating new memory:", error);
@@ -273,13 +273,13 @@ export default function DashboardPage() {
                         </CardHeader>
                         <CardFooter className="flex gap-2 bg-muted/50 p-3">
                             <Button asChild className="flex-1">
-                                <Link href={`/memories/${memory.id}`}>
+                                <Link href={`/memories?id=${memory.id}`}>
                                     <Edit className="mr-2 h-4 w-4" /> 編集
                                 </Link>
                             </Button>
                             {memory.publicPageId && (
                                 <Button asChild variant="outline">
-                                    <a href={`/p/${memory.publicPageId}`} target="_blank" rel="noopener noreferrer">
+                                    <a href={`/p?id=${memory.publicPageId}`} target="_blank" rel="noopener noreferrer">
                                         <ExternalLink className="mr-2 h-4 w-4" />
                                     </a>
                                 </Button>

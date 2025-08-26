@@ -265,42 +265,32 @@ export function PreviewModal({ isOpen, setIsOpen, memory, assets }: { isOpen: bo
         return null;
     }, [manifest, assets]);
 
-    // This handles communication with the new preview window/tab
+    // This handles communication with the new window/tab
     useEffect(() => {
         if (!isOpen) return;
 
-        const previewWindow = window.open(`/p/${memory.id}?preview=true`, `preview_${memory.id}`);
+        // Use a more specific query parameter for preview
+        const previewUrl = `/p?id=${memory.id}&preview=true`;
+        const previewWindow = window.open(previewUrl, `preview_${memory.id}`);
         if (!previewWindow) {
             alert('ポップアップがブロックされました。プレビューを表示するには、このサイトのポップアップを許可してください。');
             setIsOpen(false);
             return;
         }
 
-        const onMessage = (event: MessageEvent) => {
-            if (event.source === previewWindow && event.data.type === 'preview-ready') {
-                 previewWindow.postMessage({ type: 'preview-update', memory, assets }, window.location.origin);
-            }
-        };
-
-        window.addEventListener('message', onMessage);
-
         const timer = setInterval(() => {
             if (previewWindow.closed) {
                 setIsOpen(false);
                 clearInterval(timer);
-            } else {
-                 previewWindow.postMessage({ type: 'preview-update', memory, assets }, window.location.origin);
             }
         }, 1000);
 
         return () => {
             clearInterval(timer);
-            window.removeEventListener('message', onMessage);
             if (!previewWindow.closed) {
                 previewWindow.close();
             }
         };
-
     }, [isOpen, memory, assets, setIsOpen]);
 
     if (!isOpen) return null;
