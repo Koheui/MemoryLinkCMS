@@ -10,14 +10,17 @@
       "**/.*",
       "**/node_modules/**"
     ],
+    "predeploy": [
+      "npm run build"
+    ],
     "rewrites": [
-      {
-        "source": "/p",
-        "destination": "/p.html"
-      },
       {
         "source": "/memories",
         "destination": "/memories.html"
+      },
+      {
+        "source": "/p",
+        "destination": "/p.html"
       },
       {
         "source": "**",

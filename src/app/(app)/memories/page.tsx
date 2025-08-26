@@ -30,7 +30,7 @@ import {
 // This is the new Visual Editor Page
 function MemoryEditorPageComponent() {
   const searchParams = useSearchParams();
-  const memoryId = searchParams.get('id') as string;
+  const memoryId = searchParams.get('id');
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   
@@ -141,7 +141,7 @@ function MemoryEditorPageComponent() {
         const reorderedBlocks = newBlocks.map((block, index) => ({ ...block, order: index }));
 
         try {
-            const memoryRef = doc(db, 'memories', memoryId);
+            const memoryRef = doc(db, 'memories', memory.id);
             await updateDoc(memoryRef, { blocks: reorderedBlocks, updatedAt: serverTimestamp() });
             // No need for local state update, Firestore listener will handle it
         } catch (error) {
