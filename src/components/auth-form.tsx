@@ -62,7 +62,7 @@ export function AuthForm({ type }: AuthFormProps) {
         window.location.assign('/dashboard');
       }
     } catch (error: any) {
-      console.error(error);
+      console.error("Authentication Error:", error);
       let errorMessage = 'エラーが発生しました。';
        if (error.code === 'auth/email-already-in-use') {
         errorMessage = 'このメールアドレスは既に使用されています。ログインしてください。';
@@ -70,6 +70,8 @@ export function AuthForm({ type }: AuthFormProps) {
         errorMessage = 'メールアドレスまたはパスワードが正しくありません。';
       } else if (error.code === 'auth/weak-password') {
         errorMessage = 'パスワードは6文字以上で設定してください。';
+      } else if (error.message.includes('auth/network-request-failed')) {
+        errorMessage = 'ネットワークエラーが発生しました。接続を確認して再度お試しください。'
       }
       toast({
         variant: 'destructive',
@@ -126,6 +128,7 @@ export function AuthForm({ type }: AuthFormProps) {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                disabled={loading}
               />
             </div>
             <div className="grid gap-2">
@@ -136,6 +139,7 @@ export function AuthForm({ type }: AuthFormProps) {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                disabled={loading}
               />
             </div>
           </CardContent>
