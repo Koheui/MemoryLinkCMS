@@ -5,7 +5,6 @@
     "indexes": "firestore.indexes.json"
   },
   "hosting": {
-    "apphosting.backend": "memory-link-be-01",
     "rewrites": [
       {
         "source": "**",
@@ -17,6 +16,6 @@
     ]
   },
   "apphosting": {
-    "backend": "memory-link-be-01"
+    "backends": ["memory-link-be-01"]
   }
 }
