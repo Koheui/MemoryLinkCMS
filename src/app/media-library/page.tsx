@@ -1,3 +1,4 @@
+
 // src/app/media-library/page.tsx
 'use client';
 
@@ -29,7 +30,7 @@ import type { Asset } from '@/lib/types';
 import { useAuth } from '@/hooks/use-auth';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { getFirebaseApp } from '@/lib/firebase/client';
-import { getFirestore, collection, query, where, orderBy, getDocs, Timestamp, writeBatch, doc, onSnapshot } from 'firebase/firestore';
+import { getFirestore, collection, query, where, orderBy, getDocs, Timestamp, writeBatch, doc, onSnapshot, Unsubscribe, deleteDoc } from 'firebase/firestore';
 import { getStorage, ref, deleteObject } from 'firebase/storage';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
@@ -51,49 +52,58 @@ export default function MediaLibraryPage() {
   const TOTAL_STORAGE_LIMIT_MB = 1000 * 1000; // Effectively unlimited for testing
   const TOTAL_STORAGE_LIMIT_BYTES = TOTAL_STORAGE_LIMIT_MB * 1024 * 1024;
 
-  const fetchAssets = useCallback((uid: string) => {
-    setLoading(true);
-    const db = getFirestore(getFirebaseApp());
-    const assetsQuery = query(
-        collection(db, 'assets'), 
-        where('ownerUid', '==', uid), 
-        orderBy('createdAt', 'desc')
-    );
-    
-    const unsubscribe = onSnapshot(assetsQuery, (snapshot) => {
-        let currentTotalSize = 0;
-        const resolvedAssets = snapshot.docs.map((docSnapshot) => {
-            const data = docSnapshot.data() as Asset;
-            currentTotalSize += data.size || 0;
-            return data;
-        });
-
-        setAssets(resolvedAssets);
-        setTotalSize(currentTotalSize);
-        setStoragePercentage((currentTotalSize / TOTAL_STORAGE_LIMIT_BYTES) * 100);
-        setLoading(false);
-    }, (error) => {
-        console.error("Failed to fetch assets:", error);
-        toast({
-            variant: 'destructive',
-            title: "メディアの読み込み失敗",
-            description: "メディアの読み込み中にエラーが発生しました。しばらくしてから再度お試しください。"
-        });
-        setLoading(false);
-    });
-
-    return unsubscribe;
-  }, [toast, TOTAL_STORAGE_LIMIT_BYTES]);
-
-
   useEffect(() => {
-    if (!authLoading && user) {
-        const unsubscribe = fetchAssets(user.uid);
-        return () => unsubscribe();
-    } else if (!authLoading && !user) {
-        setLoading(false);
-    }
-  }, [user, authLoading, fetchAssets]);
+    if (!user) {
+        if (!authLoading) setLoading(false);
+        return;
+    };
+
+    let unsubscribe: Unsubscribe | undefined;
+    const setupListener = async () => {
+        setLoading(true);
+        try {
+            const app = await getFirebaseApp();
+            const db = getFirestore(app);
+            const assetsQuery = query(
+                collection(db, 'assets'), 
+                where('ownerUid', '==', user.uid), 
+                orderBy('createdAt', 'desc')
+            );
+            
+            unsubscribe = onSnapshot(assetsQuery, (snapshot) => {
+                let currentTotalSize = 0;
+                const resolvedAssets = snapshot.docs.map((docSnapshot) => {
+                    const data = docSnapshot.data() as Asset;
+                    currentTotalSize += data.size || 0;
+                    return data;
+                });
+
+                setAssets(resolvedAssets);
+                setTotalSize(currentTotalSize);
+                setStoragePercentage((currentTotalSize / TOTAL_STORAGE_LIMIT_BYTES) * 100);
+                setLoading(false);
+            }, (error) => {
+                console.error("Failed to fetch assets:", error);
+                toast({
+                    variant: 'destructive',
+                    title: "メディアの読み込み失敗",
+                    description: "メディアの読み込み中にエラーが発生しました。しばらくしてから再度お試しください。"
+                });
+                setLoading(false);
+            });
+        } catch (error) {
+            console.error("Error setting up listener:", error);
+            toast({ variant: 'destructive', title: 'エラー', description: 'データの初期化に失敗しました。'});
+            setLoading(false);
+        }
+    };
+    
+    setupListener();
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [user, authLoading, toast, TOTAL_STORAGE_LIMIT_BYTES]);
 
   const handleDeleteAssets = async (assetIds: string[]) => {
     if (!user || assetIds.length === 0) return;
@@ -106,28 +116,23 @@ export default function MediaLibraryPage() {
       const storage = getStorage(app);
       const db = getFirestore(app);
 
-      // Step 1: Delete files from Firebase Storage
-      const deletePromises = assetsToDelete.map(asset => {
-        const fileRef = ref(storage, asset.storagePath);
-        return deleteObject(fileRef).catch(error => {
-          // If the file doesn't exist, it's not a critical error, just log it.
-          if (error.code !== 'storage/object-not-found') {
-            console.error(`Failed to delete ${asset.storagePath} from Storage:`, error);
-            throw error; // Re-throw critical errors
-          }
-        });
-      });
-      await Promise.all(deletePromises);
-  
-      // Step 2: Delete documents from Firestore
-      const batch = writeBatch(db);
-      assetsToDelete.forEach(asset => {
+      // Sequentially delete each asset and its corresponding file
+      for (const asset of assetsToDelete) {
+        // Delete the file from Firebase Storage first
+        if (asset.storagePath) {
+          const fileRef = ref(storage, asset.storagePath);
+          await deleteObject(fileRef).catch(error => {
+            if (error.code !== 'storage/object-not-found') {
+              console.error(`Failed to delete ${asset.storagePath} from Storage:`, error);
+              throw error; 
+            }
+          });
+        }
+        
+        // Then delete the document from Firestore
         const assetRef = doc(db, "assets", asset.id);
-        batch.delete(assetRef);
-      });
-      await batch.commit();
-  
-      // Local state will be updated by the onSnapshot listener.
+        await deleteDoc(assetRef);
+      }
   
       toast({ title: "成功", description: `${assetIds.length}件のアセットを削除しました。` });
   
@@ -136,8 +141,8 @@ export default function MediaLibraryPage() {
       toast({ variant: 'destructive', title: "削除失敗", description: error.message });
     } finally {
       setIsDeleting(false);
-      setAssetToDelete(null); // Close single-delete dialog if open
-      setSelectedAssets([]); // Clear selection
+      setAssetToDelete(null); 
+      setSelectedAssets([]);
     }
   };
 
