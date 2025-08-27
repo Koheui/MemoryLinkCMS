@@ -10,7 +10,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { getFirebaseApp } from "@/lib/firebase/client";
-import { getFirestore, Timestamp, doc, writeBatch, serverTimestamp, setDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { getFirestore, Timestamp, doc, writeBatch, serverTimestamp, setDoc, collection, query, where, getDocs, onSnapshot } from 'firebase/firestore';
 import { getStorage, ref, deleteObject } from 'firebase/storage';
 import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
@@ -26,12 +26,45 @@ import {
 } from "@/components/ui/alert-dialog"
 
 export default function DashboardPage() {
-    const { user, memories, assets, loading: authLoading } = useAuth();
+    const { user, loading: authLoading } = useAuth();
+    const [memories, setMemories] = useState<Memory[]>([]);
+    const [assets, setAssets] = useState<Asset[]>([]);
+    const [loadingData, setLoadingData] = useState(true);
     const [isDeleting, setIsDeleting] = useState(false);
     const [memoryToDelete, setMemoryToDelete] = useState<Memory | null>(null);
     const router = useRouter();
     const { toast } = useToast();
     const hasCreatedInitialMemory = useRef(false);
+
+    // Data fetching logic is now inside the component
+    useEffect(() => {
+        if (!user) return;
+
+        setLoadingData(true);
+        const db = getFirestore(getFirebaseApp());
+
+        const memoriesQuery = query(collection(db, 'memories'), where('ownerUid', '==', user.uid));
+        const memoriesUnsubscribe = onSnapshot(memoriesQuery, (snapshot) => {
+            const userMemories = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Memory));
+            setMemories(userMemories);
+            setLoadingData(false);
+        }, (error) => {
+            console.error("Failed to fetch memories:", error);
+            setLoadingData(false);
+        });
+
+        const assetsQuery = query(collection(db, 'assets'), where('ownerUid', '==', user.uid));
+        const assetsUnsubscribe = onSnapshot(assetsQuery, (snapshot) => {
+            const userAssets = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Asset));
+            setAssets(userAssets);
+        });
+
+        return () => {
+            memoriesUnsubscribe();
+            assetsUnsubscribe();
+        };
+    }, [user]);
+
 
     const handleCreateNewMemory = useCallback(async () => {
         if (!user) return;
@@ -80,11 +113,11 @@ export default function DashboardPage() {
     
     // Auto-create first memory page for new users
     useEffect(() => {
-        if (!authLoading && user && memories.length === 0 && !hasCreatedInitialMemory.current) {
-            hasCreatedInitialMemory.current = true;
+        if (!authLoading && !loadingData && user && memories.length === 0 && !hasCreatedInitialMemory.current) {
+            hasCreatedInitialMemory.current = true; // Set flag immediately
             handleCreateNewMemory();
         }
-    }, [authLoading, user, memories, handleCreateNewMemory]);
+    }, [authLoading, loadingData, user, memories, handleCreateNewMemory]);
 
 
     const handleDeleteMemory = async () => {
@@ -97,31 +130,27 @@ export default function DashboardPage() {
             const storage = getStorage(app);
             const batch = writeBatch(db);
 
-            // 1. Find all assets associated with the memory
             const assetsQuery = query(collection(db, 'assets'), where('memoryId', '==', memoryToDelete.id));
             const assetsSnapshot = await getDocs(assetsQuery);
-            const assetsToDelete = assetsSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as Asset));
+            const assetsToDelete = assetsSnapshot.docs.map(d => d.data() as Asset);
 
-            // 2. Delete files from Storage and documents from Firestore for each asset
             for (const asset of assetsToDelete) {
                 if (asset.storagePath) {
                     const fileRef = ref(storage, asset.storagePath);
-                    await deleteObject(fileRef).catch(err => console.warn(`Could not delete file from storage: ${asset.storagePath}`, err));
+                    await deleteObject(fileRef).catch(err => console.warn(`Could not delete file: ${asset.storagePath}`, err));
                 }
                 const assetDocRef = doc(db, "assets", asset.id);
                 batch.delete(assetDocRef);
             }
 
-            // 3. Delete the memory document itself
             const memoryRef = doc(db, "memories", memoryToDelete.id);
             batch.delete(memoryRef);
             
-            // 4. Commit the batch operation
             await batch.commit();
             
             toast({ title: "成功", description: `「${memoryToDelete.title}」を関連データごと完全に削除しました。` });
         } catch (error: any) {
-            console.error("Failed to delete memory and its assets:", error);
+            console.error("Failed to delete memory:", error);
             toast({ variant: "destructive", title: "削除失敗", description: error.message });
         } finally {
             setIsDeleting(false);
@@ -141,7 +170,7 @@ export default function DashboardPage() {
     }, [memories, assets]);
 
 
-    if (authLoading) {
+    if (authLoading || loadingData) {
         return (
             <div className="flex h-full items-center justify-center p-4">
                  <div className="text-center py-20 bg-muted/50 rounded-lg border border-dashed w-full max-w-lg">

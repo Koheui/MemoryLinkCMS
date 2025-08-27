@@ -27,9 +27,9 @@ import {
 import { PlusCircle, Loader2, Image as ImageIcon, Video, Mic, Trash2, Upload, GripVertical, Check, X } from 'lucide-react';
 import type { Asset } from '@/lib/types';
 import { useAuth } from '@/hooks/use-auth';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { getFirebaseApp } from '@/lib/firebase/client';
-import { getFirestore, Timestamp, writeBatch, doc } from 'firebase/firestore';
+import { getFirestore, collection, query, where, orderBy, getDocs, Timestamp, writeBatch, doc, onSnapshot } from 'firebase/firestore';
 import { getStorage, ref, deleteObject } from 'firebase/storage';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
@@ -38,7 +38,9 @@ import { cn } from '@/lib/utils';
 
 
 export default function MediaLibraryPage() {
-  const { user, assets, loading: authLoading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [loading, setLoading] = useState(true);
   const [totalSize, setTotalSize] = useState(0);
   const [storagePercentage, setStoragePercentage] = useState(0);
   const [assetToDelete, setAssetToDelete] = useState<Asset | null>(null);
@@ -49,17 +51,49 @@ export default function MediaLibraryPage() {
   const TOTAL_STORAGE_LIMIT_MB = 1000 * 1000; // Effectively unlimited for testing
   const TOTAL_STORAGE_LIMIT_BYTES = TOTAL_STORAGE_LIMIT_MB * 1024 * 1024;
 
-  useEffect(() => {
-    if (assets) {
+  const fetchAssets = useCallback((uid: string) => {
+    setLoading(true);
+    const db = getFirestore(getFirebaseApp());
+    const assetsQuery = query(
+        collection(db, 'assets'), 
+        where('ownerUid', '==', uid), 
+        orderBy('createdAt', 'desc')
+    );
+    
+    const unsubscribe = onSnapshot(assetsQuery, (snapshot) => {
         let currentTotalSize = 0;
-        assets.forEach(asset => {
-             currentTotalSize += asset.size || 0;
+        const resolvedAssets = snapshot.docs.map((docSnapshot) => {
+            const data = docSnapshot.data() as Asset;
+            currentTotalSize += data.size || 0;
+            return data;
         });
+
+        setAssets(resolvedAssets);
         setTotalSize(currentTotalSize);
         setStoragePercentage((currentTotalSize / TOTAL_STORAGE_LIMIT_BYTES) * 100);
-    }
-  }, [assets, TOTAL_STORAGE_LIMIT_BYTES]);
+        setLoading(false);
+    }, (error) => {
+        console.error("Failed to fetch assets:", error);
+        toast({
+            variant: 'destructive',
+            title: "メディアの読み込み失敗",
+            description: "メディアの読み込み中にエラーが発生しました。しばらくしてから再度お試しください。"
+        });
+        setLoading(false);
+    });
 
+    return unsubscribe;
+  }, [toast, TOTAL_STORAGE_LIMIT_BYTES]);
+
+
+  useEffect(() => {
+    if (!authLoading && user) {
+        const unsubscribe = fetchAssets(user.uid);
+        return () => unsubscribe();
+    } else if (!authLoading && !user) {
+        setLoading(false);
+    }
+  }, [user, authLoading, fetchAssets]);
 
   const handleDeleteAssets = async (assetIds: string[]) => {
     if (!user || assetIds.length === 0) return;
@@ -72,23 +106,28 @@ export default function MediaLibraryPage() {
       const storage = getStorage(app);
       const db = getFirestore(app);
 
+      // Step 1: Delete files from Firebase Storage
       const deletePromises = assetsToDelete.map(asset => {
         const fileRef = ref(storage, asset.storagePath);
         return deleteObject(fileRef).catch(error => {
+          // If the file doesn't exist, it's not a critical error, just log it.
           if (error.code !== 'storage/object-not-found') {
             console.error(`Failed to delete ${asset.storagePath} from Storage:`, error);
-            throw error;
+            throw error; // Re-throw critical errors
           }
         });
       });
       await Promise.all(deletePromises);
   
+      // Step 2: Delete documents from Firestore
       const batch = writeBatch(db);
       assetsToDelete.forEach(asset => {
         const assetRef = doc(db, "assets", asset.id);
         batch.delete(assetRef);
       });
       await batch.commit();
+  
+      // Local state will be updated by the onSnapshot listener.
   
       toast({ title: "成功", description: `${assetIds.length}件のアセットを削除しました。` });
   
@@ -97,8 +136,8 @@ export default function MediaLibraryPage() {
       toast({ variant: 'destructive', title: "削除失敗", description: error.message });
     } finally {
       setIsDeleting(false);
-      setAssetToDelete(null);
-      setSelectedAssets([]);
+      setAssetToDelete(null); // Close single-delete dialog if open
+      setSelectedAssets([]); // Clear selection
     }
   };
 
@@ -125,16 +164,8 @@ export default function MediaLibraryPage() {
       { type: 'audio', label: '音声', icon: <Mic className="h-5 w-5" /> },
   ];
 
-  const sortedAssets = useMemo(() => {
-    return [...assets].sort((a, b) => {
-        const dateA = a.createdAt ? (a.createdAt as Timestamp).toMillis() : 0;
-        const dateB = b.createdAt ? (b.createdAt as Timestamp).toMillis() : 0;
-        return dateB - dateA;
-    });
-  }, [assets]);
-
   const renderAssetList = (type: Asset['type']) => {
-    const filteredAssets = sortedAssets.filter(asset => asset.type === type);
+    const filteredAssets = assets.filter(asset => asset.type === type);
 
     if (type === 'image') {
         return (
@@ -222,7 +253,7 @@ export default function MediaLibraryPage() {
     );
   };
 
-  if (authLoading) {
+  if (loading || authLoading) {
     return (
        <div className="flex h-full items-center justify-center p-8">
          <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -260,7 +291,9 @@ export default function MediaLibraryPage() {
                  <MediaUploader
                     assetType="image"
                     accept="image/*,video/*,audio/*"
-                    onUploadSuccess={() => { /* Auth listener handles state update */ }}
+                    onUploadSuccess={(newAsset) => {
+                      // The onSnapshot listener will handle the state update automatically.
+                    }}
                   >
                     <Button>
                         <Upload className="mr-2 h-4 w-4" />

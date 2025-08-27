@@ -17,8 +17,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { LogOut, Library, ShieldCheck, Loader2, UserCircle, LayoutDashboard } from 'lucide-react';
 import Link from 'next/link';
-import { getFirestore, collection, query, where, onSnapshot, Unsubscribe } from 'firebase/firestore';
-import type { Memory, Asset } from '@/lib/types';
+import { Unsubscribe } from 'firebase/firestore';
 
 
 interface AuthContextType {
@@ -26,8 +25,6 @@ interface AuthContextType {
   loading: boolean;
   isAdmin: boolean;
   handleLogout: () => Promise<void>;
-  memories: Memory[];
-  assets: Asset[];
 }
 
 const AuthContext = createContext<AuthContextType>({ 
@@ -35,8 +32,6 @@ const AuthContext = createContext<AuthContextType>({
     loading: true,
     isAdmin: false,
     handleLogout: async () => {},
-    memories: [],
-    assets: [],
 });
 
 function AppLayout({ children }: { children: React.ReactNode }) {
@@ -72,6 +67,11 @@ function AppLayout({ children }: { children: React.ReactNode }) {
             <SidebarMenuItem>
               <SidebarMenuButton asChild isActive={pathname.startsWith('/dashboard') || pathname === '/'}>
                 <Link href={dashboardHref}><LayoutDashboard/> ダッシュボード</Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+             <SidebarMenuItem>
+              <SidebarMenuButton asChild isActive={pathname.startsWith('/memories')}>
+                <Link href="/memories?id=none">想い出ページ</Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
@@ -117,22 +117,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<AuthContextType['user'] | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [memories, setMemories] = useState<Memory[]>([]);
-  const [assets, setAssets] = useState<Asset[]>([]);
-
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
     let unsubscribeAuth: Unsubscribe | undefined;
-    let unsubscribeMemories: Unsubscribe | undefined;
-    let unsubscribeAssets: Unsubscribe | undefined;
 
     const initAuth = async () => {
         try {
             const app = await getFirebaseApp();
             const auth = getAuth(app);
-            const db = getFirestore(app);
             
             unsubscribeAuth = onAuthStateChanged(auth, async (authUser) => {
               if (authUser) {
@@ -140,35 +134,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                   const tokenResult = await authUser.getIdTokenResult();
                   setIsAdmin(tokenResult.claims.role === 'admin');
                   setUser(authUser as AuthContextType['user']);
-                  
-                  // Kill existing listeners before starting new ones
-                  if (unsubscribeMemories) unsubscribeMemories();
-                  if (unsubscribeAssets) unsubscribeAssets();
-
-                  // --- Realtime Data Fetching ---
-                  const memoriesQuery = query(collection(db, 'memories'), where('ownerUid', '==', authUser.uid));
-                  unsubscribeMemories = onSnapshot(memoriesQuery, (snapshot) => {
-                      const userMemories = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Memory));
-                      setMemories(userMemories);
-                  });
-                  
-                  const assetsQuery = query(collection(db, 'assets'), where('ownerUid', '==', authUser.uid));
-                  unsubscribeAssets = onSnapshot(assetsQuery, (snapshot) => {
-                       const userAssets = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Asset));
-                       setAssets(userAssets);
-                  });
-
                 } catch (error) {
-                   console.error("Error during auth state processing:", error);
+                   console.error("Error getting token result:", error);
                    await auth.signOut(); // Log out on error
                 }
               } else {
                 setUser(null);
                 setIsAdmin(false);
-                setMemories([]);
-                setAssets([]);
-                if (unsubscribeMemories) unsubscribeMemories();
-                if (unsubscribeAssets) unsubscribeAssets();
               }
               setLoading(false);
             });
@@ -182,8 +154,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     return () => {
         if (unsubscribeAuth) unsubscribeAuth();
-        if (unsubscribeMemories) unsubscribeMemories();
-        if (unsubscribeAssets) unsubscribeAssets();
     };
   }, []);
 
@@ -224,11 +194,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       </div>
     );
   }
+  
+    // Redirect authenticated users from login/signup to dashboard
+    if (user && (pathname === '/login' || pathname === '/signup' || pathname === '/')) {
+      router.push('/dashboard');
+      return ( // Return loading spinner while redirecting
+        <div className="flex h-screen items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      );
+    }
+
 
   return (
-    <AuthContext.Provider value={{ user, loading, isAdmin, handleLogout, memories, assets }}>
+    <AuthContext.Provider value={{ user, loading, isAdmin, handleLogout }}>
       {isAppPage ? <AppLayout>{children}</AppLayout> : children}
-    </AuthContext.Provider>
+    </Auth-Context.Provider>
   );
 };
 
