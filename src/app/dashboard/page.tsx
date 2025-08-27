@@ -10,7 +10,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { getFirebaseApp } from "@/lib/firebase/client";
-import { getFirestore, Timestamp, doc, writeBatch, serverTimestamp, setDoc, collection, query, where, getDocs, onSnapshot } from 'firebase/firestore';
+import { getFirestore, Timestamp, doc, writeBatch, serverTimestamp, setDoc, collection, query, where, getDocs, onSnapshot, Unsubscribe } from 'firebase/firestore';
 import { getStorage, ref, deleteObject } from 'firebase/storage';
 import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
@@ -40,28 +40,36 @@ export default function DashboardPage() {
     useEffect(() => {
         if (!user) return;
 
-        setLoadingData(true);
-        const db = getFirestore(getFirebaseApp());
+        let memoriesUnsubscribe: Unsubscribe | undefined;
+        let assetsUnsubscribe: Unsubscribe | undefined;
 
-        const memoriesQuery = query(collection(db, 'memories'), where('ownerUid', '==', user.uid));
-        const memoriesUnsubscribe = onSnapshot(memoriesQuery, (snapshot) => {
-            const userMemories = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Memory));
-            setMemories(userMemories);
-            setLoadingData(false);
-        }, (error) => {
-            console.error("Failed to fetch memories:", error);
-            setLoadingData(false);
-        });
+        const setupListeners = async () => {
+            setLoadingData(true);
+            const app = await getFirebaseApp();
+            const db = getFirestore(app);
 
-        const assetsQuery = query(collection(db, 'assets'), where('ownerUid', '==', user.uid));
-        const assetsUnsubscribe = onSnapshot(assetsQuery, (snapshot) => {
-            const userAssets = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Asset));
-            setAssets(userAssets);
-        });
+            const memoriesQuery = query(collection(db, 'memories'), where('ownerUid', '==', user.uid));
+            memoriesUnsubscribe = onSnapshot(memoriesQuery, (snapshot) => {
+                const userMemories = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Memory));
+                setMemories(userMemories);
+                setLoadingData(false);
+            }, (error) => {
+                console.error("Failed to fetch memories:", error);
+                setLoadingData(false);
+            });
+
+            const assetsQuery = query(collection(db, 'assets'), where('ownerUid', '==', user.uid));
+            assetsUnsubscribe = onSnapshot(assetsQuery, (snapshot) => {
+                const userAssets = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Asset));
+                setAssets(userAssets);
+            });
+        };
+
+        setupListeners();
 
         return () => {
-            memoriesUnsubscribe();
-            assetsUnsubscribe();
+            if (memoriesUnsubscribe) memoriesUnsubscribe();
+            if (assetsUnsubscribe) assetsUnsubscribe();
         };
     }, [user]);
 
@@ -113,8 +121,8 @@ export default function DashboardPage() {
     
     // Auto-create first memory page for new users
     useEffect(() => {
-        if (!authLoading && !loadingData && user && memories.length === 0 && !hasCreatedInitialMemory.current) {
-            hasCreatedInitialMemory.current = true; // Set flag immediately
+        if (!authLoading && user && memories.length === 0 && !loadingData && !hasCreatedInitialMemory.current) {
+            hasCreatedInitialMemory.current = true;
             handleCreateNewMemory();
         }
     }, [authLoading, loadingData, user, memories, handleCreateNewMemory]);
@@ -252,7 +260,7 @@ export default function DashboardPage() {
                     </Card>
                 ))}
             </div>
-            {memoriesWithCovers.length === 0 && !authLoading && (
+            {memoriesWithCovers.length === 0 && !authLoading && !loadingData && (
                 <div className="text-center py-20 bg-muted/50 rounded-lg border border-dashed">
                     <h2 className="text-xl font-semibold">まだ想い出ページがありません</h2>
                     <p className="text-muted-foreground mt-2">「新しいページを作成」ボタンから始めましょう。</p>

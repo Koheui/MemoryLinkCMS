@@ -62,6 +62,7 @@ function MemoryEditorPageComponent() {
   useEffect(() => {
     if (authLoading) return;
     if (!user) {
+        // This case should be handled by the AuthProvider, but as a fallback:
         router.push('/login');
         return;
     }
@@ -205,11 +206,11 @@ function MemoryEditorPageComponent() {
   const handleSaveBlock = async (newBlockData: Omit<PublicPageBlock, 'id' | 'createdAt' | 'updatedAt' | 'order'>, blockToEdit?: PublicPageBlock | null) => {
       if (!memory) return;
       
-      const app = await getFirebaseApp();
-      const db = getFirestore(app);
-      const memoryRef = doc(db, 'memories', memory.id);
-
       try {
+        const app = await getFirebaseApp();
+        const db = getFirestore(app);
+        const memoryRef = doc(db, 'memories', memory.id);
+
         let updatedBlocks;
         if (blockToEdit) { 
             updatedBlocks = blocks.map(b => 
