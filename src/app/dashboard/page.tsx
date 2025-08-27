@@ -4,13 +4,14 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/hooks/use-auth";
-import type { Memory } from "@/lib/types";
+import type { Memory, Asset } from "@/lib/types";
 import { PlusCircle, Edit, ExternalLink, Loader2, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { getFirebaseApp } from "@/lib/firebase/client";
-import { getFirestore, Timestamp, doc, writeBatch, serverTimestamp, setDoc } from 'firebase/firestore';
+import { getFirestore, Timestamp, doc, writeBatch, serverTimestamp, setDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { getStorage, ref, deleteObject } from 'firebase/storage';
 import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
 import {
@@ -93,16 +94,35 @@ export default function DashboardPage() {
         try {
             const app = await getFirebaseApp();
             const db = getFirestore(app);
+            const storage = getStorage(app);
             const batch = writeBatch(db);
+
+            // 1. Find all assets associated with the memory
+            const assetsQuery = query(collection(db, 'assets'), where('memoryId', '==', memoryToDelete.id));
+            const assetsSnapshot = await getDocs(assetsQuery);
+            const assetsToDelete = assetsSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as Asset));
+
+            // 2. Delete files from Storage and documents from Firestore for each asset
+            for (const asset of assetsToDelete) {
+                if (asset.storagePath) {
+                    const fileRef = ref(storage, asset.storagePath);
+                    await deleteObject(fileRef).catch(err => console.warn(`Could not delete file from storage: ${asset.storagePath}`, err));
+                }
+                const assetDocRef = doc(db, "assets", asset.id);
+                batch.delete(assetDocRef);
+            }
+
+            // 3. Delete the memory document itself
             const memoryRef = doc(db, "memories", memoryToDelete.id);
             batch.delete(memoryRef);
             
+            // 4. Commit the batch operation
             await batch.commit();
             
-            toast({ title: "成功", description: `「${memoryToDelete.title}」を削除しました。` });
+            toast({ title: "成功", description: `「${memoryToDelete.title}」を関連データごと完全に削除しました。` });
         } catch (error: any) {
-            console.error("Failed to delete memory:", error);
-            toast({ variant: 'destructive', title: "削除失敗", description: error.message });
+            console.error("Failed to delete memory and its assets:", error);
+            toast({ variant: "destructive", title: "削除失敗", description: error.message });
         } finally {
             setIsDeleting(false);
             setMemoryToDelete(null);
