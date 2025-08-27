@@ -1,8 +1,5 @@
 // src/lib/firebase/client.ts
 import { initializeApp, getApps, getApp, FirebaseApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
-import { getStorage } from "firebase/storage";
 import { getAnalytics, isSupported } from "firebase/analytics";
 
 // This is a singleton promise that will be reused
@@ -17,7 +14,11 @@ const firebaseConfig = {
     appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-const initialize = async (): Promise<FirebaseApp> => {
+function initializeClientApp(): FirebaseApp {
+    if (getApps().length > 0) {
+        return getApp();
+    }
+
     if (!firebaseConfig.projectId) {
       throw new Error("Firebase config is not valid. Project ID is missing. Please check your .env.local file.");
     }
@@ -25,26 +26,11 @@ const initialize = async (): Promise<FirebaseApp> => {
     const app = initializeApp(firebaseConfig);
 
     if (typeof window !== "undefined") {
-        try {
-            const analyticsSupported = await isSupported();
-            if (analyticsSupported) {
-                getAnalytics(app);
-            }
-        } catch (error) {
-            console.warn("Firebase Analytics is not available in this environment.", error);
-        }
+        isSupported().then(yes => yes && getAnalytics(app));
     }
     return app;
 };
 
-export const getFirebaseApp = (): Promise<FirebaseApp> => {
-    if (getApps().length > 0) {
-        return Promise.resolve(getApp());
-    }
-
-    if (!appPromise) {
-        appPromise = initialize();
-    }
-    
-    return appPromise;
+export const getFirebaseApp = (): FirebaseApp => {
+    return initializeClientApp();
 }
