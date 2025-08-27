@@ -4,17 +4,26 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  // Adding a benign webpack configuration to force a full cache invalidation.
-  // This helps resolve inconsistent states in the .next directory without
-  // introducing breaking changes.
   webpack: (config, { isServer }) => {
-    // A simple, non-disruptive modification.
     if (!isServer) {
       config.resolve.fallback = {
         ...config.resolve.fallback,
         "fs": false,
       };
     }
+    // A simple, non-disruptive modification to bust cache.
+    config.optimization.minimizer = config.optimization.minimizer.map((plugin) => {
+        if (plugin.constructor.name === 'TerserPlugin') {
+            // @ts-ignore
+            plugin.options.terserOptions.output = {
+                // @ts-ignore
+                ...plugin.options.terserOptions.output,
+                // Add a unique comment to force cache invalidation on each build
+                preamble: `/* build-timestamp: ${Date.now()} */`,
+            };
+        }
+        return plugin;
+    });
     return config;
   },
 };

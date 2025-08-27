@@ -12,19 +12,21 @@ const firebaseConfig = {
 };
 
 function initializeClientApp(): FirebaseApp {
+    // Check for missing environment variables *before* initialization
+    for (const [key, value] of Object.entries(firebaseConfig)) {
+        if (!value) {
+            // This will throw a clear error if a variable is missing
+            throw new Error(`Firebase config is not valid. The variable NEXT_PUBLIC_FIREBASE_${key.replace(/([A-Z])/g, '_$1').toUpperCase()} is missing. Please check your environment variables.`);
+        }
+    }
+    
     if (getApps().length > 0) {
         return getApp();
-    }
-
-    // Check if all required Firebase config keys are present
-    if (!firebaseConfig.projectId || !firebaseConfig.apiKey) {
-      throw new Error("Firebase config is not valid. Project ID or API Key is missing. Please check your .env.local file and ensure all NEXT_PUBLIC_ variables are set.");
     }
 
     const app = initializeApp(firebaseConfig);
 
     if (typeof window !== "undefined") {
-        // This promise-based check ensures analytics is only initialized if supported.
         isSupported().then(yes => {
             if (yes) {
                 getAnalytics(app);
@@ -36,8 +38,6 @@ function initializeClientApp(): FirebaseApp {
     return app;
 };
 
-// Export a single function to get the Firebase app instance.
-// This ensures initialization logic is contained and runs only once.
 export const getFirebaseApp = (): FirebaseApp => {
     return initializeClientApp();
 }
