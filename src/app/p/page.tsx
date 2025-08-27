@@ -304,26 +304,61 @@ function PageContent() {
         const app = await getFirebaseApp();
         const db = getFirestore(app);
         const memoryDocRef = doc(db, 'memories', pageId);
-        
-        unsubscribe = onSnapshot(memoryDocRef, (memoryDoc) => {
+
+        unsubscribe = onSnapshot(memoryDocRef, async (memoryDoc) => {
             if (memoryDoc.exists()) {
                 const memoryData = { id: memoryDoc.id, ...memoryDoc.data() } as Memory;
                 if (memoryData.status !== 'active') {
-                     setError('この想い出ページは存在しないか、まだ公開されていません。');
-                     setLoading(false);
-                     setManifest(null);
-                     return;
+                    setError('この想い出ページは存在しないか、まだ公開されていません。');
+                    setLoading(false);
+                    setManifest(null);
+                    return;
+                }
+
+                // 1. Collect all necessary asset IDs from the memory
+                const assetIds = new Set<string>();
+                if (memoryData.coverAssetId) assetIds.add(memoryData.coverAssetId);
+                if (memoryData.profileAssetId) assetIds.add(memoryData.profileAssetId);
+                if (memoryData.design.backgroundImageAssetId) assetIds.add(memoryData.design.backgroundImageAssetId);
+
+                (memoryData.blocks || []).forEach(block => {
+                    if (block.type === 'photo' && block.photo?.assetId) assetIds.add(block.photo.assetId);
+                    if (block.type === 'video' && block.video?.assetId) assetIds.add(block.video.assetId);
+                    if (block.type === 'audio' && block.audio?.assetId) assetIds.add(block.audio.assetId);
+                    if (block.type === 'album' && block.album?.assetIds) {
+                        block.album.assetIds.forEach(id => assetIds.add(id));
+                    }
+                });
+
+                let fetchedAssets: Asset[] = [];
+                const uniqueAssetIds = Array.from(assetIds).filter(id => id); // Filter out any null/undefined IDs
+
+                // 2. Fetch only the required assets, handling batches if necessary (Firestore 'in' query limit is 30)
+                if (uniqueAssetIds.length > 0) {
+                    const assetBatches: string[][] = [];
+                    for (let i = 0; i < uniqueAssetIds.length; i += 30) {
+                        assetBatches.push(uniqueAssetIds.slice(i, i + 30));
+                    }
+                    
+                    const assetPromises = assetBatches.map(batch => 
+                        getDocs(query(collection(db, 'assets'), where('__name__', 'in', batch)))
+                    );
+
+                    const assetSnapshots = await Promise.all(assetPromises);
+                    assetSnapshots.forEach(snapshot => {
+                        snapshot.docs.forEach(doc => {
+                            fetchedAssets.push({ id: doc.id, ...doc.data() } as Asset);
+                        });
+                    });
                 }
                 
-                const assetsQuery = query(collection(db, 'assets'), where('ownerUid', '==', memoryData.ownerUid));
-                getDocs(assetsQuery).then(assetSnapshots => {
-                    const fetchedAssets = assetSnapshots.docs.map(d => ({ id: d.id, ...d.data() } as Asset));
-                    const pageData = convertMemoryToPublicPage(memoryData, fetchedAssets);
-                    setAssets(fetchedAssets);
-                    setManifest(pageData);
-                    setError(null);
-                    setLoading(false);
-                });
+                // 3. Hydrate the page with the fetched assets
+                const pageData = convertMemoryToPublicPage(memoryData, fetchedAssets);
+                setAssets(fetchedAssets);
+                setManifest(pageData);
+                setError(null);
+                setLoading(false);
+
             } else {
                 setError('この想い出ページは存在しないか、まだ公開されていません。');
                 setLoading(false);

@@ -907,28 +907,12 @@ export function DesignModal({ isOpen, setIsOpen, memory, assets, onUploadSuccess
                     <DialogDescription>ページの見た目をカスタマイズします。</DialogDescription>
                 </DialogHeader>
                 
-                <Tabs defaultValue="theme" className="py-4">
-                    <TabsList className="grid w-full grid-cols-4">
-                        <TabsTrigger value="theme"><Paintbrush className="w-4 h-4 mr-2" />テーマ</TabsTrigger>
+                <Tabs defaultValue="background" className="py-4">
+                    <TabsList className="grid w-full grid-cols-3">
                         <TabsTrigger value="background">背景</TabsTrigger>
                         <TabsTrigger value="card">カード</TabsTrigger>
                         <TabsTrigger value="text">テキスト</TabsTrigger>
                     </TabsList>
-                     <TabsContent value="theme" className="mt-4">
-                        <div className="space-y-4">
-                            <div>
-                                <Label>プリセットテーマ</Label>
-                                 <Select onValueChange={(value) => handleDesignChange('theme', value as Design['theme'])} value={design.theme}>
-                                    <SelectTrigger><SelectValue placeholder="テーマを選択..." /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="light">ライト (デフォルト)</SelectItem>
-                                        <SelectItem value="dark">ダーク</SelectItem>
-                                        <SelectItem value="cream">クリーム</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        </div>
-                    </TabsContent>
                     <TabsContent value="background" className="mt-4">
                         <div className="space-y-4">
                              <div>
