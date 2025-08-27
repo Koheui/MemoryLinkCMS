@@ -1,7 +1,7 @@
 // src/hooks/use-auth.tsx
 "use client";
 
-import { createContext, useContext, useEffect, useState, ReactNode, useCallback, useRef } from 'react';
+import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
 import { User, onAuthStateChanged, getAuth } from 'firebase/auth';
 import { getFirebaseApp } from '@/lib/firebase/client';
 import { usePathname, useRouter } from 'next/navigation';
@@ -35,10 +35,7 @@ const AuthContext = createContext<AuthContextType>({
 function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, loading, isAdmin, handleLogout } = useAuth();
   const pathname = usePathname();
-  const router = useRouter();
-
-  // This check is important. It ensures that we don't render the layout
-  // with incomplete user data, which could cause hydration mismatches.
+  
   if (loading || !user) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -113,8 +110,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [isAdmin, setIsAdmin] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
-  const previousUserRef = useRef(user);
-
 
   useEffect(() => {
     let unsubscribe: (() => void) | undefined;
@@ -124,32 +119,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             const app = await getFirebaseApp();
             const auth = getAuth(app);
             
-            console.log("AuthProvider: Setting up onAuthStateChanged listener.");
             unsubscribe = onAuthStateChanged(auth, async (authUser) => {
-              console.log("onAuthStateChanged: Auth state changed. User:", authUser ? authUser.uid : 'null');
               if (authUser) {
                 try {
-                  console.log(`onAuthStateChanged: Getting ID token result for user ${authUser.uid}.`);
                   const tokenResult = await authUser.getIdTokenResult();
                   const claims = tokenResult.claims;
-                  console.log("onAuthStateChanged: User claims:", claims);
-                  
                   setIsAdmin(claims.role === 'admin');
                   setUser(authUser as AuthContextType['user']);
-                  console.log("onAuthStateChanged: Successfully set user and admin state.");
                 } catch (error) {
                    console.error("Error during auth state processing:", error);
                    await auth.signOut();
                    setUser(null);
                    setIsAdmin(false);
-                   console.log("onAuthStateChanged: Signed out user due to error.");
                 }
               } else {
-                console.log("onAuthStateChanged: User is not authenticated.");
                 setUser(null);
                 setIsAdmin(false);
               }
-              console.log("onAuthStateChanged: Finished processing. Setting loading to false.");
               setLoading(false);
             });
         } catch(error) {
@@ -162,28 +148,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     return () => {
         if(unsubscribe) {
-            console.log("AuthProvider: Cleanup useEffect. Unsubscribing from onAuthStateChanged.");
             unsubscribe();
         }
     };
   }, []);
-
-  // This effect handles redirection *after* the user state has been confirmed.
-  useEffect(() => {
-      const wasPreviouslyLoading = previousUserRef.current === null;
-      const isLoggedInNow = user !== null;
-
-      // Check if the user has just logged in (state changed from null to a user object)
-      if (wasPreviouslyLoading && isLoggedInNow) {
-          const publicPages = ['/login', '/signup', '/'];
-          // If they are on a public page after logging in, redirect to dashboard.
-          if (publicPages.includes(pathname)) {
-              router.push('/dashboard');
-          }
-      }
-      // Update the ref to the current user for the next render.
-      previousUserRef.current = user;
-  }, [user, pathname, router]);
 
   const handleLogout = useCallback(async () => {
     try {
@@ -204,7 +172,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     '/_admin'
   ].some(path => pathname.startsWith(path));
 
-  // If auth is still loading, show a global loader to prevent layout flashes
   if (loading) {
      return (
       <div className="flex h-screen items-center justify-center">
@@ -213,11 +180,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     );
   }
 
-  // If it's an app page and there's no user, show the loader and redirect
-  // This is a safeguard, but primary redirection should be handled elsewhere if possible.
   if (isAppPage && !user) {
-    // Redirect logic moved to a dedicated effect
-    // to avoid state updates during render.
     if(typeof window !== 'undefined') {
         router.push('/login');
     }
