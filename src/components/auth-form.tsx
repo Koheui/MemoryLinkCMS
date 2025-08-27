@@ -13,11 +13,82 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/hooks/use-auth';
+import { getFirebaseApp } from '@/lib/firebase/client';
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+import { getFirestore, doc, writeBatch, query, where, collection, getDocs } from 'firebase/firestore';
+import type { User } from 'firebase/auth';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
+
+
+const claimUnclaimedData = async (user: User) => {
+    if (!user || !user.email) {
+        console.log("claimUnclaimedData: No user or email, skipping.");
+        return;
+    }
+    
+    const app = await getFirebaseApp();
+    const db = getFirestore(app);
+
+    const batch = writeBatch(db);
+    let claimedData = false;
+
+    try {
+        // Find unclaimed orders by email.
+        const ordersQuery = query(
+            collection(db, 'orders'),
+            where('email', '==', user.email),
+            where('userUid', '==', null)
+        );
+        const ordersSnapshot = await getDocs(ordersQuery);
+
+        if (!ordersSnapshot.empty) {
+            const memoryIdsToUpdate: string[] = [];
+            ordersSnapshot.forEach(orderDoc => {
+                const orderRef = doc(db, 'orders', orderDoc.id);
+                batch.update(orderRef, { userUid: user.uid });
+                const memoryId = orderDoc.data().memoryId;
+                if (memoryId) {
+                    memoryIdsToUpdate.push(memoryId);
+                }
+            });
+            
+            // Find associated memories and claim them
+            if (memoryIdsToUpdate.length > 0) {
+                 // Firestore 'in' queries are limited to 30 items. Handle chunking if necessary.
+                const memoryBatches: string[][] = [];
+                for (let i = 0; i < memoryIdsToUpdate.length; i += 30) {
+                    memoryBatches.push(memoryIdsToUpdate.slice(i, i + 30));
+                }
+
+                for (const batchIds of memoryBatches) {
+                    const memoriesQuery = query(
+                        collection(db, 'memories'),
+                        where('__name__', 'in', batchIds)
+                    );
+                    const memoriesSnapshot = await getDocs(memoriesQuery);
+                    memoriesSnapshot.forEach(memoryDoc => {
+                        if(memoryDoc.data().ownerUid === null) {
+                            const memoryRef = doc(db, 'memories', memoryDoc.id);
+                            batch.update(memoryRef, { ownerUid: user.uid });
+                        }
+                    });
+                }
+            }
+            claimedData = true;
+        }
+
+        if (claimedData) {
+            await batch.commit();
+        }
+    } catch (error) {
+        console.error("claimUnclaimedData: Error during data claiming process.", error);
+        throw error; // Re-throw to be caught by the form handler
+    }
+};
+
 
 interface AuthFormProps {
   type: 'login' | 'signup';
@@ -28,7 +99,7 @@ export function AuthForm({ type }: AuthFormProps) {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
-  const { handleLogin, handleSignup } = useAuth();
+  const router = useRouter();
 
   const title = type === 'login' ? 'ログイン' : '新規アカウント登録';
   const description =
@@ -41,14 +112,18 @@ export function AuthForm({ type }: AuthFormProps) {
     setLoading(true);
 
     try {
+      const app = getFirebaseApp();
+      const auth = getAuth(app);
+
       if (type === 'signup') {
-        await handleSignup(email, password);
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        await claimUnclaimedData(userCredential.user);
         toast({ title: '登録完了', description: 'ようこそ！ダッシュボードへ移動します。' });
-        // Redirection is handled by AuthProvider
+        router.push('/dashboard');
       } else {
-        await handleLogin(email, password);
+        await signInWithEmailAndPassword(auth, email, password);
         toast({ title: 'ログインしました', description: 'ようこそ！' });
-        // Redirection is handled by AuthProvider
+        router.push('/dashboard');
       }
     } catch (error: any) {
       console.error("Authentication Error:", error);
@@ -61,8 +136,6 @@ export function AuthForm({ type }: AuthFormProps) {
         errorMessage = 'パスワードは6文字以上で設定してください。';
       } else if (error.message.includes('auth/network-request-failed')) {
         errorMessage = 'ネットワークエラーが発生しました。接続を確認して再度お試しください。'
-      } else if (error.code === 'failed-precondition' || error.code === 'permission-denied') {
-        errorMessage = 'データの引き継ぎに失敗しました。管理者に問い合わせてください。'
       } else {
         errorMessage = error.message;
       }
