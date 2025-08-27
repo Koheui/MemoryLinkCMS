@@ -17,12 +17,17 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { LogOut, Library, ShieldCheck, Loader2, UserCircle, LayoutDashboard } from 'lucide-react';
 import Link from 'next/link';
+import { getFirestore, collection, query, where, onSnapshot, Unsubscribe } from 'firebase/firestore';
+import type { Memory, Asset } from '@/lib/types';
+
 
 interface AuthContextType {
   user: (User & { uid: string }) | null;
   loading: boolean;
   isAdmin: boolean;
   handleLogout: () => Promise<void>;
+  memories: Memory[];
+  assets: Asset[];
 }
 
 const AuthContext = createContext<AuthContextType>({ 
@@ -30,13 +35,17 @@ const AuthContext = createContext<AuthContextType>({
     loading: true,
     isAdmin: false,
     handleLogout: async () => {},
+    memories: [],
+    assets: [],
 });
 
 function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, loading, isAdmin, handleLogout } = useAuth();
   const pathname = usePathname();
   
-  if (loading || !user) {
+  const initialLoading = loading || !user;
+
+  if (initialLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="flex items-center gap-2">
@@ -61,7 +70,7 @@ function AppLayout({ children }: { children: React.ReactNode }) {
           </SidebarHeader>
           <SidebarMenu className="flex-1">
             <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive={pathname.startsWith('/dashboard')}>
+              <SidebarMenuButton asChild isActive={pathname.startsWith('/dashboard') || pathname === '/'}>
                 <Link href={dashboardHref}><LayoutDashboard/> ダッシュボード</Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
@@ -108,33 +117,58 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<AuthContextType['user'] | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [memories, setMemories] = useState<Memory[]>([]);
+  const [assets, setAssets] = useState<Asset[]>([]);
+
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
-    let unsubscribe: (() => void) | undefined;
-    
+    let unsubscribeAuth: Unsubscribe | undefined;
+    let unsubscribeMemories: Unsubscribe | undefined;
+    let unsubscribeAssets: Unsubscribe | undefined;
+
     const initAuth = async () => {
         try {
             const app = await getFirebaseApp();
             const auth = getAuth(app);
+            const db = getFirestore(app);
             
-            unsubscribe = onAuthStateChanged(auth, async (authUser) => {
+            unsubscribeAuth = onAuthStateChanged(auth, async (authUser) => {
               if (authUser) {
                 try {
                   const tokenResult = await authUser.getIdTokenResult();
-                  const claims = tokenResult.claims;
-                  setIsAdmin(claims.role === 'admin');
+                  setIsAdmin(tokenResult.claims.role === 'admin');
                   setUser(authUser as AuthContextType['user']);
+                  
+                  // Kill existing listeners before starting new ones
+                  if (unsubscribeMemories) unsubscribeMemories();
+                  if (unsubscribeAssets) unsubscribeAssets();
+
+                  // --- Realtime Data Fetching ---
+                  const memoriesQuery = query(collection(db, 'memories'), where('ownerUid', '==', authUser.uid));
+                  unsubscribeMemories = onSnapshot(memoriesQuery, (snapshot) => {
+                      const userMemories = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Memory));
+                      setMemories(userMemories);
+                  });
+                  
+                  const assetsQuery = query(collection(db, 'assets'), where('ownerUid', '==', authUser.uid));
+                  unsubscribeAssets = onSnapshot(assetsQuery, (snapshot) => {
+                       const userAssets = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Asset));
+                       setAssets(userAssets);
+                  });
+
                 } catch (error) {
                    console.error("Error during auth state processing:", error);
-                   await auth.signOut();
-                   setUser(null);
-                   setIsAdmin(false);
+                   await auth.signOut(); // Log out on error
                 }
               } else {
                 setUser(null);
                 setIsAdmin(false);
+                setMemories([]);
+                setAssets([]);
+                if (unsubscribeMemories) unsubscribeMemories();
+                if (unsubscribeAssets) unsubscribeAssets();
               }
               setLoading(false);
             });
@@ -147,9 +181,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     initAuth();
 
     return () => {
-        if(unsubscribe) {
-            unsubscribe();
-        }
+        if (unsubscribeAuth) unsubscribeAuth();
+        if (unsubscribeMemories) unsubscribeMemories();
+        if (unsubscribeAssets) unsubscribeAssets();
     };
   }, []);
 
@@ -164,13 +198,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, [router]);
 
-  const isAppPage = [
-    '/dashboard',
-    '/account',
-    '/media-library',
-    '/memories',
-    '/_admin'
-  ].some(path => pathname.startsWith(path));
+  const isAppPage = ![
+    '/login',
+    '/signup',
+    '/'
+  ].includes(pathname) && !pathname.startsWith('/p');
+
 
   if (loading) {
      return (
@@ -180,11 +213,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     );
   }
 
+  // If on an app page and not logged in, redirect to login
   if (isAppPage && !user) {
     if(typeof window !== 'undefined') {
         router.push('/login');
     }
-     return (
+    return (
       <div className="flex h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
@@ -192,7 +226,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, isAdmin, handleLogout }}>
+    <AuthContext.Provider value={{ user, loading, isAdmin, handleLogout, memories, assets }}>
       {isAppPage ? <AppLayout>{children}</AppLayout> : children}
     </AuthContext.Provider>
   );
