@@ -2,41 +2,33 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Admins are identified by a custom claim, not a document field, to prevent circular dependencies.
-    function isAdmin() {
-      return request.auth.token.role == 'admin';
+    //
+    // USER-OWNED DATA
+    //
+    match /users/{userId}/{document=**} {
+      allow read, write: if request.auth.uid == userId;
     }
 
-    // Users: Can read/update their own profile. Admins can read any profile.
-    match /users/{userId} {
-      allow read: if request.auth != null && (request.auth.uid == userId || isAdmin());
-      // Any authenticated user can create their own user profile document.
-      allow create: if request.auth != null && request.auth.uid == userId;
-      allow update: if request.auth != null && request.auth.uid == userId;
-    }
-
-    // Memories: Owners can do anything. Public read for 'active' memories.
+    // Memories: Owners can do anything. Public read is handled by generated pages.
     match /memories/{memoryId} {
-      // Allow public read access only if the memory status is 'active'.
-      allow get: if resource.data.status == 'active';
-      // Allow owners full read/write access. Admins can also read.
-      allow list, read: if request.auth != null && (resource.data.ownerUid == request.auth.uid || isAdmin());
-      allow write: if request.auth != null && resource.data.ownerUid == request.auth.uid;
-      // Allow creation for any authenticated user.
-      allow create: if request.auth != null;
+      // Allow owner to read/write/delete.
+      allow read, update, delete: if request.auth.uid == resource.data.ownerUid;
+      // Allow anyone to create a memory, which will initially have a null owner.
+      // Ownership will be claimed later.
+      allow create: if request.auth.uid != null;
     }
-    
+
     // Assets: Owners can do anything.
     match /assets/{assetId} {
-       allow read, write: if request.auth != null && resource.data.ownerUid == request.auth.uid;
+       allow read, write, delete: if request.auth != null && resource.data.ownerUid == request.auth.uid;
     }
-
-    // Orders: Admins can read/write all. Users can only create.
+    
+    //
+    // ADMIN-ONLY DATA
+    //
     match /orders/{orderId} {
-      allow read, write: if isAdmin();
-      // Allow creation for any authenticated user (e.g., via a purchase flow).
-      allow create: if request.auth != null;
+        // Only admins (with custom claim) can read/write orders.
+        allow read, write: if request.auth.token.role == 'admin';
     }
   }
 }
