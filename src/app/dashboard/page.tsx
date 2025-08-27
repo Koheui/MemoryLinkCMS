@@ -1,3 +1,4 @@
+
 // src/app/dashboard/page.tsx
 'use client';
 
@@ -10,7 +11,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { getFirebaseApp } from "@/lib/firebase/client";
-import { getFirestore, Timestamp, doc, writeBatch, serverTimestamp, setDoc, collection, query, where, getDocs, onSnapshot, Unsubscribe, deleteDoc } from 'firebase/firestore';
+import { getFirestore, Timestamp, doc, deleteDoc, serverTimestamp, setDoc, collection, query, where, getDocs, onSnapshot, Unsubscribe, writeBatch } from 'firebase/firestore';
 import { getStorage, ref, deleteObject } from 'firebase/storage';
 import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
@@ -136,8 +137,14 @@ export default function DashboardPage() {
     }, [authLoading, loadingData, user, memories, handleCreateNewMemory]);
 
 
-    const handleDeleteMemory = async () => {
-        if (!memoryToDelete || !user) return;
+    const handleDeleteMemory = async (memoryId: string) => {
+        if (!user) return;
+        
+        const memoryToDelete = memories.find(m => m.id === memoryId);
+        if (!memoryToDelete) {
+             toast({ variant: "destructive", title: "エラー", description: "削除対象のページが見つかりません。" });
+            return;
+        }
 
         setIsDeleting(true);
         try {
@@ -145,31 +152,23 @@ export default function DashboardPage() {
             const db = getFirestore(app);
             const storage = getStorage(app);
 
-            const batch = writeBatch(db);
+            // Step 1: Find and delete all associated assets in a loop
+            const assetsToDelete = assets.filter(asset => asset.memoryId === memoryId);
 
-            // Step 1: Find all associated assets
-            const assetsQuery = query(collection(db, 'assets'), where('memoryId', '==', memoryToDelete.id), where('ownerUid', '==', user.uid));
-            const assetsSnapshot = await getDocs(assetsQuery);
-            const assetsToDelete = assetsSnapshot.docs.map(d => ({id: d.id, ...d.data()} as Asset));
-
-            // Step 2: Delete asset files from Storage and add Firestore doc deletions to the batch
             for (const asset of assetsToDelete) {
                 if (asset.storagePath) {
                     const fileRef = ref(storage, asset.storagePath);
                     await deleteObject(fileRef).catch(err => {
+                        // Log but don't block deletion of Firestore doc if file is already gone
                         console.warn(`Could not delete storage file: ${asset.storagePath}`, err);
                     });
                 }
-                const assetDocRef = doc(db, "assets", asset.id);
-                batch.delete(assetDocRef);
+                await deleteDoc(doc(db, "assets", asset.id));
             }
-
-            // Step 3: Add the memory document deletion to the batch
-            const memoryRef = doc(db, "memories", memoryToDelete.id);
-            batch.delete(memoryRef);
             
-            // Step 4: Commit the batch
-            await batch.commit();
+            // Step 2: Delete the memory document itself
+            const memoryRef = doc(db, "memories", memoryId);
+            await deleteDoc(memoryRef);
             
             toast({ title: "成功", description: `「${memoryToDelete.title}」を関連データごと完全に削除しました。` });
         } catch (error: any) {
@@ -177,7 +176,7 @@ export default function DashboardPage() {
             toast({ variant: "destructive", title: "削除失敗", description: error.message });
         } finally {
             setIsDeleting(false);
-            setMemoryToDelete(null);
+            setMemoryToDelete(null); // Close the dialog
         }
     };
     
@@ -216,7 +215,7 @@ export default function DashboardPage() {
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                     <AlertDialogCancel>キャンセル</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDeleteMemory} disabled={isDeleting} className="bg-destructive hover:bg-destructive/90">
+                    <AlertDialogAction onClick={() => memoryToDelete && handleDeleteMemory(memoryToDelete.id)} disabled={isDeleting} className="bg-destructive hover:bg-destructive/90">
                         {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                         削除する
                     </AlertDialogAction>
