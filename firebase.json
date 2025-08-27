@@ -1,5 +1,8 @@
 
 {
+  "projects": {
+    "default": "memorylink-cms"
+  },
   "firestore": {
     "rules": "firestore.rules",
     "indexes": "firestore.indexes.json"
