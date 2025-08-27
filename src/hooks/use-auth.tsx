@@ -7,20 +7,16 @@ import {
     onAuthStateChanged, 
     getAuth, 
     Unsubscribe,
-    signInWithEmailAndPassword,
-    createUserWithEmailAndPassword,
     signOut
 } from 'firebase/auth';
 import { getFirebaseApp } from '@/lib/firebase/client';
 import { usePathname, useRouter } from 'next/navigation';
-import { getFirestore, collection, query, where, getDocs, writeBatch, doc } from 'firebase/firestore';
 
 interface AuthContextType {
   user: (User & { uid: string }) | null;
   loading: boolean;
   isAdmin: boolean;
   handleLogout: () => Promise<void>;
-  // Login and Signup logic will be handled directly in the form for simplicity and to avoid stale state issues.
 }
 
 const AuthContext = createContext<AuthContextType>({ 
@@ -53,7 +49,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                   setUser(authUser as AuthContextType['user']);
                 } catch (error) {
                    console.error("Error getting token result:", error);
-                   // If token fetch fails, treat as logged out
                    if (auth.currentUser) {
                      await signOut(auth);
                    }
