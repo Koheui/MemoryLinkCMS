@@ -1,43 +1,36 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper functions
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    function isOwner(uid) {
-      return request.auth.uid == uid;
-    }
-
     // Memories:
-    // - Anyone can read a memory if it's 'active'.
-    // - Only the owner can create, update, or delete their own memories.
+    // - Users can only read/write memories they own.
     match /memories/{memoryId} {
-      allow read: if resource.data.status == 'active';
-      allow get: if isSignedIn() && isOwner(resource.data.ownerUid);
-      allow list: if isSignedIn() && isOwner(resource.data.ownerUid);
-      allow create, update, delete: if isSignedIn() && isOwner(request.resource.data.ownerUid);
+      allow read, write: if request.auth != null && request.auth.uid == resource.data.ownerUid;
+    }
+
+    // Assets:
+    // - Users can only read/write assets they own.
+    // - For deletes, we additionally verify that the user also owns the parent memory document.
+    //   This is required for the transaction to be able to read the memory doc to verify ownership.
+    match /assets/{assetId} {
+      allow read: if request.auth != null && request.auth.uid == resource.data.ownerUid;
+      allow write: if request.auth != null && request.auth.uid == resource.data.ownerUid &&
+                   (request.method == 'delete' ?
+                     get(/databases/$(database)/documents/memories/$(resource.data.memoryId)).data.ownerUid == request.auth.uid :
+                     true);
     }
     
     // Orders:
-    // - Unauthenticated users (admins) can create new orders (invitations).
-    // - Authenticated users can list/read orders associated with their email.
-    // - Authenticated users can update an order to claim it (set userUid).
+    // - Admins can read/write all orders.
+    // - Users can read orders matching their UID after they have claimed them.
     match /orders/{orderId} {
-      allow get: if isSignedIn();
-      allow list: if isSignedIn() && request.query.where.email == request.auth.email;
-      allow create: if true;
-      allow update: if isSignedIn();
-    }
-    
-    // Assets:
-    // - Assets are public read.
-    // - Only the owner can create/update/delete their assets.
-    match /assets/{assetId} {
-      allow read: if true;
-      allow create, update, delete: if isSignedIn() && isOwner(request.resource.data.ownerUid);
+      function isAdmin() {
+        return request.auth.token.role == 'admin';
+      }
+
+      allow read: if request.auth != null && (isAdmin() || request.auth.uid == resource.data.userUid);
+      allow write: if request.auth != null && isAdmin();
     }
   }
 }
