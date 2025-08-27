@@ -2,25 +2,29 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    
+    function isOwner(uid) {
+      return request.auth.uid == uid;
+    }
+
     match /memories/{memoryId} {
-      // Allow read/write if the user is the owner. For delete, check the existing resource.
-      allow read: if resource.data.ownerUid == request.auth.uid;
-      allow create: if request.resource.data.ownerUid == request.auth.uid;
-      allow update: if request.resource.data.ownerUid == request.auth.uid;
-      allow delete: if resource.data.ownerUid == request.auth.uid;
+      allow read: if isOwner(resource.data.ownerUid);
+      allow create: if isOwner(request.resource.data.ownerUid);
+      allow update: if isOwner(resource.data.ownerUid);
+      allow delete: if isOwner(resource.data.ownerUid);
     }
+
     match /assets/{assetId} {
-       // Allow read/write if the user is the owner. For delete, check the existing resource.
-      allow read: if resource.data.ownerUid == request.auth.uid;
-      allow create: if request.resource.data.ownerUid == request.auth.uid;
-      allow update: if request.resource.data.ownerUid == request.auth.uid;
-      allow delete: if resource.data.ownerUid == request.auth.uid;
+      allow read: if isOwner(resource.data.ownerUid);
+      allow create: if isOwner(request.resource.data.ownerUid);
+      allow update: if isOwner(resource.data.ownerUid);
+      allow delete: if isOwner(resource.data.ownerUid) &&
+                       get(/databases/$(database)/documents/memories/$(resource.data.memoryId)).data.ownerUid == request.auth.uid;
     }
+
     match /orders/{orderId} {
-      // Only admins can read or write orders. This assumes an 'admin' role in user documents.
-      // This is a placeholder, as user roles aren't fully implemented in the app yet.
-      // For now, let's keep it simple and secure.
-      allow read, write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      // Admin functionality not fully implemented in the app, so secure by default.
+      allow read, write: if false;
     }
   }
 }
