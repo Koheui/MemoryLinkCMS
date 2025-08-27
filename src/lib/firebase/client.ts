@@ -1,3 +1,4 @@
+
 // src/lib/firebase/client.ts
 import { initializeApp, getApps, getApp, FirebaseApp } from "firebase/app";
 import { getAnalytics, isSupported } from "firebase/analytics";
