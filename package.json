@@ -9,7 +9,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "deploy": "firebase deploy --project memorylink-cms"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.1.0",
