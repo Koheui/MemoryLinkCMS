@@ -11,7 +11,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { getFirebaseApp } from "@/lib/firebase/client";
-import { getFirestore, Timestamp, doc, deleteDoc, serverTimestamp, setDoc, collection, query, where, getDocs, onSnapshot, Unsubscribe, writeBatch } from 'firebase/firestore';
+import { getFirestore, Timestamp, doc, deleteDoc, serverTimestamp, setDoc, collection, query, where, getDocs, onSnapshot, Unsubscribe, writeBatch, runTransaction } from 'firebase/firestore';
 import { getStorage, ref, deleteObject } from 'firebase/storage';
 import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
@@ -139,10 +139,10 @@ export default function DashboardPage() {
 
     const handleDeleteMemory = async (memoryId: string) => {
         if (!user) return;
-        
-        const memoryToDelete = memories.find(m => m.id === memoryId);
-        if (!memoryToDelete) {
-             toast({ variant: "destructive", title: "エラー", description: "削除対象のページが見つかりません。" });
+
+        const memoryData = memories.find(m => m.id === memoryId);
+        if (!memoryData) {
+            toast({ variant: "destructive", title: "Error", description: "Memory to delete not found." });
             return;
         }
 
@@ -152,25 +152,33 @@ export default function DashboardPage() {
             const db = getFirestore(app);
             const storage = getStorage(app);
 
-            // Step 1: Find and delete all associated assets in a loop
-            const assetsToDelete = assets.filter(asset => asset.memoryId === memoryId);
+            await runTransaction(db, async (transaction) => {
+                // 1. Query for all assets related to the memory inside the transaction
+                const assetsQuery = query(collection(db, 'assets'), where('memoryId', '==', memoryId));
+                const assetsSnapshot = await getDocs(assetsQuery);
+                
+                const assetsToDelete = assetsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Asset));
 
-            for (const asset of assetsToDelete) {
-                if (asset.storagePath) {
-                    const fileRef = ref(storage, asset.storagePath);
-                    await deleteObject(fileRef).catch(err => {
-                        // Log but don't block deletion of Firestore doc if file is already gone
-                        console.warn(`Could not delete storage file: ${asset.storagePath}`, err);
-                    });
+                // 2. Delete assets from Storage (this is outside the transaction but should be done first)
+                for (const asset of assetsToDelete) {
+                    if (asset.storagePath) {
+                        const fileRef = ref(storage, asset.storagePath);
+                        await deleteObject(fileRef).catch(err => {
+                             // Log but don't block deletion if file is already gone
+                            console.warn(`Could not delete storage file: ${asset.storagePath}`, err);
+                        });
+                    }
+                    const assetDocRef = doc(db, "assets", asset.id);
+                    transaction.delete(assetDocRef);
                 }
-                await deleteDoc(doc(db, "assets", asset.id));
-            }
-            
-            // Step 2: Delete the memory document itself
-            const memoryRef = doc(db, "memories", memoryId);
-            await deleteDoc(memoryRef);
-            
-            toast({ title: "成功", description: `「${memoryToDelete.title}」を関連データごと完全に削除しました。` });
+
+                // 3. Delete the memory document
+                const memoryRef = doc(db, "memories", memoryId);
+                transaction.delete(memoryRef);
+            });
+
+            toast({ title: "成功", description: `「${memoryData.title}」を関連データごと完全に削除しました。` });
+
         } catch (error: any) {
             console.error("Failed to delete memory:", error);
             toast({ variant: "destructive", title: "削除失敗", description: error.message });
