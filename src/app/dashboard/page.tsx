@@ -1,4 +1,3 @@
-
 // src/app/dashboard/page.tsx
 'use client';
 
@@ -142,7 +141,7 @@ export default function DashboardPage() {
 
         const memoryData = memories.find(m => m.id === memoryId);
         if (!memoryData) {
-            toast({ variant: "destructive", title: "Error", description: "Memory to delete not found." });
+            toast({ variant: "destructive", title: "Error", description: "削除対象のページが見つかりませんでした。" });
             return;
         }
 
@@ -152,30 +151,35 @@ export default function DashboardPage() {
             const db = getFirestore(app);
             const storage = getStorage(app);
 
-            await runTransaction(db, async (transaction) => {
-                // 1. Query for all assets related to the memory inside the transaction
-                const assetsQuery = query(collection(db, 'assets'), where('memoryId', '==', memoryId));
-                const assetsSnapshot = await getDocs(assetsQuery);
-                
-                const assetsToDelete = assetsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Asset));
+            // 1. Get all assets associated with the memory.
+            const assetsQuery = query(collection(db, 'assets'), where('memoryId', '==', memoryId));
+            const assetsSnapshot = await getDocs(assetsQuery);
+            const assetsToDelete = assetsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Asset));
 
-                // 2. Delete assets from Storage (this is outside the transaction but should be done first)
-                for (const asset of assetsToDelete) {
-                    if (asset.storagePath) {
-                        const fileRef = ref(storage, asset.storagePath);
-                        await deleteObject(fileRef).catch(err => {
-                             // Log but don't block deletion if file is already gone
-                            console.warn(`Could not delete storage file: ${asset.storagePath}`, err);
-                        });
-                    }
-                    const assetDocRef = doc(db, "assets", asset.id);
-                    transaction.delete(assetDocRef);
+            // 2. Delete files from Storage in parallel.
+            const deletePromises = assetsToDelete.map(asset => {
+                if (asset.storagePath) {
+                    const fileRef = ref(storage, asset.storagePath);
+                    return deleteObject(fileRef).catch(err => {
+                        console.warn(`Could not delete storage file (it may not exist): ${asset.storagePath}`, err);
+                    });
                 }
-
-                // 3. Delete the memory document
-                const memoryRef = doc(db, "memories", memoryId);
-                transaction.delete(memoryRef);
+                return Promise.resolve();
             });
+            await Promise.all(deletePromises);
+
+            // 3. Use a batch to delete all Firestore documents atomically.
+            const batch = writeBatch(db);
+
+            assetsToDelete.forEach(asset => {
+                const assetDocRef = doc(db, "assets", asset.id);
+                batch.delete(assetDocRef);
+            });
+
+            const memoryRef = doc(db, "memories", memoryId);
+            batch.delete(memoryRef);
+            
+            await batch.commit();
 
             toast({ title: "成功", description: `「${memoryData.title}」を関連データごと完全に削除しました。` });
 

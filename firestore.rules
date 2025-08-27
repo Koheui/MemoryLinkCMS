@@ -9,7 +9,6 @@ service cloud.firestore {
       allow read, write: if request.auth.uid == userId;
     }
 
-    // Memories: Owners can do anything. Public read is handled by generated pages.
     match /memories/{memoryId} {
       // Allow owner to read/write/delete.
       allow read, update, delete: if request.auth.uid == resource.data.ownerUid;
@@ -18,9 +17,9 @@ service cloud.firestore {
       allow create: if request.auth.uid != null;
     }
 
-    // Assets: Owners can do anything.
     match /assets/{assetId} {
-       allow read, write, delete: if request.auth != null && resource.data.ownerUid == request.auth.uid;
+        // Allow owner to read/write/delete.
+        allow read, write, delete: if request.auth.uid == resource.data.ownerUid;
     }
     
     //
