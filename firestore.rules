@@ -2,34 +2,8 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Helper function to check ownership. It's good practice to keep this.
-    function isOwner(uid) {
-      return request.auth.uid == uid;
-    }
-
-    match /memories/{memoryId} {
-      allow read: if isOwner(resource.data.ownerUid);
-      allow create: if isOwner(request.resource.data.ownerUid);
-      // For update, check ownership of the existing document.
-      allow update: if isOwner(resource.data.ownerUid);
-      // For delete, check ownership of the document *before* it's deleted.
-      allow delete: if isOwner(resource.data.ownerUid);
-    }
-    match /assets/{assetId} {
-      allow read: if isOwner(resource.data.ownerUid);
-      allow create: if isOwner(request.resource.data.ownerUid);
-      // For update, check ownership of the existing document.
-      allow update: if isOwner(resource.data.ownerUid);
-      // The crucial change: we ONLY check the ownership of the asset being deleted.
-      // We no longer try to `get()` the related memory document.
-      // The client logic now deletes assets BEFORE deleting the memory,
-      // so this simple check is secure and sufficient.
-      allow delete: if isOwner(resource.data.ownerUid);
-    }
-    match /orders/{orderId} {
-      // This remains disabled for security until admin features are built.
-      // In a real app, this should check a 'roles' subcollection or custom claims.
-      allow read, write: if false;
+    match /{document=**} {
+      allow read, write: if request.auth != null;
     }
   }
 }
