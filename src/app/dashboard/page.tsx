@@ -39,40 +39,49 @@ export default function DashboardPage() {
     useEffect(() => {
         if (!user) return;
 
+        let memoriesUnsubscribe: Unsubscribe | undefined;
+        let assetsUnsubscribe: Unsubscribe | undefined;
+
         const setupListeners = async () => {
             setLoadingData(true);
-            const app = await getFirebaseApp();
-            const db = getFirestore(app);
+            try {
+                const app = await getFirebaseApp();
+                const db = getFirestore(app);
 
-            const memoriesQuery = query(collection(db, 'memories'), where('ownerUid', '==', user.uid));
-            const memoriesUnsubscribe = onSnapshot(memoriesQuery, (snapshot) => {
-                const userMemories = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Memory));
-                setMemories(userMemories);
+                const memoriesQuery = query(collection(db, 'memories'), where('ownerUid', '==', user.uid));
+                memoriesUnsubscribe = onSnapshot(memoriesQuery, (snapshot) => {
+                    const userMemories = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Memory));
+                    setMemories(userMemories);
+                    setLoadingData(false);
+                }, (error) => {
+                    console.error("Failed to fetch memories:", error);
+                    toast({ variant: 'destructive', title: 'エラー', description: '想い出ページの読み込みに失敗しました。'});
+                    setLoadingData(false);
+                });
+
+                const assetsQuery = query(collection(db, 'assets'), where('ownerUid', '==', user.uid));
+                assetsUnsubscribe = onSnapshot(assetsQuery, (snapshot) => {
+                    const userAssets = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Asset));
+                    setAssets(userAssets);
+                }, (error) => {
+                    console.error("Failed to fetch assets:", error);
+                    toast({ variant: 'destructive', title: 'エラー', description: 'メディアファイルの読み込みに失敗しました。'});
+                });
+
+            } catch (error) {
+                console.error("Error setting up listeners:", error);
+                toast({ variant: 'destructive', title: 'エラー', description: 'データの初期化に失敗しました。'});
                 setLoadingData(false);
-            }, (error) => {
-                console.error("Failed to fetch memories:", error);
-                setLoadingData(false);
-            });
-
-            // We fetch assets once, and then it's managed client side
-            // A full implementation might use a more sophisticated state management
-            const assetsQuery = query(collection(db, 'assets'), where('ownerUid', '==', user.uid));
-            const assetsSnapshot = await getDocs(assetsQuery);
-            const userAssets = assetsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Asset));
-            setAssets(userAssets);
-
-
-            return () => {
-                memoriesUnsubscribe();
-            };
+            }
         };
 
-        const unsubscribePromise = setupListeners();
+        setupListeners();
 
         return () => {
-            unsubscribePromise.then(unsub => unsub && unsub());
+            if (memoriesUnsubscribe) memoriesUnsubscribe();
+            if (assetsUnsubscribe) assetsUnsubscribe();
         };
-    }, [user]);
+    }, [user, toast]);
 
     const handleCreateNewMemory = useCallback(async () => {
         if (!user) return;
@@ -141,28 +150,23 @@ export default function DashboardPage() {
             const assetsSnapshot = await getDocs(assetsQuery);
             const assetsToDelete = assetsSnapshot.docs.map(d => ({id: d.id, ...d.data()} as Asset));
 
-            // Step 2: Delete all associated assets from Storage and Firestore (in a batch)
-            if (assetsToDelete.length > 0) {
-                const assetBatch = writeBatch(db);
-                for (const asset of assetsToDelete) {
-                    if (asset.storagePath) {
-                        const fileRef = ref(storage, asset.storagePath);
-                        await deleteObject(fileRef).catch(err => console.warn(`Could not delete file: ${asset.storagePath}`, err));
-                    }
-                    const assetDocRef = doc(db, "assets", asset.id);
-                    assetBatch.delete(assetDocRef);
+            // Step 2: Delete all associated assets one by one from Storage and Firestore
+            for (const asset of assetsToDelete) {
+                if (asset.storagePath) {
+                    const fileRef = ref(storage, asset.storagePath);
+                    await deleteObject(fileRef).catch(err => {
+                        // Log but don't block if a single file fails (e.g., already deleted)
+                        console.warn(`Could not delete storage file: ${asset.storagePath}`, err);
+                    });
                 }
-                await assetBatch.commit();
+                const assetDocRef = doc(db, "assets", asset.id);
+                await deleteDoc(assetDocRef);
             }
 
             // Step 3: Delete the memory document itself
             const memoryRef = doc(db, "memories", memoryToDelete.id);
             await deleteDoc(memoryRef);
             
-            // Client-side state update
-            setMemories(prev => prev.filter(m => m.id !== memoryToDelete.id));
-            setAssets(prev => prev.filter(a => a.memoryId !== memoryToDelete.id));
-
             toast({ title: "成功", description: `「${memoryToDelete.title}」を関連データごと完全に削除しました。` });
         } catch (error: any) {
             console.error("Failed to delete memory:", error);
