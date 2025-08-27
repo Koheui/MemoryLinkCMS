@@ -2,35 +2,25 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Memories:
-    // - Users can only read/write memories they own.
     match /memories/{memoryId} {
-      allow read, write: if request.auth != null && request.auth.uid == resource.data.ownerUid;
+      // Allow read/write if the user is the owner. For delete, check the existing resource.
+      allow read: if resource.data.ownerUid == request.auth.uid;
+      allow create: if request.resource.data.ownerUid == request.auth.uid;
+      allow update: if request.resource.data.ownerUid == request.auth.uid;
+      allow delete: if resource.data.ownerUid == request.auth.uid;
     }
-
-    // Assets:
-    // - Users can only read/write assets they own.
-    // - For deletes, we additionally verify that the user also owns the parent memory document.
-    //   This is required for the transaction to be able to read the memory doc to verify ownership.
     match /assets/{assetId} {
-      allow read: if request.auth != null && request.auth.uid == resource.data.ownerUid;
-      allow write: if request.auth != null && request.auth.uid == resource.data.ownerUid &&
-                   (request.method == 'delete' ?
-                     get(/databases/$(database)/documents/memories/$(resource.data.memoryId)).data.ownerUid == request.auth.uid :
-                     true);
+       // Allow read/write if the user is the owner. For delete, check the existing resource.
+      allow read: if resource.data.ownerUid == request.auth.uid;
+      allow create: if request.resource.data.ownerUid == request.auth.uid;
+      allow update: if request.resource.data.ownerUid == request.auth.uid;
+      allow delete: if resource.data.ownerUid == request.auth.uid;
     }
-    
-    // Orders:
-    // - Admins can read/write all orders.
-    // - Users can read orders matching their UID after they have claimed them.
     match /orders/{orderId} {
-      function isAdmin() {
-        return request.auth.token.role == 'admin';
-      }
-
-      allow read: if request.auth != null && (isAdmin() || request.auth.uid == resource.data.userUid);
-      allow write: if request.auth != null && isAdmin();
+      // Only admins can read or write orders. This assumes an 'admin' role in user documents.
+      // This is a placeholder, as user roles aren't fully implemented in the app yet.
+      // For now, let's keep it simple and secure.
+      allow read, write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
   }
 }
