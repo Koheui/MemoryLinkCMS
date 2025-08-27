@@ -1,3 +1,4 @@
+
 // src/hooks/use-auth.tsx
 "use client";
 
@@ -168,6 +169,31 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, [router]);
 
+  useEffect(() => {
+    // This effect handles redirection after user state changes.
+    // It runs when loading is finished.
+    if (!loading) {
+      const isAppPage = ![
+        '/login',
+        '/signup',
+        '/'
+      ].includes(pathname) && !pathname.startsWith('/p');
+
+      if (user) {
+        // If user is logged in, and on a public page, redirect to dashboard.
+        if (!isAppPage) {
+          router.push('/dashboard');
+        }
+      } else {
+        // If user is not logged in, and on an app page, redirect to login.
+        if (isAppPage) {
+          router.push('/login');
+        }
+      }
+    }
+  }, [user, loading, pathname, router]);
+
+
   const isAppPage = ![
     '/login',
     '/signup',
@@ -183,33 +209,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     );
   }
 
-  // If on an app page and not logged in, redirect to login
-  if (isAppPage && !user) {
-    if(typeof window !== 'undefined') {
-        router.push('/login');
-    }
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-  
-    // Redirect authenticated users from login/signup to dashboard
-    if (user && (pathname === '/login' || pathname === '/signup' || pathname === '/')) {
-      router.push('/dashboard');
-      return ( // Return loading spinner while redirecting
-        <div className="flex h-screen items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      );
-    }
-
-
   return (
     <AuthContext.Provider value={{ user, loading, isAdmin, handleLogout }}>
       {isAppPage ? <AppLayout>{children}</AppLayout> : children}
-    </Auth-Context.Provider>
+    </AuthContext.Provider>
   );
 };
 
