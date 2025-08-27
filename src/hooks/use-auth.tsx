@@ -44,7 +44,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                   setUser(authUser as AuthContextType['user']);
                 } catch (error) {
                    console.error("Error getting token result:", error);
-                   await auth.signOut(); // Log out on error
+                   // If getting the token fails, it might be a temporary issue,
+                   // but logging out is a safe fallback to force a clean state.
+                   await handleLogout();
                 }
               } else {
                 setUser(null);

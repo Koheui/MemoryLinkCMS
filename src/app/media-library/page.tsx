@@ -103,7 +103,7 @@ export default function MediaLibraryPage() {
     return () => {
       if (unsubscribe) unsubscribe();
     };
-  }, [user, authLoading, toast, TOTAL_STORAGE_LIMIT_BYTES]);
+  }, [user, authLoading, toast]);
 
   const handleDeleteAssets = async (assetIds: string[]) => {
     if (!user || assetIds.length === 0) return;
