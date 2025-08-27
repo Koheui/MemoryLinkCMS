@@ -2,9 +2,6 @@
 import { initializeApp, getApps, getApp, FirebaseApp } from "firebase/app";
 import { getAnalytics, isSupported } from "firebase/analytics";
 
-// This is a singleton promise that will be reused
-let appPromise: Promise<FirebaseApp> | null = null;
-
 const firebaseConfig = {
     apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
     authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -19,18 +16,28 @@ function initializeClientApp(): FirebaseApp {
         return getApp();
     }
 
-    if (!firebaseConfig.projectId) {
-      throw new Error("Firebase config is not valid. Project ID is missing. Please check your .env.local file.");
+    // Check if all required Firebase config keys are present
+    if (!firebaseConfig.projectId || !firebaseConfig.apiKey) {
+      throw new Error("Firebase config is not valid. Project ID or API Key is missing. Please check your .env.local file and ensure all NEXT_PUBLIC_ variables are set.");
     }
 
     const app = initializeApp(firebaseConfig);
 
     if (typeof window !== "undefined") {
-        isSupported().then(yes => yes && getAnalytics(app));
+        // This promise-based check ensures analytics is only initialized if supported.
+        isSupported().then(yes => {
+            if (yes) {
+                getAnalytics(app);
+            }
+        }).catch(err => {
+            console.warn("Firebase Analytics not supported in this environment:", err);
+        });
     }
     return app;
 };
 
+// Export a single function to get the Firebase app instance.
+// This ensures initialization logic is contained and runs only once.
 export const getFirebaseApp = (): FirebaseApp => {
     return initializeClientApp();
 }
