@@ -12,21 +12,25 @@ const firebaseConfig = {
     appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-function initializeClientApp(): FirebaseApp {
-    // Check for missing environment variables *before* initialization
-    for (const [key, value] of Object.entries(firebaseConfig)) {
-        if (!value) {
-            // This will throw a clear error if a variable is missing
-            throw new Error(`Firebase config is not valid. The variable NEXT_PUBLIC_FIREBASE_${key.replace(/([A-Z])/g, '_$1').toUpperCase()} is missing. Please check your environment variables.`);
-        }
-    }
-    
+// This function initializes and returns the Firebase app instance.
+export const getFirebaseApp = (): FirebaseApp => {
+    // If the app is already initialized, return it.
     if (getApps().length > 0) {
         return getApp();
     }
 
+    // Check for missing environment variables before initialization.
+    // This provides a clear error message if the .env.local file is not set up correctly.
+    for (const [key, value] of Object.entries(firebaseConfig)) {
+        if (!value) {
+            throw new Error(`Firebase config is not valid. The variable NEXT_PUBLIC_${key.replace(/([A-Z])/g, '_$1').toUpperCase()} is missing. Please check your .env.local file.`);
+        }
+    }
+
+    // Initialize the Firebase app.
     const app = initializeApp(firebaseConfig);
 
+    // Initialize Analytics if running in a browser environment.
     if (typeof window !== "undefined") {
         isSupported().then(yes => {
             if (yes) {
@@ -36,9 +40,6 @@ function initializeClientApp(): FirebaseApp {
             console.warn("Firebase Analytics not supported in this environment:", err);
         });
     }
+
     return app;
 };
-
-export const getFirebaseApp = (): FirebaseApp => {
-    return initializeClientApp();
-}
