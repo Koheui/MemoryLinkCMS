@@ -136,13 +136,13 @@ export function AuthForm({ type }: AuthFormProps) {
             await claimUnclaimedData(userCredential.user);
             
             toast({ title: '登録完了', description: 'ようこそ！ダッシュボードへ移動します。' });
-            router.push('/dashboard');
+            // The redirection is now handled by the AuthProvider upon state change.
 
         } else {
             // Login
             await signInWithEmailAndPassword(auth, email, password);
             toast({ title: 'ログインしました', description: 'ようこそ！' });
-            router.push('/dashboard');
+            // The redirection is now handled by the AuthProvider upon state change.
         }
     } catch (error: any) {
         console.error("Authentication Error:", error);

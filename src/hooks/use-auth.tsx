@@ -1,7 +1,7 @@
 // src/hooks/use-auth.tsx
 "use client";
 
-import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
+import { createContext, useContext, useEffect, useState, ReactNode, useCallback, useRef } from 'react';
 import { User, onAuthStateChanged, getAuth } from 'firebase/auth';
 import { getFirebaseApp } from '@/lib/firebase/client';
 import { usePathname, useRouter } from 'next/navigation';
@@ -32,12 +32,13 @@ const AuthContext = createContext<AuthContextType>({
     handleLogout: async () => {},
 });
 
-
 function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, loading, isAdmin, handleLogout } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
 
+  // This check is important. It ensures that we don't render the layout
+  // with incomplete user data, which could cause hydration mismatches.
   if (loading || !user) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -112,6 +113,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [isAdmin, setIsAdmin] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
+  const previousUserRef = useRef(user);
+
 
   useEffect(() => {
     let unsubscribe: (() => void) | undefined;
@@ -165,6 +168,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     };
   }, []);
 
+  // This effect handles redirection *after* the user state has been confirmed.
+  useEffect(() => {
+      const wasPreviouslyLoading = previousUserRef.current === null;
+      const isLoggedInNow = user !== null;
+
+      // Check if the user has just logged in (state changed from null to a user object)
+      if (wasPreviouslyLoading && isLoggedInNow) {
+          const publicPages = ['/login', '/signup', '/'];
+          // If they are on a public page after logging in, redirect to dashboard.
+          if (publicPages.includes(pathname)) {
+              router.push('/dashboard');
+          }
+      }
+      // Update the ref to the current user for the next render.
+      previousUserRef.current = user;
+  }, [user, pathname, router]);
+
   const handleLogout = useCallback(async () => {
     try {
       const app = await getFirebaseApp();
@@ -193,9 +213,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     );
   }
 
-  // If it's an app page and there's no user, show the loader until redirection happens
+  // If it's an app page and there's no user, show the loader and redirect
+  // This is a safeguard, but primary redirection should be handled elsewhere if possible.
   if (isAppPage && !user) {
-    return (
+    // Redirect logic moved to a dedicated effect
+    // to avoid state updates during render.
+    if(typeof window !== 'undefined') {
+        router.push('/login');
+    }
+     return (
       <div className="flex h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
