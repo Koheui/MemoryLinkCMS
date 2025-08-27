@@ -145,27 +145,31 @@ export default function DashboardPage() {
             const db = getFirestore(app);
             const storage = getStorage(app);
 
+            const batch = writeBatch(db);
+
             // Step 1: Find all associated assets
             const assetsQuery = query(collection(db, 'assets'), where('memoryId', '==', memoryToDelete.id), where('ownerUid', '==', user.uid));
             const assetsSnapshot = await getDocs(assetsQuery);
             const assetsToDelete = assetsSnapshot.docs.map(d => ({id: d.id, ...d.data()} as Asset));
 
-            // Step 2: Delete all associated assets one by one from Storage and Firestore
+            // Step 2: Delete asset files from Storage and add Firestore doc deletions to the batch
             for (const asset of assetsToDelete) {
                 if (asset.storagePath) {
                     const fileRef = ref(storage, asset.storagePath);
                     await deleteObject(fileRef).catch(err => {
-                        // Log but don't block if a single file fails (e.g., already deleted)
                         console.warn(`Could not delete storage file: ${asset.storagePath}`, err);
                     });
                 }
                 const assetDocRef = doc(db, "assets", asset.id);
-                await deleteDoc(assetDocRef);
+                batch.delete(assetDocRef);
             }
 
-            // Step 3: Delete the memory document itself
+            // Step 3: Add the memory document deletion to the batch
             const memoryRef = doc(db, "memories", memoryToDelete.id);
-            await deleteDoc(memoryRef);
+            batch.delete(memoryRef);
+            
+            // Step 4: Commit the batch
+            await batch.commit();
             
             toast({ title: "成功", description: `「${memoryToDelete.title}」を関連データごと完全に削除しました。` });
         } catch (error: any) {
