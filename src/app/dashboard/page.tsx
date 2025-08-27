@@ -8,7 +8,7 @@ import type { Memory, Asset } from "@/lib/types";
 import { PlusCircle, Edit, ExternalLink, Loader2, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { getFirebaseApp } from "@/lib/firebase/client";
 import { getFirestore, Timestamp, doc, writeBatch, serverTimestamp, setDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { getStorage, ref, deleteObject } from 'firebase/storage';
@@ -27,15 +27,15 @@ import {
 
 export default function DashboardPage() {
     const { user, memories, assets, loading: authLoading } = useAuth();
-    const [isCreating, setIsCreating] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [memoryToDelete, setMemoryToDelete] = useState<Memory | null>(null);
     const router = useRouter();
     const { toast } = useToast();
+    const hasCreatedInitialMemory = useRef(false);
 
     const handleCreateNewMemory = useCallback(async () => {
-        if (!user || isCreating) return;
-        setIsCreating(true);
+        if (!user) return;
+        
         try {
             const app = await getFirebaseApp();
             const db = getFirestore(app);
@@ -75,16 +75,16 @@ export default function DashboardPage() {
         } catch (error: any) {
              console.error("Error creating new memory:", error);
              toast({ variant: 'destructive', title: 'エラー', description: `ページの作成に失敗しました: ${error.message}`});
-             setIsCreating(false);
         }
-    }, [user, isCreating, toast, router]);
+    }, [user, toast, router]);
     
     // Auto-create first memory page for new users
     useEffect(() => {
-        if (!authLoading && user && memories.length === 0 && !isCreating) {
+        if (!authLoading && user && memories.length === 0 && !hasCreatedInitialMemory.current) {
+            hasCreatedInitialMemory.current = true;
             handleCreateNewMemory();
         }
-    }, [authLoading, user, memories, isCreating, handleCreateNewMemory]);
+    }, [authLoading, user, memories, handleCreateNewMemory]);
 
 
     const handleDeleteMemory = async () => {
@@ -141,15 +141,11 @@ export default function DashboardPage() {
     }, [memories, assets]);
 
 
-    if (isCreating) {
+    if (authLoading) {
         return (
             <div className="flex h-full items-center justify-center p-4">
                  <div className="text-center py-20 bg-muted/50 rounded-lg border border-dashed w-full max-w-lg">
-                    <h2 className="text-xl font-semibold">最初の想い出ページを作成中...</h2>
-                    <p className="text-muted-foreground mt-2 px-4">
-                        初回ログインありがとうございます。あなたのための特別なページを準備しています。
-                    </p>
-                     <Loader2 className="mt-6 h-8 w-8 animate-spin text-primary mx-auto" />
+                    <Loader2 className="mt-6 h-8 w-8 animate-spin text-primary mx-auto" />
                 </div>
             </div>
         )
@@ -182,8 +178,8 @@ export default function DashboardPage() {
                     <h1 className="text-2xl font-bold tracking-tight font-headline">ダッシュボード</h1>
                     <p className="text-muted-foreground">あなたの想い出ページを管理します。</p>
                 </div>
-                <Button onClick={handleCreateNewMemory} disabled={isCreating}>
-                    {isCreating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
+                <Button onClick={handleCreateNewMemory}>
+                    <PlusCircle className="mr-2 h-4 w-4" />
                     新しいページを作成
                 </Button>
             </div>
@@ -227,7 +223,7 @@ export default function DashboardPage() {
                     </Card>
                 ))}
             </div>
-            {memoriesWithCovers.length === 0 && !isCreating && (
+            {memoriesWithCovers.length === 0 && !authLoading && (
                 <div className="text-center py-20 bg-muted/50 rounded-lg border border-dashed">
                     <h2 className="text-xl font-semibold">まだ想い出ページがありません</h2>
                     <p className="text-muted-foreground mt-2">「新しいページを作成」ボタンから始めましょう。</p>
