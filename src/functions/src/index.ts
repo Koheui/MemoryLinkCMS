@@ -7,5 +7,5 @@
  * See a full list of supported triggers at https://firebase.google.com/docs/functions
  */
 
-// This file is intentionally left blank to resolve build conflicts.
-// The video thumbnail generation function has been moved to a separate project.
+// 期限切れクレーム要求処理
+export { expireClaims } from './expire-claims';

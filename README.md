@@ -1,6 +1,73 @@
-  de# MemoryLink CMS
+# MemoryLink CMS
 
-This is a Next.js application for MemoryLink CMS, a platform for users to create beautiful, shareable "Memory Pages" from their photos, videos, audio, and text. The public pages are optimized for mobile and designed to be accessed via NFC tags.
+想い出リンクCMS - 写真/動画/音声/テキストで「想い出ページ」を作り、NFC/QRからスマホ最適UIで閲覧可能にするシステム
+
+## 🚀 セットアップ
+
+### 1. 環境変数の設定
+
+Firebase Admin SDKを使用するために、以下の環境変数を設定してください：
+
+```bash
+# .env.local ファイルを作成
+FIREBASE_PROJECT_ID=memorylink-cms
+FIREBASE_CLIENT_EMAIL=firebase-adminsdk-xxxxx@memorylink-cms.iam.gserviceaccount.com
+FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC...\n-----END PRIVATE KEY-----\n"
+```
+
+#### Firebase Admin SDK認証情報の取得方法：
+
+1. [Firebase Console](https://console.firebase.google.com/project/memorylink-cms) にアクセス
+2. プロジェクト設定 > サービスアカウント を選択
+3. 「新しい秘密鍵の生成」をクリック
+4. ダウンロードされたJSONファイルから以下の値を取得：
+   - `project_id` → `FIREBASE_PROJECT_ID`
+   - `client_email` → `FIREBASE_CLIENT_EMAIL`
+   - `private_key` → `FIREBASE_PRIVATE_KEY`
+
+**注意**: `private_key`は改行文字（`\n`）を含むため、環境変数ファイルでは`"`で囲んでください。
+
+### 2. 依存関係のインストール
+
+```bash
+npm install
+```
+
+### 3. 開発サーバーの起動
+
+```bash
+npm run dev
+```
+
+## 🔧 トラブルシューティング
+
+### Firebase Admin SDK認証エラー
+
+**エラー**: `invalid_grant: Invalid grant: account not found`
+
+**解決方法**:
+1. サービスアカウントキーが有効期限切れの可能性
+2. Firebase Consoleで新しいキーを生成
+3. 環境変数を更新
+4. アプリケーションを再起動
+
+### 診断APIの使用
+
+Firebase Admin SDKの動作確認には、以下の診断APIを使用してください：
+
+```bash
+# Firebase Admin SDK診断
+GET /api/test/firebase-debug
+
+# メールリンク送信テスト
+POST /api/test/email-link-only
+```
+
+## 📚 関連ドキュメント
+
+- [開発ログ](DEVELOPMENT_LOG.md)
+- [仕様書 v3.1](specification-v3.1.md)
+- [実装タスク](TODOv3.1.md)
 
 ## Core Features
 

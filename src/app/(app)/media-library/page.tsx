@@ -35,6 +35,8 @@ import { getStorage, ref, deleteObject } from 'firebase/storage';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { MediaUploader } from '@/components/media-uploader';
+import { VideoThumbnail } from '@/components/video-thumbnail';
+import { AudioThumbnail } from '@/components/audio-thumbnail';
 import { cn } from '@/lib/utils';
 
 
@@ -109,7 +111,7 @@ export default function MediaLibraryPage() {
     if (!user || assetIds.length === 0) return;
   
     setIsDeleting(true);
-    const assetsToDelete = assets.filter(a => assetIds.includes(a.id));
+    const assetsToDelete = assets.filter(a => assetIds.includes(a.assetId));
   
     try {
       const app = getFirebaseApp();
@@ -130,7 +132,7 @@ export default function MediaLibraryPage() {
         }
         
         // Then delete the document from Firestore
-        const assetRef = doc(db, "assets", asset.id);
+        const assetRef = doc(db, "assets", asset.assetId);
         await deleteDoc(assetRef);
       }
   
@@ -176,20 +178,20 @@ export default function MediaLibraryPage() {
         return (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
                 {filteredAssets.length > 0 ? filteredAssets.map(asset => {
-                    const isSelected = selectedAssets.includes(asset.id);
+                    const isSelected = selectedAssets.includes(asset.assetId);
                     return (
                         <Card 
-                            key={asset.id} 
+                            key={asset.assetId} 
                             className={cn(
                                 "overflow-hidden relative group cursor-pointer transition-all duration-200",
                                 isSelected ? "ring-2 ring-primary ring-offset-2" : "ring-0"
                             )}
-                            onClick={() => handleSelectionChange(asset.id)}
+                            onClick={() => handleSelectionChange(asset.assetId)}
                         >
                             <div className="absolute top-2 left-2 z-10">
                                <Checkbox 
                                  checked={isSelected}
-                                 onCheckedChange={() => handleSelectionChange(asset.id)}
+                                 onCheckedChange={() => handleSelectionChange(asset.assetId)}
                                  className="h-5 w-5 bg-background/80 border-white/80 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                                />
                             </div>
@@ -203,7 +205,7 @@ export default function MediaLibraryPage() {
                                 <div className="aspect-square relative">
                                     <Image 
                                         src={asset.url}
-                                        alt={asset.name}
+                                        alt={asset.assetId}
                                         fill
                                         sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, (max-width: 1280px) 20vw, 16vw"
                                         className="object-cover"
@@ -212,6 +214,52 @@ export default function MediaLibraryPage() {
                                 </div>
                             </CardContent>
                         </Card>
+                    );
+                }) : (
+                     <div className="col-span-full text-center py-10">
+                        このカテゴリのメディアはまだありません。
+                    </div>
+                )}
+            </div>
+        )
+    }
+
+    if (type === 'video') {
+        return (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                {filteredAssets.length > 0 ? filteredAssets.map(asset => {
+                    const isSelected = selectedAssets.includes(asset.assetId);
+                    return (
+                        <VideoThumbnail
+                            key={asset.assetId}
+                            asset={asset}
+                            isSelected={isSelected}
+                            onSelectionChange={handleSelectionChange}
+                            onDelete={setAssetToDelete}
+                        />
+                    );
+                }) : (
+                     <div className="col-span-full text-center py-10">
+                        このカテゴリのメディアはまだありません。
+                    </div>
+                )}
+            </div>
+        )
+    }
+
+    if (type === 'audio') {
+        return (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                {filteredAssets.length > 0 ? filteredAssets.map(asset => {
+                    const isSelected = selectedAssets.includes(asset.assetId);
+                    return (
+                        <AudioThumbnail
+                            key={asset.assetId}
+                            asset={asset}
+                            isSelected={isSelected}
+                            onSelectionChange={handleSelectionChange}
+                            onDelete={setAssetToDelete}
+                        />
                     );
                 }) : (
                      <div className="col-span-full text-center py-10">
@@ -235,10 +283,10 @@ export default function MediaLibraryPage() {
             </TableHeader>
             <TableBody>
                 {filteredAssets.length > 0 ? filteredAssets.map((asset) => (
-                    <TableRow key={asset.id}>
-                        <TableCell className="font-medium truncate max-w-xs">{asset.name}</TableCell>
+                    <TableRow key={asset.assetId}>
+                        <TableCell className="font-medium truncate max-w-xs">{asset.assetId}</TableCell>
                         <TableCell className="font-mono text-xs">{asset.memoryId || 'N/A'}</TableCell>
-                        <TableCell>{asset.createdAt && format((asset.createdAt as Timestamp).toDate(), 'yyyy/MM/dd')}</TableCell>
+                        <TableCell>{asset.createdAt && format(asset.createdAt as Date, 'yyyy/MM/dd')}</TableCell>
                         <TableCell>{formatBytes(asset.size || 0)}</TableCell>
                         <TableCell className="text-right">
                             <Button variant="ghost" size="icon" onClick={() => setAssetToDelete(asset)}>
@@ -273,12 +321,12 @@ export default function MediaLibraryPage() {
             <AlertDialogHeader>
                 <AlertDialogTitle>アセットを削除しますか？</AlertDialogTitle>
                 <AlertDialogDescription>
-                この操作は取り消せません。アセット「{assetToDelete?.name}」をライブラリから完全に削除します。このアセットを使用しているページからも削除されます。
+                この操作は取り消せません。アセット「{assetToDelete?.assetId}」をライブラリから完全に削除します。このアセットを使用しているページからも削除されます。
                 </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
                 <AlertDialogCancel>キャンセル</AlertDialogCancel>
-                <AlertDialogAction onClick={() => handleDeleteAssets(assetToDelete ? [assetToDelete.id] : [])} disabled={isDeleting} className="bg-destructive hover:bg-destructive/90">
+                <AlertDialogAction onClick={() => handleDeleteAssets(assetToDelete ? [assetToDelete.assetId] : [])} disabled={isDeleting} className="bg-destructive hover:bg-destructive/90">
                     {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                     削除
                 </AlertDialogAction>
@@ -326,12 +374,12 @@ export default function MediaLibraryPage() {
                  <div>
                     <CardTitle className="font-headline">メディアカテゴリ</CardTitle>
                     <CardDescription>
-                        カテゴリを選択してメディアを管理します。写真は複数選択して一括操作できます。
+                        カテゴリを選択してメディアを管理します。写真、動画、音声は複数選択して一括操作できます。
                     </CardDescription>
                 </div>
                  {selectedAssets.length > 0 && (
                     <div className="flex items-center gap-4">
-                        <span className="text-sm font-medium text-primary">{selectedAssets.length}件の写真を選択中</span>
+                        <span className="text-sm font-medium text-primary">{selectedAssets.length}件のメディアを選択中</span>
                         <Button variant="destructive" onClick={() => handleDeleteAssets(selectedAssets)} disabled={isDeleting}>
                             {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
                             選択した項目を削除

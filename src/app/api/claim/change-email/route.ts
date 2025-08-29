@@ -1,45 +1,42 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getFirestore } from 'firebase-admin/firestore';
-import { initializeApp, getApps, cert } from 'firebase-admin/app';
-import { getAuth } from 'firebase-admin/auth';
-import jwt from 'jsonwebtoken';
+import { getAdminFirestore } from '@/lib/firebase/admin';
+import { sendEmailLink, hashEmail } from '@/lib/email-link-utils';
+import { ClaimRequest } from '@/lib/types';
 
-// Firebase Admin初期化
-if (!getApps().length) {
-  initializeApp({
-    credential: cert({
-      projectId: process.env.FIREBASE_PROJECT_ID,
-      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-    }),
-  });
-}
+const db = getAdminFirestore();
 
-const db = getFirestore();
-const auth = getAuth();
-
-// reCAPTCHA検証（TODO: 実装）
+// reCAPTCHA検証
 async function verifyRecaptcha(token: string): Promise<boolean> {
-  // 現在は常にtrueを返す（開発用）
-  // 本番環境では実際のreCAPTCHA検証を実装
-  return true;
+  try {
+    const response = await fetch('https://www.google.com/recaptcha/api/siteverify', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: `secret=${process.env.RECAPTCHA_SECRET}&response=${token}`,
+    });
+
+    const data = await response.json();
+    return data.success;
+  } catch (error) {
+    console.error('reCAPTCHA検証エラー:', error);
+    return false;
+  }
 }
 
-// レート制限チェック
+// レート制限チェック（24時間1回）
 async function checkRateLimit(requestId: string): Promise<boolean> {
   try {
-    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
     
     const query = await db
-      .collection('auditLogs')
-      .doc(new Date().toISOString().split('T')[0].replace(/-/g, ''))
-      .collection('logs')
-      .where('event', '==', 'claim.emailChangeRequested')
-      .where('requestId', '==', requestId)
-      .where('timestamp', '>', oneHourAgo)
+      .collection('claimRequests')
+      .doc(requestId)
+      .collection('emailHistory')
+      .where('changedAt', '>', oneDayAgo)
       .get();
 
-    return query.empty; // 1時間以内にリクエストがない場合はtrue
+    return query.empty; // 24時間以内に変更履歴がない場合はtrue
   } catch (error) {
     console.error('レート制限チェックエラー:', error);
     return false;
@@ -55,11 +52,11 @@ async function logAuditEvent(event: string, metadata: any) {
     await db.collection('auditLogs').doc(yyyyMMdd).collection('logs').doc(logId).set({
       logId,
       event,
-      actor: metadata.uid || 'system',
+      actor: 'system',
       tenant: metadata.tenant || 'default',
       lpId: metadata.lpId || 'default',
       requestId: metadata.requestId,
-      emailHash: metadata.email ? Buffer.from(metadata.email).toString('base64') : undefined,
+      emailHash: metadata.email ? hashEmail(metadata.email) : undefined,
       metadata,
       timestamp: new Date(),
     });
@@ -68,76 +65,29 @@ async function logAuditEvent(event: string, metadata: any) {
   }
 }
 
-// メール確認用JWT生成
-function generateEmailConfirmToken(requestId: string, newEmail: string): string {
-  return jwt.sign(
-    { 
-      sub: requestId,
-      email: newEmail,
-      type: 'email_confirm',
-      iat: Math.floor(Date.now() / 1000),
-    },
-    process.env.JWT_SECRET!,
-    { expiresIn: '24h' }
-  );
-}
-
 export async function POST(request: NextRequest) {
   try {
-    // Authorization ヘッダーからトークンを取得
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { error: '認証が必要です' },
-        { status: 401 }
-      );
-    }
-
-    const idToken = authHeader.split('Bearer ')[1];
-
-    // Firebase ID Token検証
-    const decodedToken = await auth.verifyIdToken(idToken);
-    const userUid = decodedToken.uid;
-
     const body = await request.json();
     const { requestId, newEmail, recaptchaToken } = body;
 
     // 入力検証
-    if (!requestId || !newEmail) {
+    if (!requestId || !newEmail || !recaptchaToken) {
       return NextResponse.json(
         { error: '必須フィールドが不足しています' },
         { status: 400 }
       );
     }
 
-    // メールアドレス形式検証
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(newEmail)) {
+    // reCAPTCHA検証
+    const isRecaptchaValid = await verifyRecaptcha(recaptchaToken);
+    if (!isRecaptchaValid) {
       return NextResponse.json(
-        { error: '有効なメールアドレスを入力してください' },
+        { error: 'reCAPTCHA検証に失敗しました' },
         { status: 400 }
       );
     }
 
-    // reCAPTCHA検証（TODO: 実装）
-    // const isRecaptchaValid = await verifyRecaptcha(recaptchaToken);
-    // if (!isRecaptchaValid) {
-    //   return NextResponse.json(
-    //     { error: 'reCAPTCHA検証に失敗しました' },
-    //     { status: 400 }
-    //   );
-    // }
-
-    // レート制限チェック
-    const isRateLimitOk = await checkRateLimit(requestId);
-    if (!isRateLimitOk) {
-      return NextResponse.json(
-        { error: 'レート制限に達しました。1時間後に再試行してください。' },
-        { status: 429 }
-      );
-    }
-
-    // claimRequestを取得
+    // claimRequestの取得
     const claimRequestDoc = await db.collection('claimRequests').doc(requestId).get();
 
     if (!claimRequestDoc.exists) {
@@ -147,57 +97,90 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const claimRequestData = claimRequestDoc.data();
+    const claimRequestData = claimRequestDoc.data() as ClaimRequest;
 
-    // クレーム状態の確認
-    if (claimRequestData?.status === 'claimed') {
+    // 状態チェック
+    if (claimRequestData.status === 'claimed') {
       return NextResponse.json(
-        { error: '既にクレーム済みです' },
+        { error: '既にクレーム済みのため、メールアドレスを変更できません' },
         { status: 400 }
       );
     }
 
-    // メール確認用JWT生成
-    const confirmToken = generateEmailConfirmToken(requestId, newEmail);
+    if (claimRequestData.status === 'expired') {
+      return NextResponse.json(
+        { error: '期限切れのクレーム要求のため、メールアドレスを変更できません' },
+        { status: 400 }
+      );
+    }
 
-    // TODO: SendGridで確認メール送信
-    console.log('確認メール送信予定:', {
-      to: newEmail,
-      subject: '想い出クラウド - メールアドレス変更確認',
-      confirmToken,
-      requestId,
-      confirmUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/api/claim/confirm-email?k=${confirmToken}`,
+    // レート制限チェック
+    const isRateLimitOk = await checkRateLimit(requestId);
+    if (!isRateLimitOk) {
+      return NextResponse.json(
+        { error: 'レート制限に達しました。24時間後に再試行してください。' },
+        { status: 429 }
+      );
+    }
+
+    // メールアドレス履歴を記録
+    const emailHistoryRef = claimRequestDoc.ref.collection('emailHistory').doc();
+    await emailHistoryRef.set({
+      oldEmail: claimRequestData.email,
+      newEmail,
+      changedAt: new Date(),
+      reason: 'user_request',
+    });
+
+    // claimRequestのメールアドレスを更新
+    await claimRequestDoc.ref.update({
+      email: newEmail,
+      status: 'pending', // 再送待ち状態に戻す
+      updatedAt: new Date(),
     });
 
     // 監査ログ記録
-    await logAuditEvent('claim.emailChangeRequested', {
+    await logAuditEvent('claim.emailChanged', {
       requestId,
-      oldEmail: claimRequestData?.email,
+      oldEmail: claimRequestData.email,
       newEmail,
-      uid: userUid,
-      tenant: claimRequestData?.tenant,
-      lpId: claimRequestData?.lpId,
+      tenant: claimRequestData.tenant,
+      lpId: claimRequestData.lpId,
+    });
+
+    // 新しいメールアドレスでFirebase Email Link送信
+    await sendEmailLink({
+      email: newEmail,
+      requestId,
+      tenant: claimRequestData.tenant,
+      lpId: claimRequestData.lpId,
+    });
+
+    // claimRequestをsent状態に更新
+    await claimRequestDoc.ref.update({
+      status: 'sent',
+      sentAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    // 監査ログ記録（再送完了）
+    await logAuditEvent('claim.resent', {
+      requestId,
+      email: newEmail,
+      tenant: claimRequestData.tenant,
+      lpId: claimRequestData.lpId,
     });
 
     return NextResponse.json({
       success: true,
-      message: '確認メールを送信しました',
-      newEmail,
+      message: 'メールアドレスが変更され、新しいアクセスリンクが送信されました',
+      requestId,
     });
 
   } catch (error) {
     console.error('メールアドレス変更エラー:', error);
-    
-    // Firebase Auth エラーの場合
-    if (error instanceof Error && error.message.includes('auth')) {
-      return NextResponse.json(
-        { error: '認証エラー' },
-        { status: 401 }
-      );
-    }
-
     return NextResponse.json(
-      { error: '内部サーバーエラー' },
+      { error: '内部サーバーエラーが発生しました' },
       { status: 500 }
     );
   }
