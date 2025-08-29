@@ -19,8 +19,9 @@ import { getFirestore, doc, writeBatch, query, where, collection, getDocs } from
 import type { User } from 'firebase/auth';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
+import { Key, Info } from 'lucide-react'; // Added for claim key field
 
 
 const claimUnclaimedData = async (user: User) => {
@@ -98,8 +99,20 @@ export function AuthForm({ type }: AuthFormProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [initializing, setInitializing] = useState(true);
+  const [claimKey, setClaimKey] = useState(''); // Added for claim key field
   const { toast } = useToast();
   const router = useRouter();
+
+  // Firebase初期化の確認（useToastに依存しない）
+  useEffect(() => {
+    console.log('AuthForm: useEffect triggered, starting initialization...');
+    
+    // 即座に初期化完了とする（Firebaseは必要時に初期化）
+    setInitializing(false);
+    console.log('AuthForm: Initialization completed immediately');
+    
+  }, []); // 依存関係なし
 
   const title = type === 'login' ? 'ログイン' : '新規アカウント登録';
   const description =
@@ -109,6 +122,8 @@ export function AuthForm({ type }: AuthFormProps) {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (initializing) return;
+    
     setLoading(true);
 
     try {
@@ -177,6 +192,7 @@ export function AuthForm({ type }: AuthFormProps) {
     );
   };
 
+  // 初期化中の表示を削除 - フォームを直接表示
   return (
     <div className="flex h-screen items-center justify-center bg-muted/40">
       <Card className="w-full max-w-sm">
@@ -209,6 +225,36 @@ export function AuthForm({ type }: AuthFormProps) {
                 disabled={loading}
               />
             </div>
+            
+            {/* 秘密鍵（claim key）フィールド - サインアップ時のみ表示 */}
+            {type === 'signup' && (
+              <div className="grid gap-2">
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="claimKey" className="flex items-center gap-2">
+                    <Key className="h-4 w-4" />
+                    秘密鍵（Claim Key）
+                  </Label>
+                  <div className="group relative">
+                    <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
+                      製品に付属の秘密鍵を入力してください
+                    </div>
+                  </div>
+                </div>
+                <Input
+                  id="claimKey"
+                  type="text"
+                  placeholder="例: ML-2024-XXXX-XXXX"
+                  value={claimKey}
+                  onChange={(e) => setClaimKey(e.target.value)}
+                  disabled={loading}
+                  className="font-mono"
+                />
+                <p className="text-xs text-muted-foreground">
+                  秘密鍵をお持ちでない場合は空欄のままでも登録できます
+                </p>
+              </div>
+            )}
           </CardContent>
           <CardFooter className="flex flex-col gap-4">
             <Button className="w-full" type="submit" disabled={loading}>

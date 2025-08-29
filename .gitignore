@@ -38,3 +38,8 @@ next-env.d.ts
 
 # studio
 .idea
+
+# composer
+/vendor/
+composer.phar
+MemoryLinkCMS/

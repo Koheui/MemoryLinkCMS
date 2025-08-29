@@ -5,12 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/hooks/use-auth";
 import type { Memory, Asset } from "@/lib/types";
-import { PlusCircle, Edit, ExternalLink, Loader2, Trash2 } from "lucide-react";
+import { Edit, ExternalLink, Loader2, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { getFirebaseApp } from "@/lib/firebase/client";
-import { getFirestore, Timestamp, doc, deleteDoc, serverTimestamp, setDoc, collection, query, where, getDocs, onSnapshot, Unsubscribe, writeBatch, runTransaction } from 'firebase/firestore';
+import { getFirestore, Timestamp, doc, collection, query, where, getDocs, onSnapshot, Unsubscribe, writeBatch } from 'firebase/firestore';
 import { getStorage, ref, deleteObject } from 'firebase/storage';
 import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
@@ -34,7 +34,6 @@ export default function DashboardPage() {
     const [memoryToDelete, setMemoryToDelete] = useState<Memory | null>(null);
     const router = useRouter();
     const { toast } = useToast();
-    const hasCreatedInitialMemory = useRef(false);
 
     useEffect(() => {
         if (!user) return;
@@ -83,57 +82,7 @@ export default function DashboardPage() {
         };
     }, [user, toast]);
 
-    const handleCreateNewMemory = useCallback(async () => {
-        if (!user) return;
-        
-        try {
-            const app = await getFirebaseApp();
-            const db = getFirestore(app);
-            const memoryId = crypto.randomUUID();
-            const memoryRef = doc(db, "memories", memoryId);
-            
-            const newMemoryData: Omit<Memory, 'id'> = {
-                ownerUid: user.uid,
-                title: "新しい想い出",
-                type: 'other',
-                status: 'draft',
-                publicPageId: null,
-                coverAssetId: null,
-                profileAssetId: null,
-                description: '',
-                design: {
-                    theme: 'light',
-                    fontScale: 1,
-                    bgColor: '#F9FAFB',
-                    textColor: '#111827',
-                    cardBgColor: '#FFFFFF',
-                    cardTextColor: '#111827',
-                    cardBorder: false,
-                    cardBorderWidth: 1,
-                    cardBorderColor: '#E5E7EB',
-                },
-                blocks: [],
-                createdAt: serverTimestamp() as Timestamp,
-                updatedAt: serverTimestamp() as Timestamp,
-            };
-
-            await setDoc(memoryRef, newMemoryData);
-            
-            toast({ title: '成功', description: '新しい想い出ページが作成されました。編集画面に移動します。'});
-            router.push(`/memories?id=${memoryId}`);
-
-        } catch (error: any) {
-             console.error("Error creating new memory:", error);
-             toast({ variant: 'destructive', title: 'エラー', description: `ページの作成に失敗しました: ${error.message}`});
-        }
-    }, [user, toast, router]);
-    
-    useEffect(() => {
-        if (!authLoading && user && memories.length === 0 && !loadingData && !hasCreatedInitialMemory.current) {
-            hasCreatedInitialMemory.current = true;
-            handleCreateNewMemory();
-        }
-    }, [authLoading, loadingData, user, memories, handleCreateNewMemory]);
+    // メモリー作成はLPからのクレームプロセスでのみ行われる
 
 
     const handleDeleteMemory = async (memoryId: string) => {
@@ -241,10 +190,7 @@ export default function DashboardPage() {
                     <h1 className="text-2xl font-bold tracking-tight font-headline">ダッシュボード</h1>
                     <p className="text-muted-foreground">あなたの想い出ページを管理します。</p>
                 </div>
-                <Button onClick={handleCreateNewMemory}>
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    新しいページを作成
-                </Button>
+                {/* メモリー作成はLPからのクレームプロセスでのみ行われる */}
             </div>
             
              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -289,7 +235,7 @@ export default function DashboardPage() {
             {memoriesWithCovers.length === 0 && !authLoading && !loadingData && (
                 <div className="text-center py-20 bg-muted/50 rounded-lg border border-dashed">
                     <h2 className="text-xl font-semibold">まだ想い出ページがありません</h2>
-                    <p className="text-muted-foreground mt-2">「新しいページを作成」ボタンから始めましょう。</p>
+                    <p className="text-muted-foreground mt-2">想い出ページは、専用のクレームリンクから作成されます。</p>
                 </div>
             )}
         </div>

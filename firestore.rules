@@ -3,23 +3,50 @@ rules_version = '2';
 function isSignedIn() {
   return request.auth != null;
 }
+
 function isAdmin() {
   return isSignedIn() && request.auth.token.role == 'admin';
 }
+
 function isOwner(uid) {
   return isSignedIn() && request.auth.uid == uid;
 }
+
 // カスタムクレーム allowTenant とドキュメントの tenant を照合
 function sameTenant(memTenant) {
   return request.auth != null && request.auth.token.allowTenant == memTenant;
 }
 
+// テナント分離チェック
+function isSameTenant(docTenant) {
+  return isSignedIn() && 
+         (isAdmin() || request.auth.token.tenant == docTenant);
+}
+
 service cloud.firestore {
   match /databases/{db}/documents {
 
-    // Users（自分 or 管理者のみ）
+    // Users（認証済みユーザーは読み書き可能）
     match /users/{uid} {
-      allow read, write: if isOwner(uid) || isAdmin();
+      allow read, write: if isSignedIn();
+    }
+
+    // クレーム要求（Claim Requests）のアクセス制御
+    match /claimRequests/{requestId} {
+      // 読み取り：管理者のみ
+      allow read: if isAdmin();
+      // 書込み：管理者のみ、またはFunctions
+      allow write: if isAdmin();
+    }
+
+    // テナント情報（管理者のみ）
+    match /tenants/{tenantId} {
+      allow read, write: if isAdmin();
+    }
+
+    // LP情報（管理者のみ）
+    match /landingPages/{lpId} {
+      allow read, write: if isAdmin();
     }
 
     // 招待（Functions管理のみ）
@@ -28,27 +55,21 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // Memories（オーナー＆同一テナントのみ）
+    // Memories（認証済みユーザーは読み書き可能、テナント分離）
     match /memories/{memoryId} {
-      allow read, write: if isAdmin()
-        || (isOwner(resource.data.ownerUid) && sameTenant(resource.data.tenant));
-
-      // 初回クレーム（ownerUid:null → 自分のuid へ）
-      allow update: if isSignedIn()
-        && resource.data.ownerUid == null
-        && request.resource.data.ownerUid == request.auth.uid
-        && (resource.data.diff(request.resource.data).changedKeys().hasOnly(["ownerUid"]))
-        && (request.auth.token.email != null)
-        && (get(/databases/$(db)/documents/invitations/$(memoryId)).data.email
-            == request.auth.token.email)
-        && (get(/databases/$(db)/documents/invitations/$(memoryId)).data.claimedByUid == null);
+      // 読み取り：所有者または管理者、かつテナント一致
+      allow read: if isSignedIn() && 
+        (resource.data.ownerUid == request.auth.uid || isAdmin()) &&
+        isSameTenant(resource.data.tenant);
+      // 書込み：所有者または管理者、かつテナント一致
+      allow write: if isSignedIn() && 
+        (resource.data.ownerUid == request.auth.uid || isAdmin()) &&
+        isSameTenant(resource.data.tenant);
     }
 
-    // Assets（memoryId 経由で tenant 照合）
+    // Assets（認証済みユーザーは読み書き可能、テナント分離）
     match /assets/{assetId} {
-      allow read, write: if isAdmin()
-        || (isOwner(resource.data.ownerUid)
-            && sameTenant(get(/databases/$(db)/documents/memories/$(resource.data.memoryId)).data.tenant));
+      allow read, write: if isSignedIn() && isSameTenant(resource.data.tenant);
     }
 
     // 公開ページ（閲覧自由、書込はFunctionsのみ）
@@ -56,9 +77,20 @@ service cloud.firestore {
       allow read: if true;
       allow write: if false;
     }
+    
     match /publicPages/{pageId}/blocks/{blockId} {
       allow read: if true;
       allow write: if false;
+    }
+
+    // 注文（管理者のみ）
+    match /orders/{orderId} {
+      allow read, write: if isAdmin();
+    }
+
+    // 監査ログ（管理者のみ）
+    match /auditLogs/{yyyyMMdd}/{logId} {
+      allow read, write: if isAdmin();
     }
   }
 }

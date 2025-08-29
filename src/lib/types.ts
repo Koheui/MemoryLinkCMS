@@ -1,129 +1,204 @@
 // src/lib/types.ts
-import type { Timestamp } from 'firebase/firestore';
 
-export interface UserProfile {
-  id: string;
+// 既存の型定義
+export interface User {
+  uid: string;
   email: string;
   displayName?: string;
-  userType?: 'memorial' | 'birth' | 'pet' | 'artist' | 'other'; // 流入経路を記録
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-export interface Design {
-  theme: 'light' | 'dark' | 'cream';
-  accentColor?: string;
-  bgColor?: string;
-  textColor?: string;
-  cardBgColor?: string;
-  cardTextColor?: string;
-  cardBorder?: boolean;
-  cardBorderWidth?: number;
-  cardBorderColor?: string;
-  backgroundImageAssetId?: string;
-  fontScale: number;
-  fontFamily?: string;
-  headlineFontFamily?: string;
+// v3.1 新規追加の型定義
+
+// クレーム要求の型定義
+export interface ClaimRequest {
+  requestId: string;
+  email: string;
+  tenant: string;
+  lpId: string;
+  productType: string;
+  status: 'pending' | 'sent' | 'claimed' | 'expired' | 'canceled';
+  source: 'stripe' | 'storefront' | 'lp-form';
+  sentAt?: Date;
+  claimedAt?: Date;
+  claimedByUid?: string;
+  memoryId?: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-// Block is now part of the Memory document itself to simplify rules and fetching.
-export interface PublicPageBlock {
-  id: string;
-  type: 'album' | 'video' | 'audio' | 'text' | 'photo';
-  order: number;
-  visibility: 'show' | 'hide';
-  title?: string;
-  icon?: string;
-  album?: {
-    layout: 'grid' | 'carousel';
-    cols?: 2 | 3;
-    assetIds: string[]; 
-    caption?: string;
-    items?: { src: string, thumb?: string, caption?: string }[];
-  };
-  video?: { 
-    assetId: string;
-    src?: string; 
-    poster?: string;
-  };
-  audio?: { 
-    assetId: string;
-    src?: string;
-  };
-  text?: { 
-    content: string; 
-  };
-  photo?: {
-    assetId: string;
-    src?: string;
-    caption?: string;
-  };
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
-}
-
+// メモリーの型定義（v3.1対応）
 export interface Memory {
-  id: string;
-  ownerUid: string | null; // Can be null until claimed by a user
+  memoryId: string;
+  ownerUid: string | null;
   title: string;
-  type: "pet" | "birth" | "memorial" | "other";
-  status: 'draft' | 'active' | 'archived';
-  publicPageId: string | null;
-  coverAssetId: string | null;
-  profileAssetId: string | null;
-  description: string;
-  design: Design;
-  blocks: PublicPageBlock[]; // <-- Blocks are now an array field
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
-  publicUrl?: string;
-}
-
-export interface PublicPage {
-    id: string;
-    memoryId: string;
-    title: string;
-    about: { text: string, format: 'plain' | 'markdown' };
-    media: {
-        cover: { url: string; width: number; height: number; };
-        profile: { url: string; width: number; height: number; };
+  type: 'pet' | 'birth' | 'memorial' | 'other';
+  status: 'draft' | 'published' | 'archived';
+  publicPageId?: string;
+  coverAssetId?: string;
+  profileAssetId?: string;
+  tenant: string;
+  lpId: string;
+  design: {
+    theme: string;
+    colors: {
+      primary: string;
+      secondary: string;
+      accent: string;
     };
-    design: Design;
-    ordering: 'custom' | 'chronological';
-    blocks: PublicPageBlock[];
-    publish: { status: 'published' | 'draft', publishedAt: Timestamp | null };
-    createdAt: Timestamp;
-    updatedAt: Timestamp;
+    fontFamily: string;
+  };
+  blocks: MemoryBlock[];
+  createdAt: Date;
+  updatedAt: Date;
 }
 
+// メモリーブロックの型定義
+export interface MemoryBlock {
+  blockId: string;
+  type: 'album' | 'video' | 'audio' | 'text';
+  order: number;
+  visibility: 'public' | 'private';
+  data: AlbumBlockData | VideoBlockData | AudioBlockData | TextBlockData;
+}
 
+// 各ブロックタイプの詳細データ
+export interface AlbumBlockData {
+  title: string;
+  description?: string;
+  images: string[]; // assetIdの配列
+  layout: 'grid' | 'masonry' | 'carousel';
+}
+
+export interface VideoBlockData {
+  title: string;
+  description?: string;
+  videoUrl: string;
+  thumbnailUrl?: string;
+  duration?: number;
+}
+
+export interface AudioBlockData {
+  title: string;
+  description?: string;
+  audioUrl: string;
+  duration?: number;
+}
+
+export interface TextBlockData {
+  title: string;
+  content: string;
+  fontSize: 'small' | 'medium' | 'large';
+  textAlign: 'left' | 'center' | 'right';
+}
+
+// アセット（画像・動画・音声）の型定義
 export interface Asset {
-  id: string;
+  assetId: string;
+  memoryId: string;
   ownerUid: string;
-  memoryId: string | null; 
-  name: string;
-  type: 'image' | 'video' | 'audio' | 'album';
+  type: 'image' | 'video' | 'audio';
   storagePath: string;
   url: string;
-  size: number;
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
   thumbnailUrl?: string;
-  thumbnailCandidates?: string[];
+  size: number;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
+// 公開ページの型定義
+export interface PublicPage {
+  pageId: string;
+  memoryId: string;
+  title: string;
+  about?: string;
+  design: {
+    theme: string;
+    colors: {
+      primary: string;
+      secondary: string;
+      accent: string;
+    };
+    fontFamily: string;
+  };
+  media: {
+    cover?: string;
+    profile?: string;
+  };
+  ordering: number;
+  publish: {
+    status: 'draft' | 'published' | 'archived';
+    version: number;
+    publishedAt?: Date;
+  };
+  access: {
+    mode: 'open' | 'passcode' | 'linkToken';
+    passcode?: string;
+    linkToken?: string;
+  };
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// 監査ログの型定義（v3.1対応）
+export interface AuditLog {
+  logId: string;
+  event: 'gate.accepted' | 'claim.sent' | 'claim.used' | 'claim.expired' | 'claim.resent' | 'memory.published' | 'memory.updated';
+  actor: 'system' | string; // 'system' または uid
+  tenant: string;
+  lpId: string;
+  requestId?: string;
+  memoryId?: string;
+  emailHash?: string; // プライバシー保護のためハッシュ化
+  metadata?: Record<string, any>;
+  timestamp: Date;
+}
+
+// 注文の型定義
 export interface Order {
-    id: string;
-    userUid: string | null;
-    memoryId: string;
-    email: string;
-    productType: string;
-    status: 'draft' | 'paid' | 'shipped' | 'delivered';
-    note?: string;
-    payment?: { method?: 'stripe' | 'invoice', linkUrl?: string, paidAt?: Timestamp };
-    shipping?: { nfcWritten?: boolean, shippedAt?: Timestamp };
-    createdAt: Timestamp | string; // Allow string for UI display
-    updatedAt: Timestamp | string; // Allow string for UI display
-    // For UI display
-    memoryTitle?: string;
+  orderId: string;
+  email: string;
+  userUid?: string;
+  memoryId: string;
+  productType: string;
+  status: 'paid' | 'shipped' | 'delivered';
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// テナント情報の型定義
+export interface Tenant {
+  tenantId: string;
+  name: string;
+  domain: string;
+  lpId: string;
+  settings: {
+    theme: string;
+    colors: {
+      primary: string;
+      secondary: string;
+      accent: string;
+    };
+    logo?: string;
+    contactEmail: string;
+  };
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// LP情報の型定義
+export interface LandingPage {
+  lpId: string;
+  tenantId: string;
+  name: string;
+  url: string;
+  productType: string;
+  settings: {
+    theme: string;
+    formFields: string[];
+    reCAPTCHA: boolean;
+  };
+  createdAt: Date;
+  updatedAt: Date;
 }
