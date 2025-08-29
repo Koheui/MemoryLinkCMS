@@ -5,7 +5,7 @@
 - **バージョン**: v3.1
 - **開始日**: 2024年12月
 - **現在のブランチ**: ver1.1
-- **最新コミット**: `32d72bb` (2024-12-19)
+- **最新コミット**: `3f2c873` (2024-12-19)
 
 ## 🎯 実装済み機能
 
@@ -32,10 +32,10 @@
 4. **API エンドポイント**
    - `POST /api/gate/lp-form`: LPフォーム処理
    - `POST /api/gate/storefront`: ストアフロント処理
-   - `POST /api/claim/verify`: クレーム検証
-   - `POST /api/claim/change-email`: メール変更
-   - `POST /api/admin/claim-requests`: 管理者向けクレーム一覧
-   - `POST /api/admin/claim-requests/resend`: 再送機能
+   - `POST /api/claim/process-email-link`: Email Linkクレーム処理
+   - `POST /api/claim/process-request`: 通常クレーム処理
+   - `POST /api/claim/change-email`: メール変更・再送
+   - `POST /api/hooks/stripe`: Stripe Webhook処理
 
 5. **Firebase Admin SDK統合**
    - 中央集権的初期化 (`src/lib/firebase/admin.ts`)
@@ -45,14 +45,22 @@
 6. **フロントエンド**
    - 管理UI (`src/app/(app)/_admin/`)
    - クレーム処理UI (`src/app/claim/`)
+   - メディアライブラリ（動画サムネイル対応）
    - ダッシュボード更新
    - レスポンシブデザイン
 
 7. **セキュリティ機能**
    - Firestore セキュリティルール
    - テナント別アクセス制御
-   - reCAPTCHA統合準備
-   - レート制限対応準備
+   - reCAPTCHA統合
+   - レート制限対応
+   - Stripe署名検証
+
+8. **動画・音声サムネイル表示**
+   - VideoThumbnailコンポーネント
+   - AudioThumbnailコンポーネント
+   - HTML5 Video/Audio API統合
+   - Canvas APIによるサムネイル生成
 
 ## 🔧 技術スタック
 
@@ -67,131 +75,16 @@
 - **Runtime**: Next.js API Routes (Serverless)
 - **Database**: Firebase Firestore
 - **Authentication**: Firebase Auth
-- **File Storage**: Firebase Storage (準備済み)
+- **File Storage**: Firebase Storage
+- **Functions**: Firebase Cloud Functions
 
 ### インフラ
 - **Hosting**: Firebase Hosting
-- **Functions**: Firebase Functions (準備済み)
+- **Functions**: Firebase Functions
 - **Monitoring**: Firebase Analytics
 - **Security**: Firestore Security Rules
 
-## 🚧 現在の課題
-
-### 🔴 重要な課題
-1. **Firebase Admin SDK認証エラー**
-   - エラー: `invalid_grant: Invalid grant: account not found`
-   - 状況: 診断APIは成功するが、メールリンク送信で失敗
-   - 対策: サービスアカウントキー再生成が必要
-
-### 🟡 進行中のタスク
-1. **クレームフロー完成**
-   - フロントエンド: `isSignInWithEmailLink` 検出とサインイン処理
-   - メール突合: ログインユーザーとクレーム要求の照合
-
-2. **Stripe Webhook実装**
-   - 署名検証
-   - 決済成功時のクレーム要求作成
-
-## 📁 重要なファイル構成
-
-```
-MemoryLinkCMS/
-├── src/
-│   ├── app/
-│   │   ├── (app)/_admin/          # 管理UI
-│   │   ├── api/                   # API routes
-│   │   │   ├── gate/             # ゲート処理
-│   │   │   ├── claim/            # クレーム処理
-│   │   │   ├── admin/            # 管理者API
-│   │   │   └── test/             # デバッグAPI
-│   │   ├── claim/                # クレーム受け取りUI
-│   │   ├── dashboard/            # ダッシュボード
-│   │   ├── login/                # ログイン
-│   │   └── signup/               # サインアップ
-│   ├── components/               # 共通コンポーネント
-│   ├── lib/
-│   │   ├── firebase/             # Firebase設定
-│   │   │   ├── admin.ts         # Admin SDK
-│   │   │   └── client.ts        # Client SDK
-│   │   ├── email-link-utils.ts  # メールリンク機能
-│   │   └── types.ts             # 型定義
-│   └── hooks/                   # カスタムフック
-├── firestore.rules              # セキュリティルール
-├── firebase.json                # Firebase設定
-├── specification-v3.1.md       # 仕様書
-└── TODOv3.1.md                 # 実装タスク
-```
-
-## 🔄 デプロイ状況
-
-### 成功したデプロイ
-- **Firebase Hosting**: 静的サイト配信
-- **Firestore Rules**: セキュリティルール更新
-
-### 設定済み環境変数
-```bash
-FIREBASE_PROJECT_ID="memorylink-cms"
-FIREBASE_CLIENT_EMAIL="firebase-adminsdk-xxxxx@memorylink-cms.iam.gserviceaccount.com"
-FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
-```
-
-## 📊 実装統計
-- **ファイル変更**: 39ファイル
-- **追加行数**: 5,591行
-- **削除行数**: 308行
-- **新規API**: 10エンドポイント
-- **新規ページ**: 5ページ
-
-## 🎯 次の実装優先度
-
-### 優先A: Firebase認証問題解決
-- [ ] サービスアカウントキー再生成
-- [ ] メールリンク送信テスト
-- [ ] 新しいPC環境での動作確認
-
-### 優先B: クレームフロー完成
-- [ ] フロントエンドでのメールリンク処理
-- [ ] メール突合ロジック
-- [ ] エラーハンドリング
-
-### 優先C: Stripe統合
-- [ ] Webhook署名検証
-- [ ] 決済成功時の処理
-- [ ] テスト環境構築
-
-### 優先D: セキュリティ強化
-- [ ] reCAPTCHA実装
-- [ ] レート制限実装
-- [ ] 監査ログ強化
-
-## 📝 開発メモ
-
-### 解決済みの問題
-1. **Firebase Deploy無限ループ**: `predeploy`設定を削除して解決
-2. **Next.js開発サーバー404**: 条件付き静的エクスポート設定で解決
-3. **ログインページローディング**: Firebase初期化の非同期処理改善で解決
-
-### 学習ポイント
-- Firebase Admin SDKの初期化は一度だけ行う
-- Next.js静的エクスポートと開発環境の使い分け
-- Firestore セキュリティルールのテナント別制御
-
-## 🔗 関連リンク
-- **Firebase Console**: https://console.firebase.google.com/project/memorylink-cms
-- **GitHub Repository**: https://github.com/Koheui/MemoryLinkCMS.git
-- **Branch**: ver1.1
-
----
-**最終更新**: 2024-12-19
-**更新者**: Development Team
-
-##### 📋 次の実装タスク
-- [ ] ゲート処理APIの実装（`/api/gate/lp-form`, `/api/gate/storefront`）
-- [ ] Stripe Webhook統合
-- [ ] メールアドレス変更・再送機能
-- [ ] 管理UIの更新
-
-#### 🎉 全優先タスク実装完了 (2024-12-19 23:55)
+## 🎉 全優先タスク実装完了 (2024-12-19 23:55)
 
 ##### ✅ 優先A: ゲート成立 → メールリンク送信
 1. **LPフォームゲート** (`/api/gate/lp-form`)
@@ -274,15 +167,98 @@ FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY----
    - 72時間以上前のsent状態をexpiredに更新 ✅
    - 監査ログ記録 ✅
 
-##### 🚀 実装完了した機能
+## 🎬 動画サムネイル表示機能実装完了 (2024-12-19 24:30)
+
+##### ✅ VideoThumbnailコンポーネント
+1. **サムネイル生成**
+   - HTML5 Video要素を使用 ✅
+   - Canvas APIでサムネイル画像生成 ✅
+   - アスペクト比対応（横長・縦長） ✅
+   - 自動サムネイル生成 ✅
+
+2. **再生コントロール**
+   - 再生/一時停止ボタン ✅
+   - 音量制御（ミュート切り替え） ✅
+   - ホバー時の再生オーバーレイ ✅
+   - 動画終了時の自動リセット ✅
+
+##### ✅ AudioThumbnailコンポーネント
+1. **視覚的デザイン**
+   - 音楽アイコンとグラデーション背景 ✅
+   - 統一されたカードデザイン ✅
+   - ホバー時の再生オーバーレイ ✅
+
+2. **音声コントロール**
+   - 再生/一時停止ボタン ✅
+   - 音量制御（ミュート切り替え） ✅
+   - 再生時間表示 ✅
+   - プログレスバー表示 ✅
+
+##### ✅ メディアライブラリ統合
+1. **表示形式変更**
+   - 動画・音声をグリッド表示に変更 ✅
+   - 画像と同様の選択・一括削除機能 ✅
+   - 統一されたUIデザイン ✅
+
+2. **レスポンシブ対応**
+   - グリッドレイアウト（2列〜6列） ✅
+   - モバイル・タブレット・デスクトップ対応 ✅
+
+## 🚀 実装完了した機能
 - **完全なクレームフロー**: ゲート → メール送信 → クレーム → メモリー作成
 - **セキュリティ**: reCAPTCHA、レート制限、署名検証
 - **監査ログ**: 全操作の追跡と記録
 - **管理UI**: クレーム要求管理、監査ログ表示
 - **自動化**: 期限切れ処理、Cloud Functions
+- **メディア管理**: 動画・音声サムネイル表示、一括操作
 
-##### 📋 次のステップ（後追い機能）
+## 📋 次のステップ（後追い機能）
 - [ ] 未投稿ユーザーの可視化（Google Sheets連携）
 - [ ] 環境変数の最適化
 - [ ] パフォーマンステスト
 - [ ] 本番環境デプロイ
+
+## 📁 重要なファイル構成
+
+```
+MemoryLinkCMS/
+├── src/
+│   ├── app/
+│   │   ├── (app)/
+│   │   │   ├── _admin/
+│   │   │   │   ├── claim-requests/page.tsx
+│   │   │   │   └── audit-logs/page.tsx
+│   │   │   └── media-library/page.tsx
+│   │   ├── api/
+│   │   │   ├── claim/
+│   │   │   │   ├── process-email-link/route.ts
+│   │   │   │   ├── process-request/route.ts
+│   │   │   │   └── change-email/route.ts
+│   │   │   ├── gate/
+│   │   │   │   ├── lp-form/route.ts
+│   │   │   │   └── storefront/route.ts
+│   │   │   └── hooks/stripe/route.ts
+│   │   └── claim/page.tsx
+│   ├── components/
+│   │   ├── video-thumbnail.tsx
+│   │   ├── audio-thumbnail.tsx
+│   │   └── ui/
+│   └── lib/
+│       ├── firebase/admin.ts
+│       ├── email-link-utils.ts
+│       └── types.ts
+├── functions/
+│   └── src/
+│       ├── index.ts
+│       └── expire-claims.ts
+└── firebase.json
+```
+
+## 🔗 外部リンク
+- **Firebase Console**: https://console.firebase.google.com/project/memorylink-cms
+- **GitHub Repository**: https://github.com/Koheui/MemoryLinkCMS.git
+- **Branch**: ver1.1
+
+---
+**最終更新**: 2024-12-19 24:30
+**更新者**: Development Team
