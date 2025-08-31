@@ -11,11 +11,8 @@ export default function HomePage() {
 
   useEffect(() => {
     if (!loading) {
-      if (user) {
-        router.push('/dashboard');
-      } else {
-        router.push('/login');
-      }
+      // 開発用: ログインをスキップして直接ダッシュボードに移動
+      router.push('/dashboard');
     }
   }, [user, loading, router]);
 

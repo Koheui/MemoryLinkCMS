@@ -1,192 +1,192 @@
-import { 
-  collection, 
-  doc, 
-  getDoc, 
-  getDocs, 
-  addDoc, 
-  updateDoc, 
-  deleteDoc, 
-  query, 
-  where, 
-  orderBy, 
-  limit,
-  serverTimestamp,
-  Timestamp
-} from 'firebase/firestore';
-import { db } from './firebase';
-import { Memory, Asset, PublicPage, ClaimRequest, Order } from '@/types';
+import { Memory, Asset, PublicPage, ClaimRequest, Order, Album } from '@/types';
 
-// Memories
-export const memoriesCollection = collection(db, 'memories');
+// モックデータ
+const mockMemories: Memory[] = [
+  {
+    id: 'mock-1',
+    ownerUid: 'mock-user-id',
+    title: '初めての想い出',
+    type: 'personal',
+    status: 'draft',
+    design: {
+      theme: 'default',
+      layout: 'standard',
+      colors: {
+        primary: '#3B82F6',
+        secondary: '#1E40AF',
+        background: '#FFFFFF',
+      },
+    },
+    blocks: [
+      {
+        id: 'block-1',
+        type: 'text',
+        order: 0,
+        visibility: 'public',
+        content: 'これは開発用のサンプル想い出です。',
+        createdAt: new Date('2024-01-01'),
+        updatedAt: new Date('2024-01-01'),
+      },
+    ],
+    createdAt: new Date('2024-01-01'),
+    updatedAt: new Date('2024-01-01'),
+  },
+  {
+    id: 'mock-2',
+    ownerUid: 'mock-user-id',
+    title: '大切な瞬間',
+    type: 'family',
+    status: 'published',
+    design: {
+      theme: 'warm',
+      layout: 'standard',
+      colors: {
+        primary: '#EF4444',
+        secondary: '#DC2626',
+        background: '#FEF2F2',
+      },
+    },
+    blocks: [
+      {
+        id: 'block-2',
+        type: 'text',
+        order: 0,
+        visibility: 'public',
+        content: '家族との大切な時間を記録しました。',
+        createdAt: new Date('2024-01-02'),
+        updatedAt: new Date('2024-01-02'),
+      },
+    ],
+    createdAt: new Date('2024-01-02'),
+    updatedAt: new Date('2024-01-02'),
+  },
+];
 
-export async function getMemoriesByUser(ownerUid: string): Promise<Memory[]> {
-  const q = query(
-    memoriesCollection,
-    where('ownerUid', '==', ownerUid),
-    orderBy('updatedAt', 'desc')
-  );
-  
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map(doc => ({
-    id: doc.id,
-    ...doc.data(),
-    createdAt: doc.data().createdAt?.toDate() || new Date(),
-    updatedAt: doc.data().updatedAt?.toDate() || new Date(),
-  })) as Memory[];
+// モックアルバムデータ
+const mockAlbums: Album[] = [
+  {
+    id: 'album-1',
+    memoryId: 'mock-1',
+    ownerUid: 'mock-user-id',
+    title: '思い出の写真集',
+    description: '大切な瞬間を集めたアルバム',
+    layout: 'grid',
+    assets: ['asset-1', 'asset-2', 'asset-3'],
+    createdAt: new Date('2024-01-01'),
+    updatedAt: new Date('2024-01-01'),
+  },
+];
+
+// モック関数
+export async function getMemories(ownerUid: string): Promise<Memory[]> {
+  console.log('Mock: Getting memories for user:', ownerUid);
+  return mockMemories.filter(memory => memory.ownerUid === ownerUid);
 }
 
-export async function getMemoryById(memoryId: string): Promise<Memory | null> {
-  const docRef = doc(db, 'memories', memoryId);
-  const docSnap = await getDoc(docRef);
-  
-  if (!docSnap.exists()) {
-    return null;
+export async function getMemory(id: string): Promise<Memory | null> {
+  console.log('Mock: Getting memory:', id);
+  return mockMemories.find(memory => memory.id === id) || null;
+}
+
+export async function createMemory(memoryData: Omit<Memory, 'id' | 'createdAt' | 'updatedAt'>): Promise<Memory> {
+  console.log('Mock: Creating memory:', memoryData.title);
+  const newMemory: Memory = {
+    ...memoryData,
+    id: `mock-${Date.now()}`,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+  mockMemories.push(newMemory);
+  return newMemory;
+}
+
+export async function updateMemory(memory: Memory): Promise<Memory> {
+  console.log('Mock: Updating memory:', memory.id);
+  const index = mockMemories.findIndex(m => m.id === memory.id);
+  if (index !== -1) {
+    mockMemories[index] = { ...memory, updatedAt: new Date() };
   }
-  
-  return {
-    id: docSnap.id,
-    ...docSnap.data(),
-    createdAt: docSnap.data().createdAt?.toDate() || new Date(),
-    updatedAt: docSnap.data().updatedAt?.toDate() || new Date(),
-  } as Memory;
+  return mockMemories[index];
 }
 
-export async function createMemory(memory: Omit<Memory, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
-  const docRef = await addDoc(memoriesCollection, {
-    ...memory,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  });
-  
-  return docRef.id;
+export async function deleteMemory(memoryId: string): Promise<Memory> {
+  console.log('Mock: Deleting memory:', memoryId);
+  const index = mockMemories.findIndex(m => m.id === memoryId);
+  if (index !== -1) {
+    const deletedMemory = mockMemories[index];
+    mockMemories.splice(index, 1);
+    return deletedMemory;
+  }
+  throw new Error('Memory not found');
 }
-
-export async function updateMemory(memoryId: string, updates: Partial<Memory>): Promise<void> {
-  const docRef = doc(db, 'memories', memoryId);
-  await updateDoc(docRef, {
-    ...updates,
-    updatedAt: serverTimestamp(),
-  });
-}
-
-export async function deleteMemory(memoryId: string): Promise<void> {
-  const docRef = doc(db, 'memories', memoryId);
-  await deleteDoc(docRef);
-}
-
-// Assets
-export const assetsCollection = collection(db, 'assets');
 
 export async function getAssetsByMemory(memoryId: string): Promise<Asset[]> {
-  const q = query(
-    assetsCollection,
-    where('memoryId', '==', memoryId),
-    orderBy('createdAt', 'desc')
-  );
-  
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map(doc => ({
-    id: doc.id,
-    ...doc.data(),
-    createdAt: doc.data().createdAt?.toDate() || new Date(),
-    updatedAt: doc.data().updatedAt?.toDate() || new Date(),
-  })) as Asset[];
+  console.log('Mock: Getting assets for memory:', memoryId);
+  return [];
 }
 
-export async function createAsset(asset: Omit<Asset, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
-  const docRef = await addDoc(assetsCollection, {
-    ...asset,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  });
-  
-  return docRef.id;
-}
-
-export async function updateAsset(assetId: string, updates: Partial<Asset>): Promise<void> {
-  const docRef = doc(db, 'assets', assetId);
-  await updateDoc(docRef, {
-    ...updates,
-    updatedAt: serverTimestamp(),
-  });
+export async function createAsset(assetData: Omit<Asset, 'id' | 'createdAt'>): Promise<Asset> {
+  console.log('Mock: Creating asset:', assetData.name);
+  return {
+    ...assetData,
+    id: `asset-${Date.now()}`,
+    createdAt: new Date(),
+  };
 }
 
 export async function deleteAsset(assetId: string): Promise<void> {
-  const docRef = doc(db, 'assets', assetId);
-  await deleteDoc(docRef);
+  console.log('Mock: Deleting asset:', assetId);
 }
 
-// Public Pages
-export const publicPagesCollection = collection(db, 'publicPages');
+// アルバム関連の関数
+export async function getAlbumsByMemory(memoryId: string): Promise<Album[]> {
+  console.log('Mock: Getting albums for memory:', memoryId);
+  return mockAlbums.filter(album => album.memoryId === memoryId);
+}
 
-export async function getPublicPageById(pageId: string): Promise<PublicPage | null> {
-  const docRef = doc(db, 'publicPages', pageId);
-  const docSnap = await getDoc(docRef);
-  
-  if (!docSnap.exists()) {
-    return null;
+export async function createAlbum(albumData: Omit<Album, 'id' | 'createdAt' | 'updatedAt'>): Promise<Album> {
+  console.log('Mock: Creating album:', albumData.title);
+  const newAlbum: Album = {
+    ...albumData,
+    id: `album-${Date.now()}`,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+  mockAlbums.push(newAlbum);
+  return newAlbum;
+}
+
+export async function updateAlbum(album: Album): Promise<Album> {
+  console.log('Mock: Updating album:', album.id);
+  const index = mockAlbums.findIndex(a => a.id === album.id);
+  if (index !== -1) {
+    mockAlbums[index] = { ...album, updatedAt: new Date() };
   }
-  
-  return {
-    id: docSnap.id,
-    ...docSnap.data(),
-    createdAt: docSnap.data().createdAt?.toDate() || new Date(),
-    updatedAt: docSnap.data().updatedAt?.toDate() || new Date(),
-  } as PublicPage;
+  return mockAlbums[index];
 }
 
-export async function createPublicPage(page: Omit<PublicPage, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
-  const docRef = await addDoc(publicPagesCollection, {
-    ...page,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  });
-  
-  return docRef.id;
-}
-
-export async function updatePublicPage(pageId: string, updates: Partial<PublicPage>): Promise<void> {
-  const docRef = doc(db, 'publicPages', pageId);
-  await updateDoc(docRef, {
-    ...updates,
-    updatedAt: serverTimestamp(),
-  });
-}
-
-// Claim Requests (Read only for client)
-export const claimRequestsCollection = collection(db, 'claimRequests');
-
-export async function getClaimRequestById(requestId: string): Promise<ClaimRequest | null> {
-  const docRef = doc(db, 'claimRequests', requestId);
-  const docSnap = await getDoc(docRef);
-  
-  if (!docSnap.exists()) {
-    return null;
+export async function deleteAlbum(albumId: string): Promise<Album> {
+  console.log('Mock: Deleting album:', albumId);
+  const index = mockAlbums.findIndex(a => a.id === albumId);
+  if (index !== -1) {
+    const deletedAlbum = mockAlbums[index];
+    mockAlbums.splice(index, 1);
+    return deletedAlbum;
   }
-  
-  return {
-    id: docSnap.id,
-    ...docSnap.data(),
-    createdAt: docSnap.data().createdAt?.toDate() || new Date(),
-    updatedAt: docSnap.data().updatedAt?.toDate() || new Date(),
-  } as ClaimRequest;
+  throw new Error('Album not found');
 }
 
-// Orders (Read only for client)
-export const ordersCollection = collection(db, 'orders');
+export async function getPublicPages(): Promise<PublicPage[]> {
+  console.log('Mock: Getting public pages');
+  return [];
+}
 
-export async function getOrdersByTenant(tenant: string): Promise<Order[]> {
-  const q = query(
-    ordersCollection,
-    where('tenant', '==', tenant),
-    orderBy('createdAt', 'desc')
-  );
-  
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map(doc => ({
-    id: doc.id,
-    ...doc.data(),
-    createdAt: doc.data().createdAt?.toDate() || new Date(),
-    updatedAt: doc.data().updatedAt?.toDate() || new Date(),
-  })) as Order[];
+export async function getClaimRequests(): Promise<ClaimRequest[]> {
+  console.log('Mock: Getting claim requests');
+  return [];
+}
+
+export async function getOrders(): Promise<Order[]> {
+  console.log('Mock: Getting orders');
+  return [];
 }

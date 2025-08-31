@@ -1,85 +1,43 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState } from 'react';
-import { User as FirebaseUser, onAuthStateChanged } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
 import { User } from '@/types';
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 
 interface AuthContextType {
   user: User | null;
-  firebaseUser: FirebaseUser | null;
+  firebaseUser: null;
   loading: boolean;
+  error: string | null;
 }
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
   firebaseUser: null,
   loading: true,
+  error: null,
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      setFirebaseUser(firebaseUser);
-      
-      if (firebaseUser) {
-        try {
-          // Firestoreからユーザー情報を取得
-          const userDocRef = doc(db, 'users', firebaseUser.uid);
-          const userDocSnap = await getDoc(userDocRef);
-          
-          if (userDocSnap.exists()) {
-            // 既存ユーザー
-            const userData = userDocSnap.data();
-            setUser({
-              uid: firebaseUser.uid,
-              email: firebaseUser.email || '',
-              displayName: userData.displayName || firebaseUser.displayName || undefined,
-              createdAt: userData.createdAt?.toDate() || new Date(firebaseUser.metadata.creationTime || Date.now()),
-              updatedAt: userData.updatedAt?.toDate() || new Date(),
-            });
-          } else {
-            // 新規ユーザー（初回ログイン）
-            const userData: User = {
-              uid: firebaseUser.uid,
-              email: firebaseUser.email || '',
-              displayName: firebaseUser.displayName || undefined,
-              createdAt: new Date(firebaseUser.metadata.creationTime || Date.now()),
-              updatedAt: new Date(),
-            };
-            setUser(userData);
-            
-            // TODO: Firestoreにユーザー情報を保存（Functionsで処理）
-          }
-        } catch (error) {
-          console.error('Error fetching user data:', error);
-          // エラー時はFirebase Authの情報のみ使用
-          setUser({
-            uid: firebaseUser.uid,
-            email: firebaseUser.email || '',
-            displayName: firebaseUser.displayName || undefined,
-            createdAt: new Date(firebaseUser.metadata.creationTime || Date.now()),
-            updatedAt: new Date(),
-          });
-        }
-      } else {
-        setUser(null);
-      }
-      
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
+    // モックユーザーを設定
+    console.log('Using mock authentication.');
+    const mockUser: User = {
+      uid: 'mock-user-id',
+      email: 'dev@example.com',
+      displayName: '開発ユーザー',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    setUser(mockUser);
+    setLoading(false);
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, firebaseUser, loading }}>
+    <AuthContext.Provider value={{ user, firebaseUser: null, loading, error }}>
       {children}
     </AuthContext.Provider>
   );

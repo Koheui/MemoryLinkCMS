@@ -6,11 +6,19 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, Save, Eye, ArrowLeft } from 'lucide-react';
-import { Memory, Asset } from '@/types';
-import { useMemory, useCreateMemory, useUpdateMemory } from '@/hooks/use-memories';
-import { FileUpload } from '@/components/file-upload';
+import { Loader2, Save, Eye, ArrowLeft, Image, Upload, Video, Music, Clock } from 'lucide-react';
+import { Memory, Asset, Album, Block } from '@/types';
+import { useMemory, useCreateMemory, useUpdateMemory, useAlbumsByMemory } from '@/hooks/use-memories';
+import { AlbumCreator } from '@/components/album-creator';
+import { ContentBlockEditor } from '@/components/content-block-editor';
+import { AddBlockButton } from '@/components/add-block-button';
+import { MemoryPreview } from '@/components/memory-preview';
+import { DraggableContentContainer } from '@/components/draggable-content-container';
+import { DraggableContentBlock } from '@/components/draggable-content-block';
+import { ContentUploadModal } from '@/components/content-upload-modal';
+import { HeaderSettings } from '@/components/header-settings';
 import { getAssetsByMemory } from '@/lib/firestore';
+import { formatFileSize } from '@/lib/utils';
 
 export default function MemoryEditPage({ params }: { params: { id: string } }) {
   const { user, loading } = useAuth();
@@ -18,20 +26,28 @@ export default function MemoryEditPage({ params }: { params: { id: string } }) {
   const [memory, setMemory] = useState<Memory | null>(null);
   const [saving, setSaving] = useState(false);
   const [assets, setAssets] = useState<Asset[]>([]);
+  const [coverImage, setCoverImage] = useState<string>('');
+  const [blocks, setBlocks] = useState<Block[]>([]);
+  const [showPreview, setShowPreview] = useState(false);
+  const [showCoverUploadModal, setShowCoverUploadModal] = useState(false);
+  const [tempMemoryId, setTempMemoryId] = useState<string>('');
 
   const { data: existingMemory, isLoading: memoryLoading } = useMemory(params.id === 'new' ? '' : params.id);
+  const { data: albums = [] } = useAlbumsByMemory(params.id === 'new' ? '' : params.id);
   const createMemoryMutation = useCreateMemory();
   const updateMemoryMutation = useUpdateMemory();
 
   useEffect(() => {
     if (!loading && !user) {
-      router.push('/login');
+      router.push('/');
     }
   }, [user, loading, router]);
 
   useEffect(() => {
     if (params.id === 'new') {
       // 新規作成
+      const newTempId = `temp-${Date.now()}`;
+      setTempMemoryId(newTempId);
       setMemory({
         id: 'new',
         ownerUid: user?.uid || '',
@@ -54,6 +70,7 @@ export default function MemoryEditPage({ params }: { params: { id: string } }) {
     } else if (existingMemory) {
       // 既存のmemoryを設定
       setMemory(existingMemory);
+      setCoverImage(existingMemory.coverImage || '');
       
       // アセットを取得
       loadAssets(existingMemory.id);
@@ -74,18 +91,19 @@ export default function MemoryEditPage({ params }: { params: { id: string } }) {
     
     setSaving(true);
     try {
+      const memoryToSave = {
+        ...memory,
+        coverImage: coverImage,
+      };
+
       if (params.id === 'new') {
         // 新規作成
-        const { id, createdAt, updatedAt, ...memoryData } = memory;
-        const newMemoryId = await createMemoryMutation.mutateAsync(memoryData);
-        router.push(`/memories/${newMemoryId}`);
+        const { id, createdAt, updatedAt, ...memoryData } = memoryToSave;
+        const newMemory = await createMemoryMutation.mutateAsync(memoryData);
+        router.push(`/memories/${newMemory.id}`);
       } else {
         // 更新
-        const { id, createdAt, updatedAt, ...updates } = memory;
-        await updateMemoryMutation.mutateAsync({
-          memoryId: params.id,
-          updates,
-        });
+        await updateMemoryMutation.mutateAsync(memoryToSave);
       }
     } catch (error) {
       console.error('Error saving memory:', error);
@@ -114,6 +132,66 @@ export default function MemoryEditPage({ params }: { params: { id: string } }) {
     setAssets(prev => [...prev, asset]);
   };
 
+  const handleCoverImageUploadComplete = (asset: Asset) => {
+    setCoverImage(asset.url);
+    setAssets(prev => [...prev, asset]);
+    setShowCoverUploadModal(false);
+  };
+
+  const handleTitleChange = (title: string) => {
+    setMemory(prev => prev ? { ...prev, title } : null);
+  };
+
+  const handleDescriptionChange = (description: string) => {
+    setMemory(prev => prev ? { ...prev, description } : null);
+  };
+
+  const handleHeaderStyleChange = (headerStyle: any) => {
+    setMemory(prev => prev ? {
+      ...prev,
+      design: {
+        ...prev.design,
+        header: headerStyle,
+      },
+    } : null);
+  };
+
+  const handleCoverImageSelect = (imageUrl: string) => {
+    setCoverImage(imageUrl);
+  };
+
+  const handleAlbumCreated = (album: Album) => {
+    // アルバムが作成された時の処理
+    console.log('Album created:', album);
+  };
+
+  const handleAddBlock = (type: 'text' | 'image' | 'video' | 'album') => {
+    const newBlock: Block = {
+      id: `block-${Date.now()}`,
+      type,
+      order: blocks.length,
+      visibility: 'public',
+      content: {},
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    setBlocks(prev => [...prev, newBlock]);
+  };
+
+    const handleUpdateBlock = (updatedBlock: Block) => {
+    setBlocks(prev => prev.map(block =>
+      block.id === updatedBlock.id ? updatedBlock : block
+    ));
+  };
+
+  const handleDeleteBlock = (blockId: string) => {
+    setBlocks(prev => prev.filter(block => block.id !== blockId));
+  };
+
+  const handleBlocksReorder = (reorderedBlocks: Block[]) => {
+    setBlocks(reorderedBlocks);
+  };
+
   if (loading || memoryLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -127,203 +205,158 @@ export default function MemoryEditPage({ params }: { params: { id: string } }) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="container mx-auto px-4 py-8">
-        {/* ヘッダー */}
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center space-x-4">
+    <div className="min-h-screen bg-white">
+      {/* ヘッダー */}
+      <div className="sticky top-0 z-40 bg-white border-b">
+        <div className="flex items-center justify-between px-4 py-3">
+          <div className="flex items-center space-x-3">
             <Button
-              variant="outline"
+              variant="ghost"
+              size="sm"
               onClick={() => router.push('/dashboard')}
             >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              戻る
+              <ArrowLeft className="w-5 h-5" />
             </Button>
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">
-                {params.id === 'new' ? '新しい想い出を作成' : memory.title || '無題'}
+              <h1 className="text-lg font-semibold">
+                {params.id === 'new' ? '新しい想い出' : memory.title || '無題'}
               </h1>
-              <p className="text-gray-600 mt-2">
-                想い出ページを編集してください
+              <p className="text-sm text-gray-500">
+                {memory.status === 'published' ? '公開済み' : '下書き'}
               </p>
             </div>
           </div>
           <div className="flex items-center space-x-2">
             <Button
               variant="outline"
+              size="sm"
+              onClick={() => setShowPreview(true)}
+            >
+              <Eye className="w-4 h-4 mr-1" />
+              プレビュー
+            </Button>
+            <Button
+              size="sm"
               onClick={handleSave}
               disabled={saving}
             >
               {saving ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                <Loader2 className="w-4 h-4 mr-1 animate-spin" />
               ) : (
-                <Save className="w-4 h-4 mr-2" />
+                <Save className="w-4 h-4 mr-1" />
               )}
               保存
             </Button>
-            <Button
-              onClick={handlePublish}
-              disabled={saving || memory.status === 'published'}
-            >
-              {saving ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              ) : (
-                <Eye className="w-4 h-4 mr-2" />
-              )}
-              公開
-            </Button>
           </div>
         </div>
+      </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* メインコンテンツ */}
-          <div className="lg:col-span-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>基本情報</CardTitle>
-                <CardDescription>
-                  想い出のタイトルと説明を設定してください
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    タイトル
-                  </label>
-                  <Input
-                    value={memory.title}
-                    onChange={(e) => setMemory({ ...memory, title: e.target.value })}
-                    placeholder="想い出のタイトルを入力"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    説明
-                  </label>
-                  <textarea
-                    value={memory.description || ''}
-                    onChange={(e) => setMemory({ ...memory, description: e.target.value })}
-                    placeholder="想い出の説明を入力"
-                    className="w-full h-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="mt-6">
-              <CardHeader>
-                <CardTitle>メディア</CardTitle>
-                <CardDescription>
-                  画像、動画、音声をアップロードしてください
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {params.id === 'new' ? (
-                  <div className="text-center py-8">
-                    <p className="text-gray-600 mb-4">
-                      まず想い出を保存してからメディアをアップロードできます
-                    </p>
-                  </div>
-                ) : (
-                  <FileUpload 
-                    memoryId={params.id} 
-                    onUploadComplete={handleUploadComplete}
-                  />
-                )}
-              </CardContent>
-            </Card>
-
-            {/* アップロード済みメディア一覧 */}
-            {assets.length > 0 && (
-              <Card className="mt-6">
-                <CardHeader>
-                  <CardTitle>アップロード済みメディア</CardTitle>
-                  <CardDescription>
-                    {assets.length}個のファイルがアップロードされています
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    {assets.map((asset) => (
-                      <div key={asset.id} className="border rounded-lg p-3">
-                        {asset.type === 'image' ? (
-                          <img 
-                            src={asset.url} 
-                            alt={asset.name}
-                            className="w-full h-24 object-cover rounded mb-2"
-                          />
-                        ) : (
-                          <div className="w-full h-24 bg-gray-100 rounded mb-2 flex items-center justify-center">
-                            {asset.type === 'video' ? '🎥' : '🎵'}
-                          </div>
-                        )}
-                        <p className="text-sm font-medium truncate">{asset.name}</p>
-                        <p className="text-xs text-gray-500">
-                          {(asset.size / 1024 / 1024).toFixed(2)} MB
-                        </p>
-                      </div>
-                    ))}
-                  </div>
+      {/* メインコンテンツ */}
+      <div className="px-4 py-6 max-w-2xl mx-auto">
+                      {/* カバー写真 */}
+              <Card className="mb-6">
+                <CardContent className="p-4">
+                  {coverImage ? (
+                    <div className="relative group">
+                      <img
+                        src={coverImage}
+                        alt="カバー写真"
+                        className="w-full h-48 object-cover rounded-lg"
+                      />
+                      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 rounded-lg" />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={() => setCoverImage('')}
+                      >
+                        削除
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                      <Image className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                      <p className="text-sm text-gray-500 mb-3">
+                        カバー写真をアップロードしてください
+                      </p>
+                      <Button
+                        variant="outline"
+                        onClick={() => setShowCoverUploadModal(true)}
+                      >
+                        <Upload className="w-4 h-4 mr-2" />
+                        カバー写真をアップロード
+                      </Button>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
-            )}
-          </div>
 
-          {/* サイドバー */}
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>設定</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    タイプ
-                  </label>
-                  <select
-                    value={memory.type}
-                    onChange={(e) => setMemory({ ...memory, type: e.target.value as any })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="personal">個人</option>
-                    <option value="family">家族</option>
-                    <option value="business">ビジネス</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    ステータス
-                  </label>
-                  <div className="flex items-center space-x-2">
-                    <span className={`px-2 py-1 text-xs rounded-full ${
-                      memory.status === 'published' 
-                        ? 'bg-green-100 text-green-800' 
-                        : 'bg-yellow-100 text-yellow-800'
-                    }`}>
-                      {memory.status === 'published' ? '公開済み' : '下書き'}
-                    </span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                      {/* ヘッダー設定 */}
+              <HeaderSettings
+                title={memory.title}
+                description={memory.description || ''}
+                headerStyle={memory.design.header || {}}
+                onTitleChange={handleTitleChange}
+                onDescriptionChange={handleDescriptionChange}
+                onStyleChange={handleHeaderStyleChange}
+              />
 
-            <Card>
-              <CardHeader>
-                <CardTitle>プレビュー</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-8">
-                  <p className="text-gray-600 mb-4">
-                    プレビュー機能は開発中です
-                  </p>
-                  <Button variant="outline" disabled>
-                    プレビュー表示
-                  </Button>
+                      {/* コンテンツブロック */}
+              <DraggableContentContainer
+                blocks={blocks}
+                onBlocksReorder={handleBlocksReorder}
+              >
+                <div className="space-y-4">
+                  {blocks.map((block) => (
+                                         <DraggableContentBlock key={block.id} block={block}>
+                       <ContentBlockEditor
+                         block={block}
+                         onUpdate={handleUpdateBlock}
+                         onDelete={handleDeleteBlock}
+                         assets={assets}
+                         albums={albums}
+                         memoryId={params.id === 'new' ? tempMemoryId : params.id}
+                       />
+                     </DraggableContentBlock>
+                  ))}
                 </div>
-              </CardContent>
-            </Card>
+              </DraggableContentContainer>
+
+        {/* ブロック追加ボタン */}
+        <AddBlockButton onAddBlock={handleAddBlock} />
+
+
+
+        {/* アルバム作成 */}
+        {assets.length > 0 && (
+          <div className="mt-6">
+            <AlbumCreator
+              memoryId={params.id}
+              assets={assets}
+              onAlbumCreated={handleAlbumCreated}
+            />
           </div>
-        </div>
+        )}
+
+                      {/* カバー画像アップロードモーダル */}
+              <ContentUploadModal
+                isOpen={showCoverUploadModal}
+                onClose={() => setShowCoverUploadModal(false)}
+                onUploadComplete={handleCoverImageUploadComplete}
+                memoryId={params.id === 'new' ? tempMemoryId : params.id}
+                contentType="image"
+              />
+
+              {/* プレビュー */}
+              {showPreview && (
+                <MemoryPreview
+                  memory={memory}
+                  blocks={blocks}
+                  assets={assets}
+                  albums={albums}
+                  onClose={() => setShowPreview(false)}
+                />
+              )}
       </div>
     </div>
   );

@@ -15,6 +15,7 @@ export interface Memory {
   publicPageId?: string;
   coverAssetId?: string;
   profileAssetId?: string;
+  coverImage?: string;
   description?: string;
   design: {
     theme: string;
@@ -23,6 +24,12 @@ export interface Memory {
       primary: string;
       secondary: string;
       background: string;
+    };
+    header?: {
+      backgroundColor?: string;
+      textColor?: string;
+      titleFontSize?: 'small' | 'medium' | 'large';
+      descriptionFontSize?: 'small' | 'medium' | 'large';
     };
   };
   blocks: Block[];
@@ -35,7 +42,19 @@ export interface Block {
   type: 'text' | 'image' | 'video' | 'audio' | 'album';
   order: number;
   visibility: 'public' | 'private';
-  content: any;
+  content: {
+    text?: string;
+    images?: string[];
+    video?: string;
+    audio?: string;
+    albumId?: string;
+    style?: {
+      fontSize?: 'small' | 'medium' | 'large';
+      textAlign?: 'left' | 'center' | 'right';
+      color?: string;
+      backgroundColor?: string;
+    };
+  };
   createdAt: Date;
   updatedAt: Date;
 }
@@ -50,6 +69,21 @@ export interface Asset {
   url: string;
   thumbnailUrl?: string;
   size: number;
+  duration?: number; // 動画・音声の長さ（秒）
+  resolution?: { width: number; height: number }; // 動画の解像度
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface Album {
+  id: string;
+  memoryId: string;
+  ownerUid: string;
+  title: string;
+  description?: string;
+  coverImage?: string;
+  assets: string[]; // Asset IDs
+  layout: 'grid' | 'masonry' | 'carousel';
   createdAt: Date;
   updatedAt: Date;
 }

@@ -5,9 +5,9 @@ import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, Heart, Users, Building, Loader2 } from 'lucide-react';
+import { Heart, Users, Building, Loader2 } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
-import { FirebaseStatus } from '@/components/firebase-status';
+// import { FirebaseStatus } from '@/components/firebase-status';
 import { useMemories } from '@/hooks/use-memories';
 
 export default function DashboardPage() {
@@ -17,7 +17,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (!loading && !user) {
-      router.push('/login');
+      router.push('/');
     }
   }, [user, loading, router]);
 
@@ -62,28 +62,25 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="container mx-auto px-4 py-8">
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">ダッシュボード</h1>
-            <p className="text-gray-600 mt-2">
-              {user.email} でログイン中
-            </p>
-          </div>
-          <Button onClick={() => router.push('/memories/new')}>
-            <Plus className="w-4 h-4 mr-2" />
-            新しい想い出を作成
-          </Button>
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900">ダッシュボード</h1>
+          <p className="text-gray-600 mt-2">
+            {user.email} でログイン中
+          </p>
+          <p className="text-sm text-gray-500 mt-1">
+            新しい想い出はLPからの流入時に自動生成されます
+          </p>
         </div>
 
         <div className="grid gap-6">
-          {/* Firebase接続状態 */}
-          <FirebaseStatus />
+          {/* Firebase接続状態 - 一時的に無効化 */}
+          {/* <FirebaseStatus /> */}
 
           <Card>
             <CardHeader>
               <CardTitle>あなたの想い出</CardTitle>
               <CardDescription>
-                作成した想い出ページの一覧です
+                LPから流入して生成された想い出ページの一覧です
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -110,10 +107,9 @@ export default function DashboardPage() {
                   <p className="text-gray-600 mb-4">
                     まだ想い出がありません
                   </p>
-                  <Button onClick={() => router.push('/memories/new')}>
-                    <Plus className="w-4 h-4 mr-2" />
-                    最初の想い出を作成
-                  </Button>
+                  <p className="text-sm text-gray-500">
+                    LPから流入すると、新しい想い出が自動生成されます
+                  </p>
                 </div>
               ) : (
                 <div className="grid gap-4">
