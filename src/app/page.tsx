@@ -27,12 +27,14 @@ export default function LandingPage() {
 
     setIsLoading(true);
     
-    // モックサインアップ処理
+    // ダミーサインアップ処理（開発用）
     setTimeout(() => {
       setShowSuccess(true);
       setTimeout(() => {
-        router.push('/claim?email=' + encodeURIComponent(email));
-      }, 2000);
+        setShowSuccess(false);
+        setEmail('');
+        setIsLoading(false);
+      }, 3000);
     }, 1000);
   };
 
@@ -101,10 +103,10 @@ export default function LandingPage() {
                 <div className="text-center space-y-4">
                   <CheckCircle className="w-12 h-12 text-green-500 mx-auto" />
                   <p className="text-green-600 font-medium">
-                    確認メールを送信しました！
+                    開発中です！
                   </p>
                   <p className="text-sm text-gray-500">
-                    メールを確認して、想い出ページを作成してください。
+                    現在は開発中のため、実際のサインアップはできません。
                   </p>
                 </div>
               )}
