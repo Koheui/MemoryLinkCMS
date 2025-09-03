@@ -76,7 +76,7 @@ export function MemoryPreview({ memory, blocks, assets, albums, onClose }: Memor
               src={block.content.video}
               controls
               className="w-full rounded-lg"
-              onPlay={() => setPlayingVideo(block.content.video)}
+              onPlay={() => setPlayingVideo(block.content.video || null)}
               onPause={() => setPlayingVideo(null)}
             />
           </div>
