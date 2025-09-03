@@ -23,16 +23,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // モックユーザーを設定
-    console.log('Using mock authentication.');
-    const mockUser: User = {
-      uid: 'mock-user-id',
-      email: 'dev@example.com',
-      displayName: '開発ユーザー',
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    setUser(mockUser);
+    // 初期状態ではユーザーをnullに設定（自動ログインしない）
+    console.log('AuthProvider initialized - no auto login');
     setLoading(false);
   }, []);
 
