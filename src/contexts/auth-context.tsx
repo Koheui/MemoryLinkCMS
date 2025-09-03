@@ -34,8 +34,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setError(null);
     
     try {
+      console.log('Attempting login with:', email);
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const firebaseUser = userCredential.user;
+      
+      console.log('Login successful for:', firebaseUser.email);
       
       // FirebaseUserをUser型に変換
       const user: User = {
@@ -88,7 +91,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
+    console.log('AuthProvider: Setting up auth state listener');
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      console.log('Auth state changed:', firebaseUser ? 'User logged in' : 'User logged out');
       if (firebaseUser) {
         // FirebaseUserをUser型に変換
         const user: User = {
@@ -98,9 +103,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           createdAt: new Date(firebaseUser.metadata.creationTime || Date.now()),
           updatedAt: new Date(),
         };
+        console.log('Setting user:', user);
         setUser(user);
         setFirebaseUser(firebaseUser);
       } else {
+        console.log('Clearing user');
         setUser(null);
         setFirebaseUser(null);
       }

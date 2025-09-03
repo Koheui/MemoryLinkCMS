@@ -60,9 +60,12 @@ function ClaimPageContent() {
     if (!email || !password) return;
 
     try {
+      console.log('Claim page: Attempting login');
       await login(email, password);
+      console.log('Claim page: Login successful, setting success state');
       setSuccess(true);
       setTimeout(() => {
+        console.log('Claim page: Redirecting to dashboard');
         // 認証成功後、ダッシュボードに移動
         router.push('/dashboard');
       }, 2000);
