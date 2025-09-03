@@ -34,11 +34,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setError(null);
     
     try {
-      console.log('Attempting login with:', email);
+      console.log('AuthProvider: Attempting login with:', email);
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const firebaseUser = userCredential.user;
       
-      console.log('Login successful for:', firebaseUser.email);
+      console.log('AuthProvider: Login successful for:', firebaseUser.email);
       
       // FirebaseUserをUser型に変換
       const user: User = {
@@ -49,11 +49,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         updatedAt: new Date(),
       };
       
+      console.log('AuthProvider: Setting user state:', user);
       setUser(user);
       setFirebaseUser(firebaseUser);
       setLoading(false);
     } catch (error: any) {
-      console.error('Login error:', error);
+      console.error('AuthProvider: Login error:', error);
       let errorMessage = 'ログインに失敗しました。';
       
       switch (error.code) {
@@ -75,17 +76,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       setError(errorMessage);
       setLoading(false);
+      throw error; // エラーを再スローして呼び出し元でキャッチ
     }
   };
 
   const logout = async () => {
     try {
+      console.log('AuthProvider: Attempting logout');
       await signOut(auth);
       setUser(null);
       setFirebaseUser(null);
       setError(null);
+      console.log('AuthProvider: Logout successful');
     } catch (error) {
-      console.error('Logout error:', error);
+      console.error('AuthProvider: Logout error:', error);
       setError('ログアウトに失敗しました。');
     }
   };
@@ -93,7 +97,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     console.log('AuthProvider: Setting up auth state listener');
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      console.log('Auth state changed:', firebaseUser ? 'User logged in' : 'User logged out');
+      console.log('AuthProvider: Auth state changed:', firebaseUser ? 'User logged in' : 'User logged out');
       if (firebaseUser) {
         // FirebaseUserをUser型に変換
         const user: User = {
@@ -103,11 +107,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           createdAt: new Date(firebaseUser.metadata.creationTime || Date.now()),
           updatedAt: new Date(),
         };
-        console.log('Setting user:', user);
+        console.log('AuthProvider: Setting user from auth state:', user);
         setUser(user);
         setFirebaseUser(firebaseUser);
       } else {
-        console.log('Clearing user');
+        console.log('AuthProvider: Clearing user from auth state');
         setUser(null);
         setFirebaseUser(null);
       }

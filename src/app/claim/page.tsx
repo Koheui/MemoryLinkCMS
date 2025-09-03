@@ -60,7 +60,7 @@ function ClaimPageContent() {
     if (!email || !password) return;
 
     try {
-      console.log('Claim page: Attempting login');
+      console.log('Claim page: Attempting login with:', email);
       await login(email, password);
       console.log('Claim page: Login successful, setting success state');
       setSuccess(true);
@@ -70,7 +70,7 @@ function ClaimPageContent() {
         router.push('/dashboard');
       }, 2000);
     } catch (error) {
-      console.error('Login error:', error);
+      console.error('Claim page: Login error:', error);
       // エラーはAuthProviderで処理される
     }
   };
