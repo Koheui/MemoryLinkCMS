@@ -1,15 +1,17 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState } from 'react';
+import { User as FirebaseUser, signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
 import { User } from '@/types';
 
 interface AuthContextType {
   user: User | null;
-  firebaseUser: null;
+  firebaseUser: FirebaseUser | null;
   loading: boolean;
   error: string | null;
-  login: (email: string) => Promise<void>;
-  logout: () => void;
+  login: (email: string, password: string) => Promise<void>;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -18,54 +20,98 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
   error: null,
   login: async () => {},
-  logout: () => {},
+  logout: async () => {},
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const login = async (email: string) => {
+  const login = async (email: string, password: string) => {
     setLoading(true);
     setError(null);
     
     try {
-      // テスト用のログイン処理
-      console.log('Login attempt for:', email);
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const firebaseUser = userCredential.user;
       
-      // モック認証処理（実際のFirebase認証の代わり）
-      setTimeout(() => {
-        const mockUser: User = {
-          uid: `user-${Date.now()}`,
-          email: email,
-          displayName: email.split('@')[0],
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        };
-        setUser(mockUser);
-        setLoading(false);
-      }, 1000);
-    } catch (error) {
+      // FirebaseUserをUser型に変換
+      const user: User = {
+        uid: firebaseUser.uid,
+        email: firebaseUser.email || '',
+        displayName: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || '',
+        createdAt: new Date(firebaseUser.metadata.creationTime || Date.now()),
+        updatedAt: new Date(),
+      };
+      
+      setUser(user);
+      setFirebaseUser(firebaseUser);
+      setLoading(false);
+    } catch (error: any) {
       console.error('Login error:', error);
-      setError('ログインに失敗しました。');
+      let errorMessage = 'ログインに失敗しました。';
+      
+      switch (error.code) {
+        case 'auth/user-not-found':
+          errorMessage = 'ユーザーが見つかりません。';
+          break;
+        case 'auth/wrong-password':
+          errorMessage = 'パスワードが正しくありません。';
+          break;
+        case 'auth/invalid-email':
+          errorMessage = 'メールアドレスの形式が正しくありません。';
+          break;
+        case 'auth/too-many-requests':
+          errorMessage = 'ログイン試行回数が多すぎます。しばらく待ってから再試行してください。';
+          break;
+        default:
+          errorMessage = 'ログインに失敗しました。メールアドレスとパスワードを確認してください。';
+      }
+      
+      setError(errorMessage);
       setLoading(false);
     }
   };
 
-  const logout = () => {
-    setUser(null);
-    setError(null);
+  const logout = async () => {
+    try {
+      await signOut(auth);
+      setUser(null);
+      setFirebaseUser(null);
+      setError(null);
+    } catch (error) {
+      console.error('Logout error:', error);
+      setError('ログアウトに失敗しました。');
+    }
   };
 
   useEffect(() => {
-    // 初期状態ではユーザーをnullに設定（自動ログインしない）
-    console.log('AuthProvider initialized - no auto login');
-    setLoading(false);
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      if (firebaseUser) {
+        // FirebaseUserをUser型に変換
+        const user: User = {
+          uid: firebaseUser.uid,
+          email: firebaseUser.email || '',
+          displayName: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || '',
+          createdAt: new Date(firebaseUser.metadata.creationTime || Date.now()),
+          updatedAt: new Date(),
+        };
+        setUser(user);
+        setFirebaseUser(firebaseUser);
+      } else {
+        setUser(null);
+        setFirebaseUser(null);
+      }
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, firebaseUser: null, loading, error, login, logout }}>
+    <AuthContext.Provider value={{ user, firebaseUser, loading, error, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
