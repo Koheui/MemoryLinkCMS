@@ -70,8 +70,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         case 'auth/too-many-requests':
           errorMessage = 'ログイン試行回数が多すぎます。しばらく待ってから再試行してください。';
           break;
+        case 'auth/network-request-failed':
+          errorMessage = 'ネットワークエラーが発生しました。インターネット接続を確認してください。';
+          break;
         default:
-          errorMessage = 'ログインに失敗しました。メールアドレスとパスワードを確認してください。';
+          errorMessage = `ログインに失敗しました。エラーコード: ${error.code}`;
       }
       
       setError(errorMessage);
