@@ -1,14 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, CheckCircle, AlertCircle, Mail, Heart } from 'lucide-react';
+import { Loader2, CheckCircle, AlertCircle, Heart } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 
-export default function ClaimPage() {
+function ClaimPageContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -205,5 +205,24 @@ export default function ClaimPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function ClaimPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+        <Card className="w-full max-w-md">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-center space-x-2">
+              <Loader2 className="w-6 h-6 animate-spin" />
+              <span>読み込み中...</span>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    }>
+      <ClaimPageContent />
+    </Suspense>
   );
 }
