@@ -3,14 +3,13 @@ import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
-// 新しいFirebase設定（APIキーを更新）
 const firebaseConfig = {
-  apiKey: "AIzaSyBT2MzmlNzOvqx-v8Stz9mesXAX9MERLds",
-  authDomain: "memorylink-cms.firebaseapp.com",
-  projectId: "memorylink-cms",
-  storageBucket: "memorylink-cms.firebasestorage.app",
-  messagingSenderId: "115478197771",
-  appId: "1:115478197771:web:c6d08357f72d636897f90e"
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyBT2MzmlNzOvqx-v8Stz9mesXAX9MERLds",
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "memorylink-cms.firebaseapp.com",
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "memorylink-cms",
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "memorylink-cms.firebasestorage.app",
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "115478197771",
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || "1:115478197771:web:c6d08357f72d636897f90e"
 };
 
 // Firebaseアプリの初期化
@@ -25,7 +24,8 @@ export const storage = getStorage(app);
 console.log('Firebase initialized with config:', {
   apiKey: firebaseConfig.apiKey ? 'SET' : 'NOT SET',
   authDomain: firebaseConfig.authDomain,
-  projectId: firebaseConfig.projectId
+  projectId: firebaseConfig.projectId,
+  customDomain: process.env.NEXT_PUBLIC_CMS_DOMAIN || 'Not set'
 });
 
 export default app;
