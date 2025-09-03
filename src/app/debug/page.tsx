@@ -19,8 +19,14 @@ export default function DebugPage() {
     // Firebase接続テスト
     if (auth) {
       setFirebaseStatus('Firebase Auth接続成功');
+      console.log('Debug: Firebase Auth connected successfully');
+      console.log('Debug: Auth config:', {
+        apiKey: auth.config?.apiKey ? 'SET' : 'NOT SET',
+        authDomain: auth.config?.authDomain
+      });
     } else {
       setFirebaseStatus('Firebase Auth接続失敗');
+      console.log('Debug: Firebase Auth connection failed');
     }
   }, []);
 
@@ -36,6 +42,7 @@ export default function DebugPage() {
       setTestResult(`ログイン成功: ${userCredential.user.email}`);
     } catch (error: any) {
       setTestResult(`ログイン失敗: ${error.code} - ${error.message}`);
+      console.error('Debug: Login test error:', error);
     } finally {
       setLoading(false);
     }
@@ -103,6 +110,15 @@ export default function DebugPage() {
                   <p className="text-sm">{testResult}</p>
                 </div>
               )}
+              
+              <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                <p className="text-sm text-yellow-800">
+                  <strong>APIキー期限切れエラーの場合:</strong><br />
+                  1. Firebase Consoleでプロジェクト設定を開く<br />
+                  2. 「全般」タブで「Firebase SDK スニペット」を確認<br />
+                  3. 新しいAPIキーを取得して設定を更新
+                </p>
+              </div>
             </div>
           </CardContent>
         </Card>

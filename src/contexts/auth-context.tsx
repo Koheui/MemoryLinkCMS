@@ -73,8 +73,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         case 'auth/network-request-failed':
           errorMessage = 'ネットワークエラーが発生しました。インターネット接続を確認してください。';
           break;
+        case 'auth/api-key-expired.-please-renew-the-api-key':
+          errorMessage = 'APIキーが期限切れです。Firebase ConsoleでAPIキーを更新してください。';
+          break;
         case 'auth/invalid-api-key':
-          errorMessage = 'Firebase設定エラーが発生しました。';
+          errorMessage = '無効なAPIキーです。Firebase Consoleで設定を確認してください。';
           break;
         default:
           errorMessage = `ログインに失敗しました。エラーコード: ${error.code}`;

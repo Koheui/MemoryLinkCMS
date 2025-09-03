@@ -3,6 +3,7 @@ import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
+// 新しいFirebase設定（APIキーを更新）
 const firebaseConfig = {
   apiKey: "AIzaSyBT2MzmlNzOvqx-v8Stz9mesXAX9MERLds",
   authDomain: "memorylink-cms.firebaseapp.com",
@@ -19,5 +20,12 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
+
+// デバッグ用：Firebase設定の確認
+console.log('Firebase initialized with config:', {
+  apiKey: firebaseConfig.apiKey ? 'SET' : 'NOT SET',
+  authDomain: firebaseConfig.authDomain,
+  projectId: firebaseConfig.projectId
+});
 
 export default app;
