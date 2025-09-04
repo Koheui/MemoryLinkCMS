@@ -7,7 +7,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Heart, Users, Building, Loader2 } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
-// import { FirebaseStatus } from '@/components/firebase-status';
 import { useMemories } from '@/hooks/use-memories';
 
 export default function DashboardPage() {
@@ -16,8 +15,12 @@ export default function DashboardPage() {
   const { data: memories = [], isLoading: memoriesLoading, error } = useMemories(user?.uid || '');
 
   useEffect(() => {
+    console.log('Dashboard: useEffect triggered - user =', user, 'loading =', loading);
     if (!loading && !user) {
+      console.log('Dashboard: No user found, redirecting to /');
       router.push('/');
+    } else if (!loading && user) {
+      console.log('Dashboard: User found, staying on dashboard');
     }
   }, [user, loading, router]);
 

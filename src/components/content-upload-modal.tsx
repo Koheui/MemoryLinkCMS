@@ -84,7 +84,7 @@ export function ContentUploadModal({
             throw new Error('Unsupported file type');
         }
 
-        const asset: Omit<Asset, 'id' | 'createdAt' | 'updatedAt'> = {
+        const asset: Omit<Asset, 'id' | 'createdAt'> = {
           memoryId,
           ownerUid: 'mock-user-id',
           name: file.name,
@@ -95,6 +95,7 @@ export function ContentUploadModal({
           size: file.size,
           duration,
           resolution,
+          updatedAt: new Date(),
         };
 
         const createdAsset = await createAsset(asset);

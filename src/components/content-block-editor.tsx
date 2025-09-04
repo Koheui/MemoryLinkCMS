@@ -255,7 +255,7 @@ export function ContentBlockEditor({
                         
                         {/* アルバムのサムネイル表示 */}
                         <div className="grid grid-cols-3 gap-2">
-                          {selectedAlbum.assets.slice(0, 6).map((assetId, index) => {
+                          {selectedAlbum.assets.slice(0, 6).map((assetId: string, index: number) => {
                             const asset = assets.find(a => a.id === assetId);
                             if (!asset) return null;
                             

@@ -75,7 +75,7 @@ export function FileUpload({ memoryId, onUploadComplete }: FileUploadProps) {
         }
 
         // AssetをFirestoreに保存
-        const asset: Omit<Asset, 'id' | 'createdAt' | 'updatedAt'> = {
+        const asset: Omit<Asset, 'id' | 'createdAt'> = {
           memoryId,
           ownerUid: 'mock-user-id', // モックユーザーID
           name: uploadingFile.file.name,
@@ -86,6 +86,7 @@ export function FileUpload({ memoryId, onUploadComplete }: FileUploadProps) {
           size: uploadingFile.file.size,
           duration,
           resolution,
+          updatedAt: new Date(),
         };
 
         const createdAsset = await createAsset(asset);

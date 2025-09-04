@@ -23,7 +23,9 @@ const mockMemories: Memory[] = [
         type: 'text',
         order: 0,
         visibility: 'public',
-        content: 'これは開発用のサンプル想い出です。',
+        content: {
+          text: 'これは開発用のサンプル想い出です。',
+        },
         createdAt: new Date('2024-01-01'),
         updatedAt: new Date('2024-01-01'),
       },
@@ -52,7 +54,9 @@ const mockMemories: Memory[] = [
         type: 'text',
         order: 0,
         visibility: 'public',
-        content: '家族との大切な時間を記録しました。',
+        content: {
+          text: '家族との大切な時間を記録しました。',
+        },
         createdAt: new Date('2024-01-02'),
         updatedAt: new Date('2024-01-02'),
       },

@@ -1,124 +1,87 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { isSignInWithEmailLink, signInWithEmailLink } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, CheckCircle, AlertCircle } from 'lucide-react';
-import { createMemory } from '@/lib/firestore';
-import { Memory } from '@/types';
+import { Input } from '@/components/ui/input';
+import { Loader2, CheckCircle, AlertCircle, Heart } from 'lucide-react';
+import { useAuth } from '@/contexts/auth-context';
 
-export default function ClaimPage() {
+function ClaimPageContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isLoginMode, setIsLoginMode] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { login } = useAuth();
 
   useEffect(() => {
-    const handleEmailLink = async () => {
-      if (!isSignInWithEmailLink(auth, window.location.href)) {
-        setError('無効なログインリンクです。');
-        setLoading(false);
-        return;
-      }
+    // URLパラメータから情報を取得
+    const emailParam = searchParams.get('email');
+    const mode = searchParams.get('mode');
+    const claimKey = searchParams.get('key');
 
-      try {
-        // ローカルストレージからメールアドレスを取得
-        let email = window.localStorage.getItem('emailForSignIn');
-        
-        if (!email) {
-          // メールアドレスが保存されていない場合はユーザーに入力してもらう
-          email = window.prompt('ログインに使用したメールアドレスを入力してください:');
-        }
+    if (emailParam) {
+      setEmail(emailParam);
+    }
 
-        if (!email) {
-          setError('メールアドレスが必要です。');
-          setLoading(false);
-          return;
-        }
+    if (mode === 'login') {
+      setIsLoginMode(true);
+    }
 
-        // メールリンクでサインイン
-        const result = await signInWithEmailLink(auth, email, window.location.href);
-        
-        // ローカルストレージからメールアドレスを削除
-        window.localStorage.removeItem('emailForSignIn');
+    // クレームキーがある場合は直接処理
+    if (claimKey) {
+      handleClaimWithKey(claimKey);
+    } else {
+      setLoading(false);
+    }
+  }, [searchParams]);
 
-        // JWTトークンを取得してクレーム処理
-        const idToken = await result.user.getIdToken();
-        const jwt = searchParams.get('k');
-        
-        if (jwt) {
-          try {
-            // TODO: Functions APIを呼び出してクレーム処理
-            // const response = await fetch('/api/claim', {
-            //   method: 'POST',
-            //   headers: {
-            //     'Authorization': `Bearer ${idToken}`,
-            //     'Content-Type': 'application/json',
-            //   },
-            //   body: JSON.stringify({ jwt }),
-            // });
-            
-            // 仮の処理：新しいmemoryを作成
-            const newMemory: Omit<Memory, 'id' | 'createdAt' | 'updatedAt'> = {
-              ownerUid: result.user.uid,
-              title: '新しい想い出',
-              type: 'personal',
-              status: 'draft',
-              design: {
-                theme: 'default',
-                layout: 'standard',
-                colors: {
-                  primary: '#3B82F6',
-                  secondary: '#6B7280',
-                  background: '#FFFFFF',
-                },
-              },
-              blocks: [],
-            };
-            
-            const memoryId = await createMemory(newMemory);
-            console.log('Created new memory:', memoryId);
-          } catch (claimError) {
-            console.error('Claim error:', claimError);
-            // クレーム処理に失敗してもログインは成功とする
-          }
-        }
+  const handleClaimWithKey = async (key: string) => {
+    // モッククレーム処理
+    setTimeout(() => {
+      setSuccess(true);
+      setTimeout(() => {
+        // クレームキーに基づいてメモリを作成し、編集画面に移動
+        const memoryId = `memory-${Date.now()}`;
+        router.push(`/memories/${memoryId}?claimKey=${key}`);
+      }, 2000);
+    }, 1000);
+  };
 
-        setSuccess(true);
-        
-        // ダッシュボードにリダイレクト
-        setTimeout(() => {
-          router.push('/dashboard');
-        }, 2000);
+  const handleEmailLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email || !password) return;
 
-      } catch (error) {
-        console.error('Error signing in with email link:', error);
-        setError('ログインに失敗しました。もう一度お試しください。');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    handleEmailLink();
-  }, [router, searchParams]);
+    setLoading(true);
+    
+    try {
+      await login(email, password);
+      setSuccess(true);
+      setTimeout(() => {
+        router.push('/dashboard');
+      }, 2000);
+    } catch (error) {
+      console.error('Login error:', error);
+      setError('ログインに失敗しました。メールアドレスとパスワードを確認してください。');
+      setLoading(false);
+    }
+  };
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
         <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <div className="mx-auto mb-4 w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-              <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
+          <CardContent className="p-6">
+            <div className="flex items-center justify-center space-x-2">
+              <Loader2 className="w-6 h-6 animate-spin" />
+              <span>処理中...</span>
             </div>
-            <CardTitle>ログイン中...</CardTitle>
-            <CardDescription>
-              認証を確認しています
-            </CardDescription>
-          </CardHeader>
+          </CardContent>
         </Card>
       </div>
     );
@@ -126,23 +89,18 @@ export default function ClaimPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
         <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <div className="mx-auto mb-4 w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
-              <AlertCircle className="w-6 h-6 text-red-600" />
-            </div>
-            <CardTitle>エラー</CardTitle>
-            <CardDescription>
-              {error}
-            </CardDescription>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2 text-red-600">
+              <AlertCircle className="w-6 h-6" />
+              <span>エラー</span>
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <Button 
-              onClick={() => router.push('/login')}
-              className="w-full"
-            >
-              ログインページに戻る
+            <p className="text-gray-600 mb-4">{error}</p>
+            <Button onClick={() => router.push('/')}>
+              ホームに戻る
             </Button>
           </CardContent>
         </Card>
@@ -152,21 +110,125 @@ export default function ClaimPage() {
 
   if (success) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
         <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <div className="mx-auto mb-4 w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-              <CheckCircle className="w-6 h-6 text-green-600" />
-            </div>
-            <CardTitle>ログイン成功</CardTitle>
-            <CardDescription>
-              ダッシュボードにリダイレクトしています...
-            </CardDescription>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2 text-green-600">
+              <CheckCircle className="w-6 h-6" />
+              <span>成功</span>
+            </CardTitle>
           </CardHeader>
+          <CardContent>
+            <p className="text-gray-600 mb-4">
+              {isLoginMode ? 'ログインが完了しました。' : '想い出ページの作成を開始します。'}
+            </p>
+            <div className="flex items-center justify-center space-x-2">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span>リダイレクト中...</span>
+            </div>
+          </CardContent>
         </Card>
       </div>
     );
   }
 
-  return null;
+  // ログインモードの表示
+  if (isLoginMode) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <div className="flex items-center justify-center space-x-2 mb-4">
+              <Heart className="w-8 h-8 text-red-500" />
+              <span className="text-xl font-bold">想い出リンク</span>
+            </div>
+            <CardTitle>ログイン</CardTitle>
+            <CardDescription>
+              メールアドレスとパスワードを入力してログインしてください
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleEmailLogin} className="space-y-4">
+              <Input
+                type="email"
+                placeholder="your@email.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+              <Input
+                type="password"
+                placeholder="パスワード"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? 'ログイン中...' : 'ログイン'}
+              </Button>
+            </form>
+            <div className="mt-4 text-center">
+              <Button variant="link" onClick={() => router.push('/')}>
+                新規登録はこちら
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // デフォルト表示（クレームキーなし）
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+      <Card className="w-full max-w-md">
+        <CardHeader className="text-center">
+          <div className="flex items-center justify-center space-x-2 mb-4">
+            <Heart className="w-8 h-8 text-red-500" />
+            <span className="text-xl font-bold">想い出リンク</span>
+          </div>
+          <CardTitle>想い出ページにアクセス</CardTitle>
+          <CardDescription>
+            クレームキーまたはメールアドレスを入力してください
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <Button 
+              onClick={() => router.push('/dashboard')} 
+              className="w-full"
+            >
+              ダッシュボードに移動
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={() => setIsLoginMode(true)} 
+              className="w-full"
+            >
+              ログイン
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+export default function ClaimPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+        <Card className="w-full max-w-md">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-center space-x-2">
+              <Loader2 className="w-6 h-6 animate-spin" />
+              <span>読み込み中...</span>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    }>
+      <ClaimPageContent />
+    </Suspense>
+  );
 }
