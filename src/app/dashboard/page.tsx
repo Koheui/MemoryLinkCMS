@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Heart, Users, Building, Loader2 } from 'lucide-react';
+import { Heart, Users, Building, Loader2, Plus, Settings, UserCheck } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
 import { useMemories } from '@/hooks/use-memories';
 
@@ -76,6 +76,48 @@ export default function DashboardPage() {
         </div>
 
         <div className="grid gap-6">
+          {/* クイックアクション */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Plus className="w-5 h-5" />
+                <span>クイックアクション</span>
+              </CardTitle>
+              <CardDescription>
+                よく使用する機能へのクイックアクセス
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Button 
+                  onClick={() => router.push('/memories/create')}
+                  className="h-20 flex flex-col items-center justify-center space-y-2"
+                >
+                  <Plus className="w-6 h-6" />
+                  <span>想い出ページ作成</span>
+                </Button>
+                
+                <Button 
+                  variant="outline"
+                  onClick={() => router.push('/admin/users')}
+                  className="h-20 flex flex-col items-center justify-center space-y-2"
+                >
+                  <UserCheck className="w-6 h-6" />
+                  <span>ユーザー管理</span>
+                </Button>
+                
+                <Button 
+                  variant="outline"
+                  onClick={() => router.push('/debug')}
+                  className="h-20 flex flex-col items-center justify-center space-y-2"
+                >
+                  <Settings className="w-6 h-6" />
+                  <span>システム設定</span>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Firebase接続状態 - 一時的に無効化 */}
           {/* <FirebaseStatus /> */}
 
