@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, Save, Eye, ArrowLeft, Image, Upload, Video, Music, Clock } from 'lucide-react';
+import { Loader2, Save, Eye, ArrowLeft, Image, Upload, Video, Music, Clock, Globe } from 'lucide-react';
 import { Memory, Asset, Album, Block } from '@/types';
 import { useMemory, useCreateMemory, useUpdateMemory, useAlbumsByMemory } from '@/hooks/use-memories';
 import { AlbumCreator } from '@/components/album-creator';
@@ -19,18 +19,23 @@ import { ContentUploadModal } from '@/components/content-upload-modal';
 import { HeaderSettings } from '@/components/header-settings';
 import { getAssetsByMemory } from '@/lib/firestore';
 import { formatFileSize } from '@/lib/utils';
+import { getTenantFromOrigin } from '@/lib/security/tenant-validation';
+import { doc, getDoc, updateDoc, addDoc, collection } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 export default function MemoryEditPage({ params }: { params: { id: string } }) {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [memory, setMemory] = useState<Memory | null>(null);
   const [saving, setSaving] = useState(false);
+  const [publishing, setPublishing] = useState(false);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [coverImage, setCoverImage] = useState<string>('');
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [showPreview, setShowPreview] = useState(false);
   const [showCoverUploadModal, setShowCoverUploadModal] = useState(false);
   const [tempMemoryId, setTempMemoryId] = useState<string>('');
+  const [publicPageId, setPublicPageId] = useState<string | null>(null);
 
   const { data: existingMemory, isLoading: memoryLoading } = useMemory(params.id === 'new' ? '' : params.id);
   const { data: albums = [] } = useAlbumsByMemory(params.id === 'new' ? '' : params.id);
@@ -114,18 +119,69 @@ export default function MemoryEditPage({ params }: { params: { id: string } }) {
   };
 
   const handlePublish = async () => {
-    if (!memory) return;
+    if (!memory || !user) return;
     
-    setSaving(true);
+    setPublishing(true);
     try {
-      // TODO: 公開処理（Functions API呼び出し）
-      console.log('Publishing memory:', memory);
-      await new Promise(resolve => setTimeout(resolve, 1000)); // ダミー処理
+      // テナント情報を取得
+      const origin = window.location.origin;
+      const tenantInfo = getTenantFromOrigin(origin);
+      
+      // 公開ページを作成
+      const publicPageRef = await addDoc(collection(db, 'publicPages'), {
+        tenant: tenantInfo.tenant,
+        memoryId: memory.id,
+        title: memory.title,
+        about: memory.description,
+        design: {
+          theme: memory.design.theme || 'default',
+          fontScale: 1.0,
+          colors: memory.design.colors ? Object.values(memory.design.colors) : ['#3B82F6', '#EF4444']
+        },
+        media: {
+          images: assets.filter(a => a.type === 'image').map(a => a.url),
+          videos: assets.filter(a => a.type === 'video').map(a => a.url),
+          audio: assets.filter(a => a.type === 'audio').map(a => a.url)
+        },
+        ordering: blocks.map(b => b.id),
+        publish: {
+          status: 'published',
+          version: 1,
+          publishedAt: new Date()
+        },
+        access: {
+          mode: 'public'
+        },
+        createdAt: new Date()
+      });
+      
+      // メモリを更新
+      const memoryRef = doc(db, 'memories', memory.id);
+      await updateDoc(memoryRef, {
+        status: 'published',
+        publicPageId: publicPageRef.id,
+        updatedAt: new Date()
+      });
+      
+      setPublicPageId(publicPageRef.id);
+      setMemory(prev => prev ? { ...prev, status: 'published', publicPageId: publicPageRef.id } : null);
+      
+      console.log('Memory published:', publicPageRef.id);
     } catch (error) {
       console.error('Error publishing memory:', error);
     } finally {
-      setSaving(false);
+      setPublishing(false);
     }
+  };
+
+  const handleViewPublicPage = () => {
+    if (publicPageId) {
+      window.open(`/public/${publicPageId}`, '_blank');
+    }
+  };
+
+  const handleBlocksReorder = (reorderedBlocks: Block[]) => {
+    setBlocks(reorderedBlocks);
   };
 
   const handleUploadComplete = (asset: Asset) => {
@@ -188,8 +244,66 @@ export default function MemoryEditPage({ params }: { params: { id: string } }) {
     setBlocks(prev => prev.filter(block => block.id !== blockId));
   };
 
-  const handleBlocksReorder = (reorderedBlocks: Block[]) => {
-    setBlocks(reorderedBlocks);
+  const handlePublish = async () => {
+    if (!memory || !user) return;
+    
+    setPublishing(true);
+    try {
+      // テナント情報を取得
+      const origin = window.location.origin;
+      const tenantInfo = getTenantFromOrigin(origin);
+      
+      // 公開ページを作成
+      const publicPageRef = await addDoc(collection(db, 'publicPages'), {
+        tenant: tenantInfo.tenant,
+        memoryId: memory.id,
+        title: memory.title,
+        about: memory.description,
+        design: {
+          theme: memory.design.theme || 'default',
+          fontScale: 1.0,
+          colors: memory.design.colors ? Object.values(memory.design.colors) : ['#3B82F6', '#EF4444']
+        },
+        media: {
+          images: assets.filter(a => a.type === 'image').map(a => a.url),
+          videos: assets.filter(a => a.type === 'video').map(a => a.url),
+          audio: assets.filter(a => a.type === 'audio').map(a => a.url)
+        },
+        ordering: blocks.map(b => b.id),
+        publish: {
+          status: 'published',
+          version: 1,
+          publishedAt: new Date()
+        },
+        access: {
+          mode: 'public'
+        },
+        createdAt: new Date()
+      });
+      
+      // メモリを更新
+      const memoryRef = doc(db, 'memories', memory.id);
+      await updateDoc(memoryRef, {
+        status: 'published',
+        publicPageId: publicPageRef.id,
+        updatedAt: new Date()
+      });
+      
+      setPublicPageId(publicPageRef.id);
+      setMemory(prev => prev ? { ...prev, status: 'published', publicPageId: publicPageRef.id } : null);
+      
+      console.log('Memory published:', publicPageRef.id);
+    } catch (error) {
+      console.error('Error publishing memory:', error);
+    } finally {
+      setPublishing(false);
+    }
+  };
+
+  const handleViewPublicPage = () => {
+    if (publicPageId) {
+      window.open(`/public/${publicPageId}`, '_blank');
+    }
   };
 
   if (loading || memoryLoading) {
@@ -247,6 +361,31 @@ export default function MemoryEditPage({ params }: { params: { id: string } }) {
               )}
               保存
             </Button>
+            {memory.status === 'draft' && (
+              <Button
+                size="sm"
+                onClick={handlePublish}
+                disabled={publishing}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                {publishing ? (
+                  <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                ) : (
+                  <Globe className="w-4 h-4 mr-1" />
+                )}
+                公開
+              </Button>
+            )}
+            {memory.status === 'published' && publicPageId && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleViewPublicPage}
+              >
+                <Globe className="w-4 h-4 mr-1" />
+                公開ページを見る
+              </Button>
+            )}
           </div>
         </div>
       </div>

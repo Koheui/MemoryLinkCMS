@@ -8,6 +8,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2, CheckCircle, AlertCircle, Heart, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
+import { getClaimRequestByKey, processClaimRequest, validateClaimKey } from '@/lib/claim/claim-processor';
+import { getTenantFromOrigin } from '@/lib/security/tenant-validation';
 
 function ClaimPageContent() {
   const [loading, setLoading] = useState(true);
@@ -17,9 +19,10 @@ function ClaimPageContent() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoginMode, setIsLoginMode] = useState(false);
+  const [pendingClaimKey, setPendingClaimKey] = useState<string | null>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { login, loading: authLoading, error: authError } = useAuth();
+  const { login, user: currentUser, loading: authLoading, error: authError } = useAuth();
 
   useEffect(() => {
     // URLパラメータから情報を取得
@@ -35,24 +38,75 @@ function ClaimPageContent() {
       setIsLoginMode(true);
     }
 
-    // クレームキーがある場合は直接処理
+    // クレームキーがある場合は保存
     if (claimKey) {
+      setPendingClaimKey(claimKey);
       handleClaimWithKey(claimKey);
     } else {
       setLoading(false);
     }
   }, [searchParams]);
 
+  // ユーザーがログインした後にクレームを処理
+  useEffect(() => {
+    if (currentUser && pendingClaimKey) {
+      handleClaimWithKey(pendingClaimKey);
+      setPendingClaimKey(null);
+    }
+  }, [currentUser, pendingClaimKey]);
+
   const handleClaimWithKey = async (key: string) => {
-    // モッククレーム処理
-    setTimeout(() => {
-      setSuccess(true);
-      setTimeout(() => {
-        // クレームキーに基づいてメモリを作成し、編集画面に移動
-        const memoryId = `memory-${Date.now()}`;
-        router.push(`/memories/${memoryId}?claimKey=${key}`);
-      }, 2000);
-    }, 1000);
+    if (!validateClaimKey(key)) {
+      setError('無効なクレームキーです');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      // クレームリクエストを取得
+      const claimRequest = await getClaimRequestByKey(key);
+      if (!claimRequest) {
+        setError('クレームリクエストが見つかりません');
+        setLoading(false);
+        return;
+      }
+
+      // ステータスチェック
+      if (claimRequest.status === 'claimed') {
+        setError('このクレームは既に使用されています');
+        setLoading(false);
+        return;
+      }
+
+      if (claimRequest.status === 'expired') {
+        setError('このクレームは期限切れです');
+        setLoading(false);
+        return;
+      }
+
+      // ユーザーがログインしている場合は直接処理
+      if (currentUser) {
+        const origin = window.location.origin;
+        const memory = await processClaimRequest(claimRequest, currentUser.uid, origin);
+        
+        if (memory) {
+          setSuccess(true);
+          setTimeout(() => {
+            router.push(`/memories/${memory.id}`);
+          }, 2000);
+        } else {
+          setError('メモリの作成に失敗しました');
+        }
+      } else {
+        // ログインしていない場合は、ログイン後に処理するよう設定
+        setEmail(claimRequest.email);
+        setLoading(false);
+      }
+    } catch (error) {
+      console.error('Error processing claim:', error);
+      setError('クレームの処理に失敗しました');
+      setLoading(false);
+    }
   };
 
   const handleEmailLogin = async (e: React.FormEvent) => {
