@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/auth-context';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,6 +12,7 @@ import { Loader2, Upload, Image, Video, MessageSquare, Save } from 'lucide-react
 import { collection, addDoc, doc, setDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '@/lib/firebase';
+import { getTenantFromOrigin, logSecurityEvent } from '@/lib/security/tenant-validation';
 
 interface MemoryData {
   title: string;
@@ -30,6 +31,8 @@ export default function CreateMemoryPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [currentTenant, setCurrentTenant] = useState<string | null>(null);
+  const [currentLpId, setCurrentLpId] = useState<string | null>(null);
   const [memoryData, setMemoryData] = useState<MemoryData>({
     title: '',
     description: '',
@@ -81,6 +84,11 @@ export default function CreateMemoryPage() {
       return;
     }
 
+    if (!currentTenant || !currentLpId) {
+      setError('テナント情報が取得できません');
+      return;
+    }
+
     if (!memoryData.title.trim()) {
       setError('タイトルを入力してください');
       return;
@@ -92,14 +100,21 @@ export default function CreateMemoryPage() {
 
       const memoryRef = await addDoc(collection(db, 'memories'), {
         ownerUid: currentUser.uid,
-        tenant: 'petmem', // デフォルトテナント
-        lpId: 'default',
+        tenant: currentTenant,
+        lpId: currentLpId,
         ...memoryData,
         createdAt: new Date(),
         updatedAt: new Date(),
       });
 
       console.log('Memory created:', memoryRef.id);
+      
+      logSecurityEvent('memory_created', currentUser.uid, currentTenant, {
+        memoryId: memoryRef.id,
+        lpId: currentLpId,
+        title: memoryData.title
+      });
+      
       router.push(`/memories/${memoryRef.id}`);
     } catch (err: any) {
       console.error('Save error:', err);

@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Loader2, Building, Plus, Edit, Settings, Users, Package } from 'lucide-react';
 import { collection, query, orderBy, getDocs, doc, addDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { getTenantFromOrigin, logSecurityEvent } from '@/lib/security/tenant-validation';
 
 interface Tenant {
   id: string;
@@ -42,6 +43,7 @@ export default function TenantsPage() {
   const [error, setError] = useState<string | null>(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingTenant, setEditingTenant] = useState<Tenant | null>(null);
+  const [currentTenant, setCurrentTenant] = useState<string | null>(null);
   const [formData, setFormData] = useState<Partial<Tenant>>({
     name: '',
     description: '',
@@ -68,7 +70,23 @@ export default function TenantsPage() {
       return;
     }
 
-    fetchTenants();
+    // Originベースでテナントを決定
+    try {
+      const origin = window.location.origin;
+      const tenantInfo = getTenantFromOrigin(origin);
+      setCurrentTenant(tenantInfo.tenant);
+      
+      logSecurityEvent('tenant_page_access', currentUser.uid, tenantInfo.tenant, {
+        origin,
+        lpId: tenantInfo.lpId
+      });
+      
+      fetchTenants();
+    } catch (err: any) {
+      console.error('Tenant validation error:', err);
+      setError('テナント検証に失敗しました');
+      setLoading(false);
+    }
   }, [currentUser, authLoading]);
 
   const fetchTenants = async () => {
