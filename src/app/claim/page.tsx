@@ -5,7 +5,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, CheckCircle, AlertCircle, Heart } from 'lucide-react';
+import { Label } from '@/components/ui/label';
+import { Loader2, CheckCircle, AlertCircle, Heart, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
 
 function ClaimPageContent() {
@@ -14,10 +15,11 @@ function ClaimPageContent() {
   const [success, setSuccess] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoginMode, setIsLoginMode] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { login } = useAuth();
+  const { login, loading: authLoading, error: authError } = useAuth();
 
   useEffect(() => {
     // URLパラメータから情報を取得
@@ -60,13 +62,16 @@ function ClaimPageContent() {
     setLoading(true);
     
     try {
+      console.log('Claim page: Attempting login with:', email);
       await login(email, password);
+      console.log('Claim page: Login successful, setting success state');
       setSuccess(true);
       setTimeout(() => {
+        console.log('Claim page: Redirecting to dashboard');
         router.push('/dashboard');
       }, 2000);
     } catch (error) {
-      console.error('Login error:', error);
+      console.error('Claim page: Login error:', error);
       setError('ログインに失敗しました。メールアドレスとパスワードを確認してください。');
       setLoading(false);
     }
@@ -149,28 +154,73 @@ function ClaimPageContent() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleEmailLogin} className="space-y-4">
-              <Input
-                type="email"
-                placeholder="your@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-              <Input
-                type="password"
-                placeholder="パスワード"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? 'ログイン中...' : 'ログイン'}
+              <div className="space-y-2">
+                <Label htmlFor="email">メールアドレス</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="your@email.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="password">パスワード</Label>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="パスワードを入力"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              {authError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-md">
+                  <p className="text-sm text-red-600">{authError}</p>
+                </div>
+              )}
+
+              <Button type="submit" className="w-full" disabled={authLoading}>
+                {authLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ログイン中...
+                  </>
+                ) : (
+                  'ログイン'
+                )}
               </Button>
             </form>
-            <div className="mt-4 text-center">
+            
+            <div className="mt-4 text-center space-y-2">
               <Button variant="link" onClick={() => router.push('/')}>
                 新規登録はこちら
               </Button>
+              <div className="text-sm text-gray-500">
+                パスワードを忘れた方は
+                <Button variant="link" className="p-0 h-auto text-sm">
+                  こちら
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>

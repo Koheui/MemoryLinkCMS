@@ -4,7 +4,7 @@ import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyBT2MzmlNzOvqx-v8Stz9mesXAX9MERLds",
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyD-0mlhluuKRN-sihAiCmukEgkZVs6eTLI",
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "memorylink-cms.firebaseapp.com",
   projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "memorylink-cms",
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "memorylink-cms.firebasestorage.app",
@@ -13,7 +13,7 @@ const firebaseConfig = {
 };
 
 // APIキーが期限切れの場合の一時的な対処
-const isApiKeyExpired = true; // 一時的にtrueに設定
+const isApiKeyExpired = false; // trueからfalseに変更
 
 let app: any = null;
 let auth: any = null;
