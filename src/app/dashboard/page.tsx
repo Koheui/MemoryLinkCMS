@@ -88,7 +88,7 @@ export default function DashboardPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <Button 
                   onClick={() => router.push('/memories/create')}
                   className="h-20 flex flex-col items-center justify-center space-y-2"
@@ -104,6 +104,15 @@ export default function DashboardPage() {
                 >
                   <UserCheck className="w-6 h-6" />
                   <span>ユーザー管理</span>
+                </Button>
+                
+                <Button 
+                  variant="outline"
+                  onClick={() => router.push('/admin/tenants')}
+                  className="h-20 flex flex-col items-center justify-center space-y-2"
+                >
+                  <Building className="w-6 h-6" />
+                  <span>テナント管理</span>
                 </Button>
                 
                 <Button 
