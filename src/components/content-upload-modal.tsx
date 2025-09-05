@@ -94,12 +94,12 @@ export function ContentUploadModal({
           thumbnailUrl,
           size: file.size,
           duration,
-          resolution,
+          resolution: resolution ? `${resolution.width}x${resolution.height}` : undefined,
           updatedAt: new Date(),
         };
 
-        const createdAsset = await createAsset(asset);
-        onUploadComplete(createdAsset);
+        const assetId = await createAsset(asset);
+        onUploadComplete({ ...asset, id: assetId, createdAt: new Date() });
 
         setUploadingFiles(prev => 
           prev.map(f => 

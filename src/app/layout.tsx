@@ -2,12 +2,12 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import { QueryProvider } from '@/providers/query-provider'
-import { AuthProvider } from '@/contexts/auth-context'
+import { SecretKeyAuthProvider } from '@/contexts/secret-key-auth-context'
 
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: '想い出リンク - CMS',
+  title: 'CMS',
   description: 'NFC/QRコードで閲覧できる想い出ページを管理するCMSシステム',
 }
 
@@ -20,9 +20,9 @@ export default function RootLayout({
     <html lang="ja">
       <body className={inter.className}>
         <QueryProvider>
-          <AuthProvider>
+          <SecretKeyAuthProvider>
             {children}
-          </AuthProvider>
+          </SecretKeyAuthProvider>
         </QueryProvider>
       </body>
     </html>

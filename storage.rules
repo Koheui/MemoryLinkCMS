@@ -1,0 +1,19 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // 一時的なアップロードファイル（秘密鍵認証システム用）
+    match /uploads/{fileName} {
+      allow read, write: if true; // 全ユーザーに許可
+    }
+    
+    // テナント別アップロードファイル
+    match /tenants/{tenantId}/uploads/{fileName} {
+      allow read, write: if true; // 全ユーザーに許可
+    }
+    
+    // すべてのファイル（一時的に全許可）
+    match /{allPaths=**} {
+      allow read, write: if true; // 開発・テスト用
+    }
+  }
+}

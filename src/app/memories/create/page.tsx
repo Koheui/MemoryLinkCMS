@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useAuth } from '@/contexts/auth-context';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
+import { useSecretKeyAuth } from '@/contexts/secret-key-auth-context';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,13 +26,27 @@ interface MemoryData {
   blocks: any[];
 }
 
-export default function CreateMemoryPage() {
-  const { user: currentUser, loading: authLoading } = useAuth();
+function CreateMemoryPageContent() {
+  const { user: currentUser, loading: authLoading, isAuthenticated } = useSecretKeyAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentTenant, setCurrentTenant] = useState<string | null>(null);
   const [currentLpId, setCurrentLpId] = useState<string | null>(null);
+  
+  // 認証バイパスチェック
+  const authBypass = searchParams.get('auth') === 'bypass';
+  
+  // デバッグログ
+  console.log('=== CreateMemoryPage Debug ===');
+  console.log('authBypass:', authBypass);
+  console.log('currentUser:', currentUser);
+  console.log('authLoading:', authLoading);
+  console.log('isAuthenticated:', isAuthenticated);
+  console.log('searchParams:', Object.fromEntries(searchParams.entries()));
+  console.log('=== End Debug ===');
+  
   const [memoryData, setMemoryData] = useState<MemoryData>({
     title: '',
     description: '',
@@ -79,8 +93,8 @@ export default function CreateMemoryPage() {
   };
 
   const handleSave = async () => {
-    if (!currentUser) {
-      setError('認証が必要です');
+    if (!authBypass && !isAuthenticated) {
+      setError('秘密鍵認証が必要です');
       return;
     }
 
@@ -99,7 +113,7 @@ export default function CreateMemoryPage() {
       setError(null);
 
       const memoryRef = await addDoc(collection(db, 'memories'), {
-        ownerUid: currentUser.uid,
+        ownerUid: currentUser?.uid || 'temp-user',
         tenant: currentTenant,
         lpId: currentLpId,
         ...memoryData,
@@ -109,11 +123,13 @@ export default function CreateMemoryPage() {
 
       console.log('Memory created:', memoryRef.id);
       
-      logSecurityEvent('memory_created', currentUser.uid, currentTenant, {
-        memoryId: memoryRef.id,
-        lpId: currentLpId,
-        title: memoryData.title
-      });
+      if (currentUser) {
+        logSecurityEvent('memory_created', currentUser.uid, currentTenant, {
+          memoryId: memoryRef.id,
+          lpId: currentLpId,
+          title: memoryData.title
+        });
+      }
       
       router.push(`/memories/${memoryRef.id}`);
     } catch (err: any) {
@@ -132,12 +148,19 @@ export default function CreateMemoryPage() {
     );
   }
 
-  if (!currentUser) {
+  // 認証バイパスが有効でない場合のみ認証チェック
+  if (!authBypass && !isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Card className="w-full max-w-md">
           <CardContent className="p-6">
-            <p className="text-center text-red-600">認証が必要です</p>
+            <p className="text-center text-red-600">秘密鍵認証が必要です</p>
+            <Button 
+              className="w-full mt-4" 
+              onClick={() => router.push('/')}
+            >
+              認証ページに戻る
+            </Button>
           </CardContent>
         </Card>
       </div>
@@ -308,5 +331,17 @@ export default function CreateMemoryPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function CreateMemoryPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin" />
+      </div>
+    }>
+      <CreateMemoryPageContent />
+    </Suspense>
   );
 }

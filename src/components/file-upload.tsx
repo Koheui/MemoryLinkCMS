@@ -8,10 +8,10 @@ import { Loader2, Upload, Image, Video, Music, File, X } from 'lucide-react';
 import { uploadImage, uploadVideo, uploadAudio, generateFileName, getFileType } from '@/lib/storage';
 import { createAsset } from '@/lib/firestore';
 import { Asset } from '@/types';
-import { generateVideoThumbnail, getVideoDuration, getVideoResolution, formatFileSize } from '@/lib/utils';
 
 interface FileUploadProps {
   memoryId: string;
+  ownerUid: string; // ユーザーIDを追加
   onUploadComplete: (asset: Asset) => void;
 }
 
@@ -23,7 +23,7 @@ interface UploadingFile {
   error?: string;
 }
 
-export function FileUpload({ memoryId, onUploadComplete }: FileUploadProps) {
+export function FileUpload({ memoryId, ownerUid, onUploadComplete }: FileUploadProps) {
   const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([]);
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
@@ -42,54 +42,38 @@ export function FileUpload({ memoryId, onUploadComplete }: FileUploadProps) {
         const fileName = generateFileName(uploadingFile.file.name, fileType);
         
         let uploadResult;
-        let thumbnailUrl: string | undefined;
-        let duration: number | undefined;
-        let resolution: { width: number; height: number } | undefined;
-
         switch (fileType) {
           case 'image':
             uploadResult = await uploadImage(uploadingFile.file, memoryId, fileName);
             break;
           case 'video':
             uploadResult = await uploadVideo(uploadingFile.file, memoryId, fileName);
-            // 動画サムネイルを生成
-            try {
-              thumbnailUrl = await generateVideoThumbnail(uploadingFile.file);
-              duration = await getVideoDuration(uploadingFile.file);
-              resolution = await getVideoResolution(uploadingFile.file);
-            } catch (error) {
-              console.warn('Failed to generate video thumbnail:', error);
-            }
             break;
           case 'audio':
             uploadResult = await uploadAudio(uploadingFile.file, memoryId, fileName);
-            // 音声の長さを取得
-            try {
-              duration = await getVideoDuration(uploadingFile.file);
-            } catch (error) {
-              console.warn('Failed to get audio duration:', error);
-            }
             break;
           default:
             throw new Error('Unsupported file type');
         }
 
         // AssetをFirestoreに保存
-        const asset: Omit<Asset, 'id' | 'createdAt'> = {
+        const asset: Omit<Asset, 'id' | 'createdAt' | 'updatedAt'> = {
           memoryId,
-          ownerUid: 'mock-user-id', // モックユーザーID
+          ownerUid: ownerUid, // TODO: ユーザーIDを取得
           name: uploadingFile.file.name,
           type: fileType,
           storagePath: uploadResult.path,
           url: uploadResult.url,
-          thumbnailUrl,
           size: uploadingFile.file.size,
-          duration,
-          resolution,
-          updatedAt: new Date(),
         };
 
-        const createdAsset = await createAsset(asset);
+        const assetId = await createAsset(asset);
+        const createdAsset: Asset = {
+          id: assetId,
+          ...asset,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
 
         // 成功状態に更新
         setUploadingFiles(prev => 
@@ -113,7 +97,7 @@ export function FileUpload({ memoryId, onUploadComplete }: FileUploadProps) {
         );
       }
     }
-  }, [memoryId, onUploadComplete]);
+  }, [memoryId, ownerUid, onUploadComplete]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,

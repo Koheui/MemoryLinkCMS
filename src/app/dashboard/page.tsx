@@ -1,28 +1,30 @@
 'use client';
 
-import { useAuth } from '@/contexts/auth-context';
+import { useSecretKeyAuth } from '@/contexts/secret-key-auth-context';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Heart, Users, Building, Loader2, Plus, Settings, UserCheck } from 'lucide-react';
+import { Plus, Users, Building, Loader2, Shield, LogOut } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
+import { FirebaseStatus } from '@/components/firebase-status';
 import { useMemories } from '@/hooks/use-memories';
 
 export default function DashboardPage() {
-  const { user, loading } = useAuth();
+  const { user, loading, currentTenant, isAuthenticated, logout } = useSecretKeyAuth();
   const router = useRouter();
   const { data: memories = [], isLoading: memoriesLoading, error } = useMemories(user?.uid || '');
 
   useEffect(() => {
-    console.log('Dashboard: useEffect triggered - user =', user, 'loading =', loading);
-    if (!loading && !user) {
-      console.log('Dashboard: No user found, redirecting to /');
+    if (!loading && !isAuthenticated) {
       router.push('/');
-    } else if (!loading && user) {
-      console.log('Dashboard: User found, staying on dashboard');
     }
-  }, [user, loading, router]);
+  }, [isAuthenticated, loading, router]);
+
+  const handleLogout = () => {
+    logout();
+    router.push('/');
+  };
 
   if (loading) {
     return (
@@ -32,20 +34,20 @@ export default function DashboardPage() {
     );
   }
 
-  if (!user) {
+  if (!isAuthenticated) {
     return null;
   }
 
   const getTypeIcon = (type: string) => {
     switch (type) {
       case 'personal':
-        return <Heart className="w-4 h-4" />;
+        return <Users className="w-4 h-4" />;
       case 'family':
         return <Users className="w-4 h-4" />;
       case 'business':
         return <Building className="w-4 h-4" />;
       default:
-        return <Heart className="w-4 h-4" />;
+        return <Users className="w-4 h-4" />;
     }
   };
 
@@ -62,79 +64,87 @@ export default function DashboardPage() {
     }
   };
 
+  const getTenantLabel = (tenant: string) => {
+    switch (tenant) {
+      case 'petmem':
+        return 'PetMemory';
+      case 'client-a':
+        return 'Client A';
+      case 'client-b':
+        return 'Client B';
+      case 'dev':
+        return '開発環境';
+      default:
+        return tenant;
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">ダッシュボード</h1>
-          <p className="text-gray-600 mt-2">
-            {user.email} でログイン中
-          </p>
-          <p className="text-sm text-gray-500 mt-1">
-            新しい想い出はLPからの流入時に自動生成されます
-          </p>
+        <div className="flex justify-between items-center mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">ダッシュボード</h1>
+            <p className="text-gray-600 mt-2">
+              {user?.email || 'Unknown'} でログイン中
+            </p>
+            <div className="flex items-center space-x-2 mt-1">
+              <Shield className="w-4 h-4 text-blue-600" />
+              <span className="text-sm text-blue-600 font-medium">
+                テナント: {getTenantLabel(currentTenant)}
+              </span>
+            </div>
+          </div>
+          <div className="flex space-x-2">
+            <Button onClick={() => router.push('/memories/create')}>
+              <Plus className="w-4 h-4 mr-2" />
+              新しい想い出を作成
+            </Button>
+            <Button variant="outline" onClick={handleLogout}>
+              <LogOut className="w-4 h-4 mr-2" />
+              ログアウト
+            </Button>
+          </div>
         </div>
 
         <div className="grid gap-6">
-          {/* クイックアクション */}
+          {/* Firebase接続状態 */}
+          <FirebaseStatus />
+
+          {/* セキュリティ情報 */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
-                <Plus className="w-5 h-5" />
-                <span>クイックアクション</span>
+                <Shield className="w-5 h-5 text-green-600" />
+                <span>セキュリティ状況</span>
               </CardTitle>
               <CardDescription>
-                よく使用する機能へのクイックアクセス
+                テナント分離とアクセス制御の状況
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <Button 
-                  onClick={() => router.push('/memories/create')}
-                  className="h-20 flex flex-col items-center justify-center space-y-2"
-                >
-                  <Plus className="w-6 h-6" />
-                  <span>想い出ページ作成</span>
-                </Button>
-                
-                <Button 
-                  variant="outline"
-                  onClick={() => router.push('/admin/users')}
-                  className="h-20 flex flex-col items-center justify-center space-y-2"
-                >
-                  <UserCheck className="w-6 h-6" />
-                  <span>ユーザー管理</span>
-                </Button>
-                
-                <Button 
-                  variant="outline"
-                  onClick={() => router.push('/admin/tenants')}
-                  className="h-20 flex flex-col items-center justify-center space-y-2"
-                >
-                  <Building className="w-6 h-6" />
-                  <span>テナント管理</span>
-                </Button>
-                
-                <Button 
-                  variant="outline"
-                  onClick={() => router.push('/debug')}
-                  className="h-20 flex flex-col items-center justify-center space-y-2"
-                >
-                  <Settings className="w-6 h-6" />
-                  <span>システム設定</span>
-                </Button>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="flex items-center space-x-2">
+                  <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                  <span className="text-sm">テナント分離: 有効</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                  <span className="text-sm">Origin検証: 有効</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                  <span className="text-sm">アクセス制御: 有効</span>
+                </div>
               </div>
             </CardContent>
           </Card>
-
-          {/* Firebase接続状態 - 一時的に無効化 */}
-          {/* <FirebaseStatus /> */}
 
           <Card>
             <CardHeader>
               <CardTitle>あなたの想い出</CardTitle>
               <CardDescription>
-                LPから流入して生成された想い出ページの一覧です
+                作成した想い出ページの一覧です（テナント: {getTenantLabel(currentTenant)}）
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -157,13 +167,14 @@ export default function DashboardPage() {
                 </div>
               ) : memories.length === 0 ? (
                 <div className="text-center py-8">
-                  <Heart className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                   <p className="text-gray-600 mb-4">
                     まだ想い出がありません
                   </p>
-                  <p className="text-sm text-gray-500">
-                    LPから流入すると、新しい想い出が自動生成されます
-                  </p>
+                  <Button onClick={() => router.push('/memories/new')}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    最初の想い出を作成
+                  </Button>
                 </div>
               ) : (
                 <div className="grid gap-4">

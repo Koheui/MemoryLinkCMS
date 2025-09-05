@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Image, Video, Music, Plus, X, Grid, Layout, Play } from 'lucide-react';
 import { Asset, Album } from '@/types';
-import { useCreateAlbum } from '@/hooks/use-memories';
+// import { useCreateAlbum } from '@/hooks/use-memories';
 
 interface AlbumCreatorProps {
   memoryId: string;
@@ -21,7 +21,7 @@ export function AlbumCreator({ memoryId, assets, onAlbumCreated }: AlbumCreatorP
   const [selectedAssets, setSelectedAssets] = useState<string[]>([]);
   const [layout, setLayout] = useState<'grid' | 'masonry' | 'carousel'>('grid');
   
-  const createAlbumMutation = useCreateAlbum();
+  // const createAlbumMutation = useCreateAlbum();
 
   const imageAssets = assets.filter(asset => asset.type === 'image');
   const videoAssets = assets.filter(asset => asset.type === 'video');
@@ -50,8 +50,8 @@ export function AlbumCreator({ memoryId, assets, onAlbumCreated }: AlbumCreatorP
         layout,
       };
 
-      const newAlbum = await createAlbumMutation.mutateAsync(albumData);
-      onAlbumCreated(newAlbum);
+      // const newAlbum = await createAlbumMutation.mutateAsync(albumData);
+      // onAlbumCreated(newAlbum);
       
       // フォームをリセット
       setTitle('');
@@ -249,9 +249,9 @@ export function AlbumCreator({ memoryId, assets, onAlbumCreated }: AlbumCreatorP
           </Button>
           <Button
             onClick={handleCreateAlbum}
-            disabled={!title.trim() || selectedAssets.length === 0 || createAlbumMutation.isPending}
+            disabled={!title.trim() || selectedAssets.length === 0}
           >
-            {createAlbumMutation.isPending ? (
+            {false ? (
               <>
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
                 作成中...

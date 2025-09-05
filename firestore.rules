@@ -1,0 +1,71 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ユーザー認証チェック
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // テナント検証
+    function isSameTenant(tenant) {
+      return request.auth.token.tenant == tenant;
+    }
+    
+    // 所有者チェック
+    function isOwner(ownerUid) {
+      return request.auth.uid == ownerUid;
+    }
+    
+    // ユーザーコレクション
+    match /users/{userId} {
+      allow read, write: if isAuthenticated() && isOwner(userId);
+    }
+    
+    // 想い出コレクション
+    match /memories/{memoryId} {
+      allow read, write: if isAuthenticated() && 
+        isOwner(resource.data.ownerUid) && 
+        isSameTenant(resource.data.tenant);
+    }
+    
+    // アセットコレクション
+    match /assets/{assetId} {
+      allow read, write: if isAuthenticated() && 
+        isOwner(resource.data.ownerUid);
+    }
+    
+    // 公開ページコレクション
+    match /publicPages/{pageId} {
+      allow read: if true; // 公開ページは誰でも読み取り可能
+      allow write: if isAuthenticated() && 
+        isSameTenant(resource.data.tenant);
+    }
+    
+    // クレームリクエストコレクション
+    match /claimRequests/{requestId} {
+      allow read, write: if isAuthenticated() && 
+        isSameTenant(resource.data.tenant);
+    }
+    
+    // 注文コレクション（読み取り専用）
+    match /orders/{orderId} {
+      allow read: if isAuthenticated() && 
+        isSameTenant(resource.data.tenant);
+      // 書き込みはFunctionsのみ許可
+      allow write: if false;
+    }
+    
+    // テナントコレクション
+    match /tenants/{tenantId} {
+      allow read: if isAuthenticated() && 
+        isSameTenant(tenantId);
+      allow write: if false; // 管理者のみ
+    }
+    
+    // 監査ログコレクション
+    match /auditLogs/{logId} {
+      allow read: if isAuthenticated();
+      allow write: if false; // Functionsのみ
+    }
+  }
+}
